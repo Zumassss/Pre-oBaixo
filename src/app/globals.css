@@ -1,0 +1,488 @@
+@import "tailwindcss";
+
+/* ============================================================
+   PREÇO BAIXO — Sistema de Gestão
+   Design system: preto absoluto + vermelho de alta energia,
+   superfícies de vidro, brilho radial, profundidade por luz.
+   ============================================================ */
+
+@theme {
+  /* ---------- Base / superfícies ---------- */
+  --color-void: #030304;
+  --color-ink: #060608;
+  --color-ink-2: #0a0a0d;
+  --color-surface: #0e0e12;
+  --color-surface-2: #131318;
+  --color-surface-3: #1a1a21;
+
+  /* ---------- Vermelho da marca ---------- */
+  --color-brand-50: #fff1f3;
+  --color-brand-100: #ffe0e5;
+  --color-brand-200: #ffc7d0;
+  --color-brand-300: #ff8fa0;
+  --color-brand-400: #ff5271;
+  --color-brand-500: #ff1741;
+  --color-brand-600: #ed0733;
+  --color-brand-700: #c40529;
+  --color-brand-800: #900420;
+  --color-brand-900: #5c0215;
+
+  /* ---------- Texto ---------- */
+  --color-fg: #f6f6f8;
+  --color-fg-muted: #9c9caa;
+  --color-fg-faint: #63636f;
+  --color-fg-ghost: #3d3d47;
+
+  /* ---------- Semânticos ---------- */
+  --color-positive: #18d17f;
+  --color-negative: #ff4d5e;
+  --color-caution: #ffb020;
+  --color-info: #4d9dff;
+
+  /* ---------- Bordas ---------- */
+  --color-hairline: rgba(255, 255, 255, 0.07);
+  --color-hairline-strong: rgba(255, 255, 255, 0.13);
+
+  /* ---------- Tipografia ---------- */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-tech), ui-monospace, "SF Mono", monospace;
+
+  /* ---------- Raios ---------- */
+  --radius-panel: 20px;
+  --radius-tile: 14px;
+
+  /* ---------- Animações ---------- */
+  --animate-breathe: breathe 4s ease-in-out infinite;
+  --animate-pulse-ring: pulse-ring 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-sweep: sweep 3.5s linear infinite;
+  --animate-rise: rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-blink: blink 1.8s ease-in-out infinite;
+  --animate-ticker: ticker 40s linear infinite;
+  --animate-spin-slow: spin 14s linear infinite;
+  --animate-shimmer: shimmer 2.6s linear infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.8;
+  }
+  70% {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+}
+
+@keyframes sweep {
+  0% {
+    transform: translateY(-110%);
+  }
+  100% {
+    transform: translateY(320%);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes ticker {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+
+@layer base {
+  html {
+    background-color: var(--color-void);
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-void);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-brand-500) 35%, transparent);
+    color: #fff;
+  }
+
+  /* Barras de rolagem discretas, no tom da interface */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--color-brand-500) 55%, transparent);
+    background-clip: content-box;
+  }
+}
+
+/* ============================================================
+   Componentes
+   ============================================================ */
+
+@layer components {
+  /* Números tabulares em toda telemetria */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* ---------- Painel de vidro ---------- */
+  .panel {
+    position: relative;
+    border-radius: var(--radius-panel);
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.035) 0%,
+        rgba(255, 255, 255, 0.012) 100%
+      ),
+      rgba(10, 10, 13, 0.72);
+    border: 1px solid var(--color-hairline);
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 1px 2px rgba(0, 0, 0, 0.6),
+      0 12px 40px -12px rgba(0, 0, 0, 0.9);
+  }
+
+  /* Painel com aura vermelha no canto — destaque */
+  .panel-hot::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      145deg,
+      color-mix(in oklab, var(--color-brand-500) 55%, transparent),
+      transparent 42%
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .panel-hot::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 12%;
+    width: 55%;
+    height: 130px;
+    border-radius: 999px;
+    background: radial-gradient(
+      closest-side,
+      color-mix(in oklab, var(--color-brand-500) 26%, transparent),
+      transparent
+    );
+    filter: blur(28px);
+    pointer-events: none;
+  }
+
+  /* ---------- Placa interna (tile) ---------- */
+  .tile {
+    border-radius: var(--radius-tile);
+    background: rgba(255, 255, 255, 0.026);
+    border: 1px solid var(--color-hairline);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  }
+
+  .tile-interactive {
+    transition:
+      background-color 220ms cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 220ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .tile-interactive:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: color-mix(in oklab, var(--color-brand-500) 34%, transparent);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.07),
+      0 0 0 1px color-mix(in oklab, var(--color-brand-500) 12%, transparent),
+      0 10px 30px -12px
+        color-mix(in oklab, var(--color-brand-500) 45%, transparent);
+  }
+
+  /* ---------- Botões ---------- */
+  .btn-primary {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 999px;
+    padding: 10px 20px;
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #fff;
+    background: linear-gradient(
+      180deg,
+      var(--color-brand-500),
+      var(--color-brand-700)
+    );
+    border: 1px solid
+      color-mix(in oklab, var(--color-brand-400) 60%, transparent);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.28),
+      0 6px 24px -6px color-mix(in oklab, var(--color-brand-500) 75%, transparent);
+    transition:
+      transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1),
+      filter 180ms ease;
+    cursor: pointer;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.08);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.32),
+      0 10px 34px -8px color-mix(in oklab, var(--color-brand-500) 90%, transparent);
+  }
+
+  .btn-primary:active {
+    transform: translateY(0);
+  }
+
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 999px;
+    padding: 10px 18px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--color-fg-muted);
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid var(--color-hairline);
+    transition:
+      color 180ms ease,
+      background-color 180ms ease,
+      border-color 180ms ease;
+    cursor: pointer;
+  }
+
+  .btn-ghost:hover {
+    color: var(--color-fg);
+    background: rgba(255, 255, 255, 0.07);
+    border-color: var(--color-hairline-strong);
+  }
+
+  /* ---------- Etiquetas ---------- */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border: 1px solid var(--color-hairline);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--color-fg-muted);
+    white-space: nowrap;
+  }
+
+  .chip-hot {
+    border-color: color-mix(in oklab, var(--color-brand-500) 38%, transparent);
+    background: color-mix(in oklab, var(--color-brand-500) 14%, transparent);
+    color: var(--color-brand-300);
+  }
+
+  .chip-good {
+    border-color: color-mix(in oklab, var(--color-positive) 32%, transparent);
+    background: color-mix(in oklab, var(--color-positive) 12%, transparent);
+    color: var(--color-positive);
+  }
+
+  .chip-warn {
+    border-color: color-mix(in oklab, var(--color-caution) 32%, transparent);
+    background: color-mix(in oklab, var(--color-caution) 12%, transparent);
+    color: var(--color-caution);
+  }
+
+  /* ---------- Rótulo de seção ---------- */
+  .eyebrow {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-fg-faint);
+  }
+
+  /* ---------- Campo de entrada ---------- */
+  .field {
+    width: 100%;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid var(--color-hairline);
+    padding: 10px 16px;
+    font-size: 13.5px;
+    color: var(--color-fg);
+    transition:
+      border-color 180ms ease,
+      background-color 180ms ease,
+      box-shadow 180ms ease;
+  }
+
+  .field::placeholder {
+    color: var(--color-fg-ghost);
+  }
+
+  .field:focus {
+    outline: none;
+    background: rgba(255, 255, 255, 0.055);
+    border-color: color-mix(in oklab, var(--color-brand-500) 45%, transparent);
+    box-shadow: 0 0 0 3px
+      color-mix(in oklab, var(--color-brand-500) 14%, transparent);
+  }
+}
+
+/* ============================================================
+   Utilitários
+   ============================================================ */
+
+/* Aura vermelha radial — a luz que dá vida ao preto */
+@utility aura-brand {
+  background: radial-gradient(
+    circle at center,
+    color-mix(in oklab, var(--color-brand-500) 42%, transparent) 0%,
+    color-mix(in oklab, var(--color-brand-600) 14%, transparent) 42%,
+    transparent 72%
+  );
+}
+
+/* Malha técnica de fundo */
+@utility grid-mesh {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+/* Texto com gradiente vermelho */
+@utility text-brand-gradient {
+  background: linear-gradient(
+    100deg,
+    #fff 0%,
+    var(--color-brand-400) 58%,
+    var(--color-brand-600) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Brilho suave atrás de elementos-chave */
+@utility glow-brand {
+  box-shadow: 0 0 40px -8px
+    color-mix(in oklab, var(--color-brand-500) 70%, transparent);
+}
+
+/* Máscara de esmaecimento nas bordas (listas roláveis) */
+@utility fade-edges-y {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 6%,
+    #000 94%,
+    transparent
+  );
+}
+
+/* Faixa de varredura luminosa (efeito "scanner" do agente) */
+@utility scanline {
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in oklab, var(--color-brand-500) 60%, transparent),
+    transparent
+  );
+}
+
+/* Respeita quem prefere menos movimento */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
