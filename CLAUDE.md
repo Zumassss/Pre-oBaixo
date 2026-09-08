@@ -20,12 +20,19 @@ docs/referencias/       imagens que definiram a direção visual
 
 ## Regras deste projeto
 
-- **Dados simulados vivem só em `src/lib/mock/`.** Nenhuma tela inventa
-  número por conta própria. Ao integrar a API, o contrato dos tipos deve ser
-  mantido para as telas não precisarem mudar.
+- **Nenhuma tela inventa número.** Tudo sai da camada em `src/lib/db/`, que
+  hoje grava no navegador e amanhã troca por Supabase sem as telas mudarem.
+  Dados de demonstração existem só em `src/lib/db/exemplos.ts` e só entram
+  quando alguém clica no botão em Configurações.
 - **Nada de biblioteca de gráfico.** Os gráficos são SVG próprio em
   `src/components/charts`. Mantenha assim: é mais leve e o traço combina com
   o resto da interface.
+- **O Lenis não descobre sozinho que a página cresceu.** Ele guarda a altura
+  em cache e só remede em `resize` da janela. Aqui a altura muda sem resize
+  nenhum: navegação do App Router, dados chegando do armazenamento local,
+  barra lateral recolhendo. Sem o `ResizeObserver` de
+  `shell/smooth-scroll.tsx`, a rolagem trava antes do fim da página. Toda
+  área rolável interna precisa de `data-lenis-prevent`.
 - **Trigonometria que chega ao DOM precisa ser arredondada** (`quantize` em
   `charts/index.tsx`, `q` em `mock/metrics.ts`). `Math.sin`/`Math.cos` diferem
   nos últimos dígitos entre Node e navegador e quebram a hidratação.
