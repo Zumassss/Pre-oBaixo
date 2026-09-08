@@ -1,168 +1,161 @@
-import {
-  BookOpenCheck,
-  Database,
-  RefreshCw,
-  ShieldCheck,
-  Sparkles,
-} from "lucide-react";
+"use client";
+
+import { Activity, ShieldCheck, Sparkles, TriangleAlert } from "lucide-react";
+import Link from "next/link";
 import { PageHeader, Panel, PanelHeader } from "@/components/ui/panel";
-import { Table, Td, Thead, Tr } from "@/components/ui/table";
-import { MeterRow } from "@/components/charts";
-import { AgentFeed } from "@/components/agent/agent-feed";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Reveal } from "@/components/ui/reveal";
-import { guardrails, knowledgeSources } from "@/lib/mock/catalog";
-import { agentConfidence } from "@/lib/mock/metrics";
+import { useBanco } from "@/lib/db/use-db";
 import { cn } from "@/lib/utils";
 
-export const metadata = { title: "Cérebro do Agente · Preço Baixo" };
+/** Regras que o agente cumpre. Estão no código, não são configuráveis por acidente. */
+const REGRAS = [
+  {
+    id: "g-1",
+    titulo: "Nunca indica ou sugere medicamento",
+    detalhe: "Pedido de recomendação clínica vai ao farmacêutico da loja.",
+  },
+  {
+    id: "g-2",
+    titulo: "Nunca opina sobre interação",
+    detalhe: "Pergunta sobre combinar medicamentos transfere na hora.",
+  },
+  {
+    id: "g-3",
+    titulo: "Só responde o que está cadastrado",
+    detalhe: "Preço, estoque e horário saem do que você preencheu no sistema.",
+  },
+  {
+    id: "g-4",
+    titulo: "Campanha exige consentimento",
+    detalhe: "Cliente sem opt-in não recebe mensagem de marketing.",
+  },
+];
 
-const statusClass: Record<string, string> = {
-  sincronizado: "chip-good",
-  sincronizando: "chip-hot",
-  pendente: "chip-warn",
-};
+function horario(em: number) {
+  return new Date(em).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 export default function AgentePage() {
+  const { banco, carregado } = useBanco();
+
+  const fontes = [
+    {
+      id: "loja",
+      nome: "Dados da loja",
+      itens: banco.loja.configurada ? 1 : 0,
+      pronto: banco.loja.configurada,
+      detalhe: banco.loja.configurada
+        ? `${banco.loja.nome}, ${banco.loja.cidade}`
+        : "Nome, endereço e horário ainda não preenchidos",
+      href: "/configuracoes",
+    },
+    {
+      id: "catalogo",
+      nome: "Catálogo de produtos",
+      itens: banco.produtos.length,
+      pronto: banco.produtos.length > 0,
+      detalhe:
+        banco.produtos.length > 0
+          ? `${banco.produtos.length} produtos com preço e estoque`
+          : "Nenhum produto cadastrado",
+      href: "/catalogo",
+    },
+    {
+      id: "clientes",
+      nome: "Base de clientes",
+      itens: banco.clientes.length,
+      pronto: banco.clientes.length > 0,
+      detalhe:
+        banco.clientes.length > 0
+          ? `${banco.clientes.length} clientes cadastrados`
+          : "Nenhum cliente cadastrado",
+      href: "/clientes",
+    },
+  ];
+
+  const prontas = fontes.filter((f) => f.pronto).length;
+
   return (
     <div className="mx-auto max-w-[1560px]">
       <PageHeader
-        title="Cérebro do Agente"
-        description="O que ele sabe, o que faz sozinho e o que passa por uma pessoa."
-        action={
-          <button className="btn-primary">
-            <RefreshCw className="h-4 w-4" strokeWidth={2} />
-            Sincronizar
-          </button>
-        }
+        title="Agente"
+        description="O que ele sabe desta loja e o que nunca faz sozinho."
       />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-        <Panel className="xl:col-span-8">
-          <PanelHeader eyebrow="Identidade" title="Como o agente se comporta" />
-          <div className="px-5 pb-5">
-            <Reveal className="tile p-4">
-              <p className="text-[13px] leading-[1.65] text-fg-muted">
-                Atendente digital das{" "}
-                <span className="font-medium text-fg">Farmácias Preço Baixo</span>.
-                Fala como alguém do balcão: direto, cordial, objetivo. Responde
-                preço, disponibilidade, horário, endereço e status de pedido
-                consultando o catálogo da unidade certa.{" "}
-                <span className="font-medium text-brand-300">
-                  Nunca indica nem opina sobre medicamento
-                </span>
-                , qualquer dúvida clínica vai ao farmacêutico responsável.
-              </p>
-            </Reveal>
-
-            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {[
-                { label: "Modelo", value: "Claude Haiku" },
-                { label: "Idioma", value: "pt-BR" },
-                { label: "Canal", value: "WhatsApp" },
-                { label: "Escalonamento", value: "Automático" },
-              ].map((item) => (
-                <Reveal key={item.label} className="tile p-3">
-                  <p className="text-[10.5px] uppercase tracking-[0.12em] text-fg-ghost">
-                    {item.label}
-                  </p>
-                  <p className="mt-1 text-[13px] font-medium text-fg">{item.value}</p>
-                </Reveal>
-              ))}
-            </div>
-
-            <button className="btn-ghost mt-4">Editar comportamento</button>
-          </div>
-        </Panel>
-
-        <Panel className="xl:col-span-4">
-          <PanelHeader eyebrow="Desempenho" title="Confiança por tarefa" />
-          <div className="space-y-3.5 px-5 pb-5">
-            {agentConfidence.map((row) => (
-              <MeterRow
-                key={row.label}
-                label={row.label}
-                value={row.value}
-                tone={row.value >= 92 ? "good" : "brand"}
-              />
-            ))}
-            <Reveal className="tile mt-4 flex items-start gap-2.5 p-3">
-              <Sparkles
-                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-400"
-                strokeWidth={2}
-              />
-              <p className="text-[11.5px] leading-relaxed text-fg-faint">
-                Abaixo de 85% de confiança, o agente para e chama uma pessoa.
-              </p>
-            </Reveal>
-          </div>
-        </Panel>
-
         <Panel className="xl:col-span-7">
           <PanelHeader
             eyebrow="Conhecimento"
             title="De onde vêm as respostas"
             action={
-              <span className="chip">
-                <Database className="h-3 w-3" strokeWidth={2} />
-                {knowledgeSources.length} fontes
+              <span className={cn("chip", prontas === fontes.length ? "chip-good" : "chip-warn")}>
+                {prontas} de {fontes.length}
               </span>
             }
           />
-          <Table>
-            <Thead columns={["Fonte", "Tipo", "Itens", "Atualização", "Status"]} />
-            <tbody>
-              {knowledgeSources.map((source, i) => (
-                <Tr key={source.id} index={i}>
-                  <Td>
-                    <p className="font-medium text-fg">{source.name}</p>
-                    {source.reviewedBy && (
-                      <p className="mt-0.5 flex items-center gap-1 text-[10.5px] text-positive">
-                        <BookOpenCheck className="h-3 w-3" strokeWidth={2} />
-                        revisado por {source.reviewedBy}
-                      </p>
+          <ul className="space-y-1 px-3 pb-4">
+            {fontes.map((fonte) => (
+              <li key={fonte.id}>
+                <Link
+                  href={fonte.href}
+                  className="selectable flex items-center gap-3 rounded-xl px-2 py-3"
+                >
+                  <span
+                    className={cn(
+                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold ring-1 ring-inset",
+                      fonte.pronto
+                        ? "bg-positive/12 text-positive ring-positive/25"
+                        : "bg-white/[0.05] text-fg-ghost ring-white/10",
                     )}
-                  </Td>
-                  <Td className="text-fg-faint">{source.type}</Td>
-                  <Td className="tnum font-mono">
-                    {source.items.toLocaleString("pt-BR")}
-                  </Td>
-                  <Td className="text-fg-faint">{source.updatedAt}</Td>
-                  <Td align="right">
-                    <span className={cn("chip", statusClass[source.status])}>
-                      {source.status}
-                    </span>
-                  </Td>
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
+                  >
+                    {carregado ? fonte.itens : 0}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12.5px] font-medium text-fg">{fonte.nome}</p>
+                    <p className="mt-0.5 truncate text-[11.5px] text-fg-faint">
+                      {fonte.detalhe}
+                    </p>
+                  </div>
+                  <span className={cn("chip", fonte.pronto ? "chip-good" : "chip-warn")}>
+                    {fonte.pronto ? "pronto" : "vazio"}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </Panel>
 
         <Panel className="xl:col-span-5">
           <PanelHeader
             eyebrow="Segurança"
-            title="O que ele nunca faz sozinho"
+            title="O que ele nunca faz"
             action={
               <span className="chip chip-good">
                 <ShieldCheck className="h-3 w-3" strokeWidth={2} />
-                {guardrails.length} ativas
+                {REGRAS.length} ativas
               </span>
             }
           />
           <ul className="space-y-1 px-3 pb-4">
-            {guardrails.map((rule) => (
+            {REGRAS.map((regra) => (
               <Reveal
                 as="li"
-                key={rule.id}
+                key={regra.id}
                 className="flex items-start gap-3 rounded-xl px-2 py-2.5"
               >
                 <span className="mt-1 flex h-4 w-7 shrink-0 items-center rounded-full bg-positive/25 p-0.5 ring-1 ring-inset ring-positive/40">
                   <span className="ml-auto h-3 w-3 rounded-full bg-positive shadow-[0_0_8px_1px_rgba(24,209,127,0.6)]" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[12.5px] font-medium text-fg">{rule.title}</p>
+                  <p className="text-[12.5px] font-medium text-fg">{regra.titulo}</p>
                   <p className="mt-0.5 text-[11.5px] leading-relaxed text-fg-faint">
-                    {rule.detail}
+                    {regra.detalhe}
                   </p>
                 </div>
               </Reveal>
@@ -170,11 +163,82 @@ export default function AgentePage() {
           </ul>
         </Panel>
 
+        {!banco.loja.configurada && (
+          <Panel className="xl:col-span-12">
+            <div className="flex flex-wrap items-center gap-3 p-5">
+              <TriangleAlert
+                className="h-5 w-5 shrink-0 text-caution"
+                strokeWidth={2}
+              />
+              <p className="flex-1 text-[13px] text-fg-muted">
+                Sem os dados da loja, o agente não sabe informar endereço nem
+                horário e vai errar com o cliente.
+              </p>
+              <Link href="/configuracoes" className="btn-primary">
+                Configurar loja
+              </Link>
+            </div>
+          </Panel>
+        )}
+
         <Panel className="xl:col-span-12">
-          <PanelHeader eyebrow="Auditoria" title="Registro de decisões" live />
-          <div className="max-h-[340px] overflow-y-auto">
-            <AgentFeed limit={10} />
-          </div>
+          <PanelHeader
+            eyebrow="Auditoria"
+            title="Registro de conversas com o agente"
+            action={
+              banco.eventos.length > 0 ? (
+                <span className="chip">{banco.eventos.length}</span>
+              ) : undefined
+            }
+          />
+          {banco.eventos.length === 0 ? (
+            <EmptyState
+              icon={Sparkles}
+              title="Nenhuma interação registrada"
+              description="Converse com o agente no painel para ver o registro aqui. Tudo que aparece nesta lista aconteceu de verdade."
+              action={
+                <Link href="/" className="btn-primary">
+                  Ir para o painel
+                </Link>
+              }
+            />
+          ) : (
+            <ul data-lenis-prevent className="max-h-[380px] overflow-y-auto px-2 pb-2">
+              {banco.eventos.map((evento) => (
+                <Reveal
+                  as="li"
+                  key={evento.id}
+                  className="flex items-start gap-3 rounded-xl p-3"
+                >
+                  <span
+                    className={cn(
+                      "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset",
+                      evento.tipo === "erro"
+                        ? "bg-caution/12 text-caution ring-caution/25"
+                        : evento.tipo === "pergunta"
+                          ? "bg-info/12 text-info ring-info/25"
+                          : "bg-brand-500/12 text-brand-400 ring-brand-500/25",
+                    )}
+                  >
+                    <Activity className="h-3.5 w-3.5" strokeWidth={2} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline gap-2">
+                      <p className="truncate text-[12.5px] font-medium text-fg">
+                        {evento.titulo}
+                      </p>
+                      <span className="tnum ml-auto shrink-0 font-mono text-[10.5px] text-fg-ghost">
+                        {horario(evento.em)}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 line-clamp-2 text-[11.5px] leading-relaxed text-fg-faint">
+                      {evento.detalhe}
+                    </p>
+                  </div>
+                </Reveal>
+              ))}
+            </ul>
+          )}
         </Panel>
       </div>
     </div>

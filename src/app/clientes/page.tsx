@@ -1,78 +1,85 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, ShieldCheck, UserPlus } from "lucide-react";
-import { Panel, PageHeader, PanelHeader } from "@/components/ui/panel";
+import { Search, Trash2, UserPlus, Users } from "lucide-react";
+import { PageHeader, Panel, PanelHeader } from "@/components/ui/panel";
 import { Table, Td, Thead, Tr } from "@/components/ui/table";
-import { MeterRow } from "@/components/charts";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Modal, Campo, Entrada, AreaTexto } from "@/components/ui/modal";
 import { Reveal } from "@/components/ui/reveal";
-import { Dropdown } from "@/components/ui/dropdown";
 import { useAppState } from "@/components/providers/app-state";
-import { customers } from "@/lib/mock/crm";
-import { cn, formatBRL } from "@/lib/utils";
+import { criarCliente, removerCliente, useBanco } from "@/lib/db/use-db";
+import { cn } from "@/lib/utils";
 
-const segmentClass: Record<string, string> = {
-  "Alta recorrência": "chip-hot",
-  Recorrente: "chip-good",
-  Novo: "chip",
-  Inativo: "chip-warn",
-};
-
-const SEGMENTOS = [
-  { value: "todos", label: "Todos os segmentos" },
-  { value: "Alta recorrência", label: "Alta recorrência" },
-  { value: "Recorrente", label: "Recorrente" },
-  { value: "Novo", label: "Novo" },
-  { value: "Inativo", label: "Inativo" },
-];
+function dataCurta(em: number) {
+  return new Date(em).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  });
+}
 
 export default function ClientesPage() {
-  const { busca, unidade, unidadeAtual } = useAppState();
+  const { banco, carregado } = useBanco();
+  const { busca } = useAppState();
   const [buscaLocal, setBuscaLocal] = useState("");
-  const [segmento, setSegmento] = useState("todos");
-  const [selecionado, setSelecionado] = useState<string | null>(null);
+  const [aberto, setAberto] = useState(false);
+  const [form, setForm] = useState({
+    nome: "",
+    telefone: "",
+    consentimento: true,
+    observacao: "",
+  });
 
   const termo = (buscaLocal || busca).toLowerCase().trim();
 
   const visiveis = useMemo(
     () =>
-      customers.filter((c) => {
-        const passaBusca =
+      banco.clientes.filter(
+        (c) =>
           !termo ||
-          c.name.toLowerCase().includes(termo) ||
-          c.phone.includes(termo) ||
-          c.store.toLowerCase().includes(termo);
-        const passaSegmento = segmento === "todos" || c.segment === segmento;
-        const passaUnidade = unidade === "todas" || c.store === unidadeAtual?.name;
-        return passaBusca && passaSegmento && passaUnidade;
-      }),
-    [termo, segmento, unidade, unidadeAtual],
+          c.nome.toLowerCase().includes(termo) ||
+          c.telefone.includes(termo),
+      ),
+    [banco.clientes, termo],
   );
 
-  const comConsentimento = visiveis.filter((c) => c.consent).length;
-  const ltvMedio = visiveis.length
-    ? visiveis.reduce((s, c) => s + c.ltv, 0) / visiveis.length
-    : 0;
+  function salvar(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.nome.trim() || !form.telefone.trim()) return;
+    criarCliente({
+      nome: form.nome.trim(),
+      telefone: form.telefone.trim(),
+      consentimento: form.consentimento,
+      observacao: form.observacao.trim(),
+    });
+    setForm({ nome: "", telefone: "", consentimento: true, observacao: "" });
+    setAberto(false);
+  }
+
+  const comOptIn = banco.clientes.filter((c) => c.consentimento).length;
 
   return (
     <div className="mx-auto max-w-[1560px]">
       <PageHeader
         title="Clientes"
-        description="A base que o agente consulta antes de responder."
+        description="A base desta loja. O agente consulta aqui antes de responder."
         action={
-          <button className="btn-primary">
+          <button onClick={() => setAberto(true)} className="btn-primary">
             <UserPlus className="h-4 w-4" strokeWidth={2} />
             Novo cliente
           </button>
         }
       />
 
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {[
-          { label: "Clientes na base", value: "12.847", hint: "+318 este mês" },
-          { label: "Com opt-in", value: "9.412", hint: "73% da base" },
-          { label: "LTV médio", value: formatBRL(ltvMedio), hint: "por cliente" },
-          { label: "Recompra em 30 dias", value: "41%", hint: "meta de 35%" },
+          { label: "Clientes cadastrados", valor: banco.clientes.length },
+          { label: "Com consentimento", valor: comOptIn },
+          {
+            label: "Sem consentimento",
+            valor: banco.clientes.length - comOptIn,
+          },
         ].map((stat, i) => (
           <Reveal
             key={stat.label}
@@ -81,130 +88,174 @@ export default function ClientesPage() {
           >
             <p className="text-[12px] text-fg-muted">{stat.label}</p>
             <p className="tnum mt-2 text-[23px] font-semibold leading-none tracking-[-0.03em] text-fg">
-              {stat.value}
+              {carregado ? stat.valor : 0}
             </p>
-            <p className="mt-1.5 text-[11px] text-fg-ghost">{stat.hint}</p>
           </Reveal>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-        <Panel className="xl:col-span-8">
-          <PanelHeader
-            eyebrow="Base"
-            title="Clientes"
-            action={
-              <div className="flex items-center gap-2">
-                <div className="relative hidden sm:block">
-                  <Search
-                    className="pointer-events-none absolute left-3 top-1/2 h-[14px] w-[14px] -translate-y-1/2 text-fg-ghost"
-                    strokeWidth={2}
-                  />
-                  <input
-                    value={buscaLocal}
-                    onChange={(e) => setBuscaLocal(e.target.value)}
-                    className="field !w-[160px] !py-1.5 !pl-8.5 !text-[12px]"
-                    placeholder="Buscar"
-                  />
-                </div>
-                <Dropdown
-                  value={segmento}
-                  options={SEGMENTOS}
-                  onChange={setSegmento}
-                  align="right"
+      <Panel>
+        <PanelHeader
+          eyebrow="Base"
+          title="Clientes da loja"
+          action={
+            banco.clientes.length > 0 ? (
+              <div className="relative hidden sm:block">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 h-[14px] w-[14px] -translate-y-1/2 text-fg-ghost"
+                  strokeWidth={2}
+                />
+                <input
+                  value={buscaLocal}
+                  onChange={(e) => setBuscaLocal(e.target.value)}
+                  className="field !w-[170px] !py-1.5 !pl-8.5 !text-[12px]"
+                  placeholder="Buscar"
                 />
               </div>
+            ) : undefined
+          }
+        />
+
+        {banco.clientes.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title="Nenhum cliente cadastrado"
+            description="Cadastre os clientes da loja para o agente reconhecer quem está falando e para poder enviar campanha."
+            action={
+              <button onClick={() => setAberto(true)} className="btn-primary">
+                <UserPlus className="h-4 w-4" strokeWidth={2} />
+                Cadastrar o primeiro
+              </button>
             }
           />
+        ) : visiveis.length === 0 ? (
+          <EmptyState
+            icon={Search}
+            title="Nenhum cliente encontrado"
+            description={`Nada corresponde a "${termo}".`}
+          />
+        ) : (
           <Table>
             <Thead
-              columns={["Cliente", "Segmento", "Unidade", "Pedidos", "Última compra", "LTV"]}
+              columns={["Cliente", "Telefone", "Consentimento", "Cadastro", "Ação"]}
             />
             <tbody>
-              {visiveis.map((customer, i) => (
-                <Tr
-                  key={customer.id}
-                  index={i}
-                  selected={selecionado === customer.id}
-                  onClick={() =>
-                    setSelecionado((atual) =>
-                      atual === customer.id ? null : customer.id,
-                    )
-                  }
-                >
+              {visiveis.map((cliente, i) => (
+                <Tr key={cliente.id} index={i}>
                   <Td>
                     <div className="flex items-center gap-2.5">
                       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-surface-3 to-surface text-[10px] font-semibold text-fg-muted ring-1 ring-inset ring-white/10">
-                        {customer.name
+                        {cliente.nome
                           .split(" ")
                           .slice(0, 2)
                           .map((n) => n[0])
-                          .join("")}
+                          .join("")
+                          .toUpperCase()}
                       </div>
-                      <div>
-                        <p className="font-medium text-fg">{customer.name}</p>
-                        <p className="tnum font-mono text-[10.5px] text-fg-ghost">
-                          {customer.phone}
-                        </p>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-fg">{cliente.nome}</p>
+                        {cliente.observacao && (
+                          <p className="truncate text-[10.5px] text-fg-ghost">
+                            {cliente.observacao}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </Td>
+                  <Td className="tnum font-mono">{cliente.telefone}</Td>
                   <Td>
-                    <span className={cn("chip", segmentClass[customer.segment])}>
-                      {customer.segment}
+                    <span
+                      className={cn(
+                        "chip",
+                        cliente.consentimento ? "chip-good" : "chip-warn",
+                      )}
+                    >
+                      {cliente.consentimento ? "autorizado" : "sem opt-in"}
                     </span>
                   </Td>
-                  <Td className="text-fg-faint">{customer.store}</Td>
-                  <Td className="tnum font-mono">{customer.orders}</Td>
-                  <Td className="text-fg-faint">{customer.lastPurchase}</Td>
-                  <Td align="right" className="tnum font-mono font-medium text-fg">
-                    {formatBRL(customer.ltv)}
+                  <Td className="text-fg-faint">{dataCurta(cliente.criadoEm)}</Td>
+                  <Td align="right">
+                    <button
+                      onClick={() => removerCliente(cliente.id)}
+                      aria-label={`Remover ${cliente.nome}`}
+                      className="rounded-lg p-1.5 text-fg-ghost transition-colors hover:bg-white/[0.06] hover:text-negative"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+                    </button>
                   </Td>
                 </Tr>
               ))}
             </tbody>
           </Table>
-          {visiveis.length === 0 && (
-            <p className="px-5 py-10 text-center text-[12.5px] text-fg-ghost">
-              Nenhum cliente com esse filtro.
-            </p>
-          )}
-        </Panel>
+        )}
+      </Panel>
 
-        <div className="flex flex-col gap-4 xl:col-span-4">
-          <Panel>
-            <PanelHeader eyebrow="Distribuição" title="Segmentos" />
-            <div className="space-y-3.5 px-5 pb-5">
-              <MeterRow label="Alta recorrência" value={28} tone="brand" />
-              <MeterRow label="Recorrente" value={34} tone="good" />
-              <MeterRow label="Novo" value={22} tone="info" />
-              <MeterRow label="Inativo" value={16} tone="muted" />
-            </div>
-          </Panel>
+      <Modal
+        aberto={aberto}
+        titulo="Novo cliente"
+        descricao="Só o necessário para o agente atender e para cumprir a LGPD."
+        onFechar={() => setAberto(false)}
+      >
+        <form onSubmit={salvar} className="space-y-4">
+          <Campo label="Nome completo">
+            <Entrada
+              value={form.nome}
+              onChange={(e) => setForm({ ...form, nome: e.target.value })}
+              placeholder="Ex: Ana Paula Ribeiro"
+              required
+              autoFocus
+            />
+          </Campo>
 
-          <Panel className="flex-1">
-            <PanelHeader eyebrow="Conformidade" title="Consentimento" />
-            <div className="px-5 pb-5">
-              <Reveal className="tile flex items-start gap-3 p-3.5">
-                <ShieldCheck
-                  className="mt-0.5 h-4 w-4 shrink-0 text-positive"
-                  strokeWidth={2}
-                />
-                <div>
-                  <p className="text-[12.5px] font-medium text-fg">
-                    {comConsentimento} de {visiveis.length} com opt-in
-                  </p>
-                  <p className="mt-1 text-[11.5px] leading-relaxed text-fg-faint">
-                    Campanha só alcança quem autorizou. Compra de medicamento é
-                    dado sensível e não entra em disparo automático.
-                  </p>
-                </div>
-              </Reveal>
-              <button className="btn-ghost mt-3 w-full">Exportar consentimentos</button>
-            </div>
-          </Panel>
-        </div>
-      </div>
+          <Campo label="Telefone com DDD" hint="É por onde o WhatsApp identifica.">
+            <Entrada
+              value={form.telefone}
+              onChange={(e) => setForm({ ...form, telefone: e.target.value })}
+              placeholder="Ex: 27 99999-0000"
+              required
+            />
+          </Campo>
+
+          <Campo label="Observação (opcional)">
+            <AreaTexto
+              value={form.observacao}
+              onChange={(e) => setForm({ ...form, observacao: e.target.value })}
+              placeholder="Algo que a equipe precise saber"
+              rows={2}
+            />
+          </Campo>
+
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-hairline bg-white/[0.028] p-3">
+            <input
+              type="checkbox"
+              checked={form.consentimento}
+              onChange={(e) => setForm({ ...form, consentimento: e.target.checked })}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-brand-500)]"
+            />
+            <span>
+              <span className="block text-[12.5px] font-medium text-fg">
+                Autoriza receber mensagens da loja
+              </span>
+              <span className="mt-0.5 block text-[11.5px] leading-relaxed text-fg-faint">
+                Sem esta autorização o cliente não entra em nenhuma campanha.
+              </span>
+            </span>
+          </label>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setAberto(false)}
+              className="btn-ghost"
+            >
+              Cancelar
+            </button>
+            <button type="submit" className="btn-primary">
+              Cadastrar
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

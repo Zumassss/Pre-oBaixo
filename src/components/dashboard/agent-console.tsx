@@ -3,29 +3,49 @@
 import { useEffect, useRef, useState } from "react";
 import { Eraser, SendHorizonal, Sparkles } from "lucide-react";
 import { useAgentChat } from "@/hooks/use-agent-chat";
+import { registrarEvento } from "@/lib/db/use-db";
 import { cn } from "@/lib/utils";
 
 const SUGESTOES = [
-  "Quanto custa dipirona?",
-  "Qual o horário da matriz?",
-  "Como está a operação hoje?",
+  "Como você atende um cliente?",
+  "O que você não pode responder?",
+  "Como funciona a transferência?",
 ];
 
 /**
- * Conversa com o agente, ao lado do globo.
+ * Conversa com o agente.
  *
- * Histórico simples e curto: a intenção é testar o agente, não virar um
- * aplicativo de chat. Cada envio é uma chamada paga, então o botão só
- * dispara com texto de verdade.
+ * Esta é a única parte do sistema que já fala com um modelo de verdade. Cada
+ * troca fica registrada no histórico da loja, então o que aparece no painel
+ * de atividade aconteceu mesmo.
  */
 export function AgentConsole({ className }: { className?: string }) {
   const { messages, loading, ask, clear } = useAgentChat();
   const [draft, setDraft] = useState("");
   const fim = useRef<HTMLDivElement>(null);
+  const jaRegistradas = useRef(new Set<string>());
 
   useEffect(() => {
     fim.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, loading]);
+
+  // Registra no histórico da loja o que realmente foi trocado.
+  useEffect(() => {
+    for (const m of messages) {
+      if (jaRegistradas.current.has(m.id)) continue;
+      jaRegistradas.current.add(m.id);
+      registrarEvento({
+        tipo: m.role === "user" ? "pergunta" : m.error ? "erro" : "resposta",
+        titulo:
+          m.role === "user"
+            ? "Pergunta ao agente"
+            : m.error
+              ? "Falha na resposta do agente"
+              : "Resposta do agente",
+        detalhe: m.content.slice(0, 160),
+      });
+    }
+  }, [messages]);
 
   function enviar(texto: string) {
     if (!texto.trim() || loading) return;
@@ -41,7 +61,7 @@ export function AgentConsole({ className }: { className?: string }) {
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-semibold text-fg">Agente</p>
-          <p className="text-[11px] text-fg-faint">Pergunte sobre a operação</p>
+          <p className="text-[11px] text-fg-faint">Teste o atendimento aqui</p>
         </div>
         {messages.length > 0 && (
           <button
@@ -54,12 +74,15 @@ export function AgentConsole({ className }: { className?: string }) {
         )}
       </header>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      <div
+        data-lenis-prevent
+        className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4"
+      >
         {messages.length === 0 && !loading && (
           <div>
             <p className="text-[12.5px] leading-relaxed text-fg-faint">
-              O agente responde com os dados da rede e nunca opina sobre
-              medicamento.
+              Converse como se fosse um cliente. O agente responde com os dados
+              cadastrados e nunca opina sobre medicamento.
             </p>
             <div className="mt-3 flex flex-wrap gap-1.5">
               {SUGESTOES.map((s) => (

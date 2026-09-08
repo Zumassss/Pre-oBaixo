@@ -14,8 +14,8 @@ export type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
-  badge?: string;
-  accent?: boolean;
+  /** Nome curto para a barra recolhida e a navegação do celular. */
+  curto: string;
 };
 
 export type NavGroup = {
@@ -27,53 +27,60 @@ export const navGroups: NavGroup[] = [
   {
     label: "Operação",
     items: [
-      {
-        href: "/",
-        label: "Central de Operações",
-        icon: Activity,
-        accent: true,
-      },
+      { href: "/", label: "Painel", icon: Activity, curto: "Painel" },
       {
         href: "/conversas",
         label: "Conversas",
         icon: MessagesSquare,
-        badge: "14",
+        curto: "Conversas",
       },
-      { href: "/campanhas", label: "Campanhas", icon: Megaphone },
+      {
+        href: "/campanhas",
+        label: "Campanhas",
+        icon: Megaphone,
+        curto: "Campanhas",
+      },
     ],
   },
   {
-    label: "Relacionamento",
+    label: "Cadastros",
     items: [
-      { href: "/clientes", label: "Clientes", icon: Users },
-      { href: "/catalogo", label: "Catálogo", icon: Package },
+      { href: "/clientes", label: "Clientes", icon: Users, curto: "Clientes" },
+      { href: "/catalogo", label: "Catálogo", icon: Package, curto: "Catálogo" },
     ],
   },
   {
     label: "Inteligência",
     items: [
+      { href: "/agente", label: "Agente", icon: BrainCircuit, curto: "Agente" },
       {
-        href: "/agente",
-        label: "Cérebro do Agente",
-        icon: BrainCircuit,
-        badge: "IA",
+        href: "/relatorios",
+        label: "Relatórios",
+        icon: ChartNoAxesCombined,
+        curto: "Relatórios",
       },
-      { href: "/relatorios", label: "Relatórios", icon: ChartNoAxesCombined },
     ],
   },
   {
     label: "Sistema",
-    items: [{ href: "/configuracoes", label: "Configurações", icon: Settings }],
+    items: [
+      {
+        href: "/configuracoes",
+        label: "Configurações",
+        icon: Settings,
+        curto: "Ajustes",
+      },
+    ],
   },
 ];
 
 export const pageMeta: Record<string, { title: string; parent: string }> = {
-  "/": { title: "Central de Operações", parent: "Operação" },
+  "/": { title: "Painel", parent: "Operação" },
   "/conversas": { title: "Conversas", parent: "Operação" },
   "/campanhas": { title: "Campanhas", parent: "Operação" },
-  "/clientes": { title: "Clientes", parent: "Relacionamento" },
-  "/catalogo": { title: "Catálogo", parent: "Relacionamento" },
-  "/agente": { title: "Cérebro do Agente", parent: "Inteligência" },
+  "/clientes": { title: "Clientes", parent: "Cadastros" },
+  "/catalogo": { title: "Catálogo", parent: "Cadastros" },
+  "/agente": { title: "Agente", parent: "Inteligência" },
   "/relatorios": { title: "Relatórios", parent: "Inteligência" },
   "/configuracoes": { title: "Configurações", parent: "Sistema" },
 };

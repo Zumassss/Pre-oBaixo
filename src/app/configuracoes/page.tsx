@@ -1,232 +1,247 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, KeyRound, ShieldCheck, Users } from "lucide-react";
+import {
+  Check,
+  KeyRound,
+  MessageSquareWarning,
+  PlugZap,
+  ShieldCheck,
+  Store,
+  Trash2,
+} from "lucide-react";
 import { PageHeader, Panel, PanelHeader } from "@/components/ui/panel";
+import { Campo, Entrada } from "@/components/ui/modal";
 import { Reveal } from "@/components/ui/reveal";
-import { storeStatusLabel, stores } from "@/lib/mock/stores";
+import { definirWhatsapp, salvarLoja, useBanco } from "@/lib/db/use-db";
+import { limparBanco } from "@/lib/db/local-db";
+import { LOJA_VAZIA, type Loja } from "@/lib/db/types";
 import { cn } from "@/lib/utils";
 
-function Toggle({ on }: { on: boolean }) {
+export default function ConfiguracoesPage() {
+  const { banco, carregado } = useBanco();
+
+  // O formulário nasce com o que está salvo. Enquanto o banco não carrega,
+  // ele fica vazio; a troca da chave remonta o formulário com os dados certos
+  // sem precisar copiar estado dentro de um efeito.
   return (
-    <span
-      className={cn(
-        "flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors duration-200",
-        on
-          ? "bg-brand-500/30 ring-1 ring-inset ring-brand-500/50"
-          : "bg-white/[0.07] ring-1 ring-inset ring-white/10",
-      )}
-    >
-      <span
-        className={cn(
-          "h-4 w-4 rounded-full transition-transform duration-200",
-          on
-            ? "translate-x-4 bg-brand-500 shadow-[0_0_10px_1px_rgba(255,23,65,0.7)]"
-            : "translate-x-0 bg-fg-ghost",
-        )}
-      />
-    </span>
+    <FormularioLoja
+      key={carregado ? "carregado" : "vazio"}
+      inicial={carregado ? banco.loja : LOJA_VAZIA}
+      banco={banco}
+      carregado={carregado}
+    />
   );
 }
 
-const REGRAS = [
-  {
-    id: "24h",
-    title: "Atendimento 24 horas",
-    detail: "Fora do horário, o agente responde e agenda retirada.",
-    inicial: true,
-  },
-  {
-    id: "clinica",
-    title: "Transferir dúvida clínica",
-    detail: "Pergunta sobre uso, dose ou interação vai ao farmacêutico.",
-    inicial: true,
-    travada: true,
-  },
-  {
-    id: "followup",
-    title: "Follow-up de recompra",
-    detail: "Lembrete quando o ciclo do medicamento contínuo termina.",
-    inicial: true,
-  },
-  {
-    id: "pedido",
-    title: "Fechar pedido sem humano",
-    detail: "Permite concluir pedido com estoque confirmado.",
-    inicial: false,
-  },
-];
+function FormularioLoja({
+  inicial,
+  banco,
+  carregado,
+}: {
+  inicial: Loja;
+  banco: ReturnType<typeof useBanco>["banco"];
+  carregado: boolean;
+}) {
+  const [form, setForm] = useState<Loja>(inicial);
+  const [salvo, setSalvo] = useState(false);
 
-export default function ConfiguracoesPage() {
-  const [regras, setRegras] = useState<Record<string, boolean>>(
-    Object.fromEntries(REGRAS.map((r) => [r.id, r.inicial])),
-  );
+  function salvar(e: React.FormEvent) {
+    e.preventDefault();
+    salvarLoja(form);
+    setSalvo(true);
+    setTimeout(() => setSalvo(false), 2400);
+  }
+
+  function alterar(campo: keyof Loja, valor: string) {
+    setForm((atual) => ({ ...atual, [campo]: valor }));
+  }
 
   return (
     <div className="mx-auto max-w-[1560px]">
       <PageHeader
         title="Configurações"
-        description="Conexões, unidades, permissões e regras do atendimento."
+        description="Os dados desta loja. É daqui que o agente tira o que responder."
       />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-        <Panel className="xl:col-span-6">
-          <PanelHeader
-            eyebrow="Canal"
-            title="WhatsApp Business API"
-            action={<span className="chip chip-good">conectado</span>}
-          />
-          <div className="px-5 pb-5">
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: "Número", value: "+55 11 4002-8922" },
-                { label: "Provedor", value: "Meta Cloud API" },
-                { label: "Qualidade", value: "Alta" },
-                { label: "Limite diário", value: "100 mil" },
-              ].map((item) => (
-                <Reveal key={item.label} className="tile p-3">
-                  <p className="text-[10.5px] uppercase tracking-[0.12em] text-fg-ghost">
-                    {item.label}
-                  </p>
-                  <p className="tnum mt-1 font-mono text-[13px] font-medium text-fg">
-                    {item.value}
-                  </p>
-                </Reveal>
-              ))}
-            </div>
-            <p className="mt-3 text-[11.5px] leading-relaxed text-fg-faint">
-              Mensagem de marketing tem custo por conversa cobrado pela Meta e
-              exige modelo aprovado. O sistema bloqueia disparo sem opt-in.
-            </p>
-          </div>
-        </Panel>
-
-        <Panel className="xl:col-span-6">
-          <PanelHeader eyebrow="Atendimento" title="Regras do agente" />
-          <ul className="space-y-0.5 px-3 pb-4">
-            {REGRAS.map((regra) => {
-              const ligada = regras[regra.id];
-              return (
-                <Reveal
-                  as="li"
-                  key={regra.id}
-                  className={cn(
-                    "flex items-start gap-3 rounded-xl px-2 py-3",
-                    !regra.travada && "cursor-pointer",
-                  )}
-                  onClick={() =>
-                    !regra.travada &&
-                    setRegras((r) => ({ ...r, [regra.id]: !r[regra.id] }))
-                  }
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-2 text-[12.5px] font-medium text-fg">
-                      {regra.title}
-                      {regra.travada && (
-                        <span className="chip !px-1.5 !py-0 !text-[9px]">fixa</span>
-                      )}
-                    </p>
-                    <p className="mt-0.5 text-[11.5px] leading-relaxed text-fg-faint">
-                      {regra.detail}
-                    </p>
-                  </div>
-                  <Toggle on={ligada} />
-                </Reveal>
-              );
-            })}
-          </ul>
-        </Panel>
-
+        {/* Dados da loja */}
         <Panel className="xl:col-span-7">
           <PanelHeader
-            eyebrow="Rede"
-            title="Unidades conectadas"
+            eyebrow="Identificação"
+            title="Dados da loja"
             action={
-              <span className="chip">
-                <Building2 className="h-3 w-3" strokeWidth={2} />
-                {stores.length} lojas
+              <span
+                className={cn(
+                  "chip",
+                  banco.loja.configurada ? "chip-good" : "chip-warn",
+                )}
+              >
+                {banco.loja.configurada ? "configurada" : "incompleta"}
               </span>
             }
           />
-          <ul className="px-3 pb-4">
-            {stores.map((store) => (
-              <Reveal
-                as="li"
-                key={store.id}
-                className="flex items-center gap-3 rounded-xl px-2 py-2.5"
-              >
-                <span
-                  className={cn(
-                    "h-1.5 w-1.5 shrink-0 rounded-full",
-                    store.status === "online" &&
-                      "bg-positive shadow-[0_0_6px_1px_rgba(24,209,127,0.7)]",
-                    store.status === "atencao" && "bg-caution",
-                    store.status === "offline" && "bg-fg-ghost",
-                  )}
+          <form onSubmit={salvar} className="space-y-4 px-5 pb-5">
+            <Campo label="Nome da loja">
+              <Entrada
+                value={form.nome}
+                onChange={(e) => alterar("nome", e.target.value)}
+                placeholder="Ex: Preço Baixo Vila Velha"
+                required
+              />
+            </Campo>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Campo label="Endereço" className="sm:col-span-2">
+                <Entrada
+                  value={form.endereco}
+                  onChange={(e) => alterar("endereco", e.target.value)}
+                  placeholder="Ex: Rua Jair de Andrade, 120"
+                  required
                 />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[12.5px] font-medium text-fg">
-                    {store.name}
-                  </p>
-                  <p className="truncate text-[11px] text-fg-ghost">{store.city}</p>
-                </div>
-                <span
-                  className={cn(
-                    "chip",
-                    store.status === "online" && "chip-good",
-                    store.status === "atencao" && "chip-warn",
-                  )}
-                >
-                  {storeStatusLabel[store.status]}
+              </Campo>
+              <Campo label="Bairro">
+                <Entrada
+                  value={form.bairro}
+                  onChange={(e) => alterar("bairro", e.target.value)}
+                  placeholder="Ex: Centro"
+                />
+              </Campo>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+              <Campo label="Cidade" className="sm:col-span-2">
+                <Entrada
+                  value={form.cidade}
+                  onChange={(e) => alterar("cidade", e.target.value)}
+                  placeholder="Ex: Vila Velha"
+                  required
+                />
+              </Campo>
+              <Campo label="UF">
+                <Entrada
+                  value={form.uf}
+                  onChange={(e) => alterar("uf", e.target.value.toUpperCase())}
+                  placeholder="ES"
+                  maxLength={2}
+                />
+              </Campo>
+              <Campo label="CEP">
+                <Entrada
+                  value={form.cep}
+                  onChange={(e) => alterar("cep", e.target.value)}
+                  placeholder="00000-000"
+                />
+              </Campo>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Campo label="Telefone da loja">
+                <Entrada
+                  value={form.telefone}
+                  onChange={(e) => alterar("telefone", e.target.value)}
+                  placeholder="Ex: 27 3000-0000"
+                />
+              </Campo>
+              <Campo label="CNPJ">
+                <Entrada
+                  value={form.cnpj}
+                  onChange={(e) => alterar("cnpj", e.target.value)}
+                  placeholder="00.000.000/0000-00"
+                />
+              </Campo>
+            </div>
+
+            <Campo
+              label="Horário de funcionamento"
+              hint="O agente responde exatamente o que estiver escrito aqui."
+            >
+              <Entrada
+                value={form.horarios}
+                onChange={(e) => alterar("horarios", e.target.value)}
+                placeholder="Ex: Segunda a sábado das 8h às 22h, domingo das 8h às 20h"
+              />
+            </Campo>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Campo label="Farmacêutico responsável" className="sm:col-span-2">
+                <Entrada
+                  value={form.farmaceutico}
+                  onChange={(e) => alterar("farmaceutico", e.target.value)}
+                  placeholder="Nome completo"
+                />
+              </Campo>
+              <Campo label="CRF">
+                <Entrada
+                  value={form.crf}
+                  onChange={(e) => alterar("crf", e.target.value)}
+                  placeholder="Ex: CRF-ES 00000"
+                />
+              </Campo>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-1">
+              {salvo && (
+                <span className="flex items-center gap-1.5 text-[12px] text-positive">
+                  <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+                  Salvo
                 </span>
-              </Reveal>
-            ))}
-          </ul>
+              )}
+              <button type="submit" className="btn-primary">
+                Salvar dados da loja
+              </button>
+            </div>
+          </form>
         </Panel>
 
         <div className="flex flex-col gap-4 xl:col-span-5">
+          {/* WhatsApp */}
           <Panel>
             <PanelHeader
-              eyebrow="Acesso"
-              title="Equipe"
+              eyebrow="Canal"
+              title="WhatsApp"
               action={
-                <span className="chip">
-                  <Users className="h-3 w-3" strokeWidth={2} />4 pessoas
+                <span
+                  className={cn(
+                    "chip",
+                    banco.whatsappConectado ? "chip-good" : "chip-warn",
+                  )}
+                >
+                  {banco.whatsappConectado ? "conectado" : "não conectado"}
                 </span>
               }
             />
-            <ul className="px-3 pb-4">
-              {[
-                { name: "Mateus Zumach", role: "Administrador", initials: "MZ" },
-                {
-                  name: "Dra. Renata Lopes",
-                  role: "Farmacêutica responsável",
-                  initials: "RL",
-                },
-                { name: "Paula Martins", role: "Atendimento", initials: "PM" },
-                { name: "Diego Alves", role: "Gerência", initials: "DA" },
-              ].map((person) => (
-                <Reveal
-                  as="li"
-                  key={person.name}
-                  className="flex items-center gap-3 rounded-xl px-2 py-2.5"
-                >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-surface-3 to-surface text-[10.5px] font-semibold text-fg-muted ring-1 ring-inset ring-white/10">
-                    {person.initials}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[12.5px] font-medium text-fg">
-                      {person.name}
-                    </p>
-                    <p className="truncate text-[11px] text-fg-ghost">{person.role}</p>
-                  </div>
-                </Reveal>
-              ))}
-            </ul>
+            <div className="px-5 pb-5">
+              <div className="flex items-start gap-2.5">
+                <MessageSquareWarning
+                  className="mt-0.5 h-4 w-4 shrink-0 text-fg-faint"
+                  strokeWidth={2}
+                />
+                <p className="text-[12.5px] leading-relaxed text-fg-muted">
+                  A conexão real usa a API oficial da Meta e precisa de um número
+                  verificado. Enquanto isso não é feito, marque abaixo para simular
+                  o canal ligado e testar as telas.
+                </p>
+              </div>
+
+              <button
+                onClick={() => definirWhatsapp(!banco.whatsappConectado)}
+                className={cn(
+                  "mt-4 w-full",
+                  banco.whatsappConectado ? "btn-ghost" : "btn-primary",
+                )}
+              >
+                <PlugZap className="h-4 w-4" strokeWidth={2} />
+                {banco.whatsappConectado
+                  ? "Marcar como desconectado"
+                  : "Marcar como conectado"}
+              </button>
+            </div>
           </Panel>
 
-          <Panel className="flex-1">
-            <PanelHeader eyebrow="Conformidade" title="LGPD" />
+          {/* Conformidade */}
+          <Panel>
+            <PanelHeader eyebrow="Conformidade" title="LGPD e responsabilidade" />
             <div className="px-5 pb-5">
               <Reveal className="tile flex items-start gap-2.5 p-3">
                 <ShieldCheck
@@ -234,8 +249,9 @@ export default function ConfiguracoesPage() {
                   strokeWidth={2}
                 />
                 <p className="text-[11.5px] leading-relaxed text-fg-faint">
-                  Consentimento registrado com data, canal e origem. Dado de saúde
-                  é tratado como sensível e fica fora de disparo automático.
+                  Campanha só alcança quem autorizou. Compra de medicamento é dado
+                  sensível e não entra em disparo automático. Dúvida clínica vai
+                  para o farmacêutico responsável cadastrado acima.
                 </p>
               </Reveal>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -243,8 +259,59 @@ export default function ConfiguracoesPage() {
                   <KeyRound className="h-3.5 w-3.5" strokeWidth={2} />
                   Chaves de API
                 </button>
-                <button className="btn-ghost !text-[12px]">Política de privacidade</button>
               </div>
+            </div>
+          </Panel>
+
+          {/* Dados locais */}
+          <Panel className="flex-1">
+            <PanelHeader eyebrow="Armazenamento" title="Onde os dados ficam" />
+            <div className="px-5 pb-5">
+              <div className="flex items-start gap-2.5">
+                <Store
+                  className="mt-0.5 h-4 w-4 shrink-0 text-fg-faint"
+                  strokeWidth={2}
+                />
+                <p className="text-[12.5px] leading-relaxed text-fg-muted">
+                  Enquanto não há servidor, tudo que você cadastra fica salvo neste
+                  navegador. Ao conectar o banco de dados, os mesmos cadastros
+                  passam a ficar na nuvem e a valer para toda a equipe da loja.
+                </p>
+              </div>
+
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                {[
+                  { label: "Clientes", valor: banco.clientes.length },
+                  { label: "Produtos", valor: banco.produtos.length },
+                  { label: "Conversas", valor: banco.conversas.length },
+                ].map((item) => (
+                  <div key={item.label} className="tile p-2.5 text-center">
+                    <p className="tnum font-mono text-[16px] font-semibold text-fg">
+                      {carregado ? item.valor : 0}
+                    </p>
+                    <p className="mt-0.5 text-[10.5px] text-fg-ghost">
+                      {item.label}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      "Isso apaga todos os cadastros salvos neste navegador. Continuar?",
+                    )
+                  ) {
+                    limparBanco();
+                    setForm(LOJA_VAZIA);
+                  }
+                }}
+                className="btn-ghost mt-3 w-full !text-[12px] hover:!text-negative"
+              >
+                <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+                Apagar todos os dados
+              </button>
             </div>
           </Panel>
         </div>

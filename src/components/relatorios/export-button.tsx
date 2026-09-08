@@ -2,15 +2,17 @@
 
 import { useState } from "react";
 import { Check, Download, Loader2 } from "lucide-react";
+import { useBanco } from "@/lib/db/use-db";
 
 /**
- * Baixa a planilha gerada no servidor.
+ * Baixa a planilha da loja.
  *
- * O arquivo vem como blob e é salvo por um link temporário, em vez de
- * navegar para a rota: assim a página não pisca e o nome do arquivo
- * definido no Content-Disposition é respeitado.
+ * Os cadastros vivem no navegador enquanto não há banco, então o conteúdo
+ * vai no corpo da requisição e o servidor só formata. O arquivo volta como
+ * blob e é salvo por um link temporário, para a página não piscar.
  */
 export function ExportButton() {
+  const { banco } = useBanco();
   const [estado, setEstado] = useState<"pronto" | "gerando" | "ok" | "erro">(
     "pronto",
   );
@@ -20,7 +22,11 @@ export function ExportButton() {
     setEstado("gerando");
 
     try {
-      const res = await fetch("/api/relatorios/exportar");
+      const res = await fetch("/api/relatorios/exportar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(banco),
+      });
       if (!res.ok) throw new Error("falha ao gerar");
 
       const blob = await res.blob();

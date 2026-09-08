@@ -1,14 +1,18 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Bell, ChevronRight, Search, X } from "lucide-react";
+import { ChevronRight, Search, X } from "lucide-react";
 import { pageMeta } from "@/config/nav";
-import { useClock } from "@/hooks/use-agent-stream";
+import { useClock } from "@/hooks/use-clock";
 import { formatClock } from "@/lib/utils";
 import { BrandCompact } from "@/components/shell/sidebar";
+import { NotificationBell } from "@/components/shell/notifications";
 import { Dropdown } from "@/components/ui/dropdown";
-import { useAppState, periodoLabel, type Periodo } from "@/components/providers/app-state";
-import { stores } from "@/lib/mock/stores";
+import {
+  useAppState,
+  periodoLabel,
+  type Periodo,
+} from "@/components/providers/app-state";
 
 function Breadcrumb({ parent, title }: { parent: string; title: string }) {
   return (
@@ -24,16 +28,7 @@ export function Topbar() {
   const pathname = usePathname();
   const meta = pageMeta[pathname] ?? { title: "Painel", parent: "Operação" };
   const now = useClock();
-  const { unidade, setUnidade, periodo, setPeriodo, busca, setBusca } = useAppState();
-
-  const unidades = [
-    { value: "todas", label: "Todas as unidades" },
-    ...stores.map((s) => ({
-      value: s.id,
-      label: s.name,
-      hint: s.status === "offline" ? "offline" : String(s.conversas),
-    })),
-  ];
+  const { periodo, setPeriodo, busca, setBusca } = useAppState();
 
   const periodos = (Object.keys(periodoLabel) as Periodo[]).map((p) => ({
     value: p,
@@ -58,7 +53,7 @@ export function Topbar() {
             <input
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              className="field w-[200px] !py-2 !pl-9.5 !pr-8 !text-[12.5px] lg:w-[240px]"
+              className="field w-[200px] !py-2 !pl-9.5 !pr-8 !text-[12.5px] lg:w-[230px]"
               placeholder="Buscar cliente ou produto"
             />
             {busca && (
@@ -72,14 +67,7 @@ export function Topbar() {
             )}
           </div>
 
-          <div className="hidden xl:flex xl:items-center xl:gap-2">
-            <Dropdown
-              label="Unidade"
-              value={unidade}
-              options={unidades}
-              onChange={setUnidade}
-              align="right"
-            />
+          <div className="hidden lg:block">
             <Dropdown
               label="Período"
               value={periodo}
@@ -89,13 +77,7 @@ export function Topbar() {
             />
           </div>
 
-          <button
-            aria-label="Notificações"
-            className="relative flex h-9 w-9 items-center justify-center rounded-full border border-hairline bg-white/[0.035] text-fg-muted transition-colors hover:bg-white/[0.08] hover:text-fg"
-          >
-            <Bell className="h-4 w-4" strokeWidth={1.9} />
-            <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-brand-500 shadow-[0_0_8px_2px_rgba(255,23,65,0.7)]" />
-          </button>
+          <NotificationBell />
 
           <div className="hidden items-center gap-2 rounded-full border border-hairline bg-white/[0.035] px-3 py-2 sm:flex">
             <span className="h-1.5 w-1.5 animate-blink rounded-full bg-positive" />

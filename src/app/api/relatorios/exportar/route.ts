@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
-import { stores } from "@/lib/mock/stores";
-import { products } from "@/lib/mock/catalog";
-import { campaigns } from "@/lib/mock/crm";
-import { hourlyVolume, revenueByDay } from "@/lib/mock/metrics";
+import type { BancoLocal } from "@/lib/db/types";
 
 export const runtime = "nodejs";
 
@@ -15,16 +12,23 @@ const CINZA_LINHA = "FFF6F6F8";
 const BORDA = "FFE4E4EA";
 
 type Alinhamento = "left" | "center" | "right";
+type Coluna = {
+  titulo: string;
+  largura: number;
+  alinhamento?: Alinhamento;
+  formato?: string;
+};
 
 function cabecalhoDaAba(
   aba: ExcelJS.Worksheet,
+  loja: string,
   titulo: string,
   subtitulo: string,
   colunas: number,
 ) {
   aba.mergeCells(1, 1, 1, colunas);
   const t = aba.getCell(1, 1);
-  t.value = "PREÇO BAIXO FARMÁCIAS";
+  t.value = loja || "PREÇO BAIXO";
   t.font = { name: "Calibri", size: 16, bold: true, color: { argb: "FFFFFFFF" } };
   t.fill = { type: "pattern", pattern: "solid", fgColor: { argb: VERMELHO } };
   t.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
@@ -51,7 +55,7 @@ function cabecalhoDaAba(
 function montarTabela(
   aba: ExcelJS.Worksheet,
   linhaInicial: number,
-  colunas: { titulo: string; largura: number; alinhamento?: Alinhamento; formato?: string }[],
+  colunas: Coluna[],
   linhas: (string | number)[][],
 ) {
   colunas.forEach((c, i) => {
@@ -67,7 +71,7 @@ function montarTabela(
     cel.alignment = {
       vertical: "middle",
       horizontal: c.alinhamento ?? "left",
-      indent: c.alinhamento === "left" || !c.alinhamento ? 1 : 0,
+      indent: (c.alinhamento ?? "left") === "left" ? 1 : 0,
     };
     cel.border = {
       top: { style: "thin", color: { argb: BORDA } },
@@ -77,6 +81,22 @@ function montarTabela(
     };
   });
   cabecalho.height = 22;
+
+  if (linhas.length === 0) {
+    // Uma planilha com aba vazia confunde. Deixamos dito que está vazio.
+    aba.mergeCells(linhaInicial + 1, 1, linhaInicial + 1, colunas.length);
+    const vazio = aba.getCell(linhaInicial + 1, 1);
+    vazio.value = "Nenhum registro cadastrado até agora.";
+    vazio.font = {
+      name: "Calibri",
+      size: 10,
+      italic: true,
+      color: { argb: "FF8A8A96" },
+    };
+    vazio.alignment = { vertical: "middle", horizontal: "center" };
+    aba.getRow(linhaInicial + 1).height = 26;
+    return;
+  }
 
   linhas.forEach((linha, indice) => {
     const row = aba.getRow(linhaInicial + 1 + indice);
@@ -95,13 +115,10 @@ function montarTabela(
       if (indice % 2 === 1) {
         cel.fill = { type: "pattern", pattern: "solid", fgColor: { argb: CINZA_LINHA } };
       }
-      cel.border = {
-        bottom: { style: "hair", color: { argb: BORDA } },
-      };
+      cel.border = { bottom: { style: "hair", color: { argb: BORDA } } };
     });
   });
 
-  // Congela o cabeçalho e liga o filtro automático.
   aba.views = [{ state: "frozen", ySplit: linhaInicial }];
   aba.autoFilter = {
     from: { row: linhaInicial, column: 1 },
@@ -109,136 +126,180 @@ function montarTabela(
   };
 }
 
-export async function GET() {
+function data(em: number) {
+  return new Date(em).toLocaleDateString("pt-BR");
+}
+
+/**
+ * Gera a planilha a partir dos dados enviados pelo navegador.
+ *
+ * Os cadastros ficam no armazenamento local do cliente enquanto não há
+ * banco, então é o cliente quem manda o conteúdo. Quando o banco existir,
+ * esta rota passa a ler do servidor e o corpo da requisição some.
+ */
+export async function POST(request: Request) {
+  let banco: BancoLocal;
+  try {
+    banco = (await request.json()) as BancoLocal;
+  } catch {
+    return NextResponse.json({ error: "Dados inválidos." }, { status: 400 });
+  }
+
   const livro = new ExcelJS.Workbook();
   livro.creator = "MAZUS";
-  livro.company = "Preço Baixo Farmácias";
+  livro.company = banco.loja?.nome || "Preço Baixo";
   livro.created = new Date();
 
+  const nomeLoja = (banco.loja?.nome || "Preço Baixo").toUpperCase();
   const carimbo = new Date().toLocaleString("pt-BR", {
     dateStyle: "short",
     timeStyle: "short",
   });
+  const endereco = [banco.loja?.endereco, banco.loja?.bairro, banco.loja?.cidade]
+    .filter(Boolean)
+    .join(", ");
 
   /* ---------- Resumo ---------- */
   const resumo = livro.addWorksheet("Resumo", {
     properties: { tabColor: { argb: VERMELHO } },
   });
-  cabecalhoDaAba(resumo, "Resumo da operação", `Gerado em ${carimbo}`, 4);
+  cabecalhoDaAba(
+    resumo,
+    nomeLoja,
+    "Resumo da loja",
+    `${endereco || "Endereço não cadastrado"}. Gerado em ${carimbo}`,
+    3,
+  );
   montarTabela(
     resumo,
     5,
     [
       { titulo: "Indicador", largura: 34 },
-      { titulo: "Valor", largura: 16, alinhamento: "right" },
-      { titulo: "Variação", largura: 14, alinhamento: "right" },
-      { titulo: "Observação", largura: 40 },
+      { titulo: "Valor", largura: 16, alinhamento: "right", formato: "#,##0" },
+      { titulo: "Observação", largura: 46 },
     ],
     [
-      ["Conversas atendidas", 4318, "18,4%", "Atendidas pelo agente no período"],
-      ["Resolvido sem humano", "87,2%", "6,1%", "Meta da rede é 80%"],
-      ["Tempo médio de resposta", "8s", "-42,5%", "Média humana era 4 min"],
-      ["Receita influenciada", 186400, "24,7%", "Pedidos originados no WhatsApp"],
-      ["Ticket médio", 74.2, "3,1%", "Por pedido via agente"],
-      ["Unidades conectadas", stores.filter((s) => s.status === "online").length, "", `De ${stores.length} no total`],
+      [
+        "Clientes cadastrados",
+        banco.clientes.length,
+        `${banco.clientes.filter((c) => c.consentimento).length} autorizaram contato`,
+      ],
+      [
+        "Produtos no catálogo",
+        banco.produtos.length,
+        `${banco.produtos.filter((p) => p.estoque < p.estoqueMinimo).length} abaixo do estoque mínimo`,
+      ],
+      [
+        "Conversas registradas",
+        banco.conversas.length,
+        `${banco.conversas.filter((c) => c.status !== "resolvida").length} ainda em aberto`,
+      ],
+      [
+        "Campanhas criadas",
+        banco.campanhas.length,
+        `${banco.campanhas.filter((c) => c.status === "enviada").length} já enviadas`,
+      ],
+      [
+        "Interações com o agente",
+        banco.eventos.length,
+        "Perguntas e respostas registradas no sistema",
+      ],
+      [
+        "WhatsApp",
+        banco.whatsappConectado ? 1 : 0,
+        banco.whatsappConectado ? "Canal conectado" : "Canal ainda não conectado",
+      ],
     ],
   );
-  resumo.getColumn(2).numFmt = "#,##0.00";
 
-  /* ---------- Unidades ---------- */
-  const unidades = livro.addWorksheet("Unidades");
-  cabecalhoDaAba(unidades, "Desempenho por unidade", `Gerado em ${carimbo}`, 6);
+  /* ---------- Clientes ---------- */
+  const clientes = livro.addWorksheet("Clientes");
+  cabecalhoDaAba(clientes, nomeLoja, "Clientes", `Gerado em ${carimbo}`, 4);
   montarTabela(
-    unidades,
+    clientes,
     5,
     [
-      { titulo: "Unidade", largura: 28 },
-      { titulo: "Cidade", largura: 22 },
-      { titulo: "Status", largura: 14, alinhamento: "center" },
-      { titulo: "Conversas", largura: 14, alinhamento: "right", formato: "#,##0" },
-      { titulo: "Pedidos", largura: 12, alinhamento: "right", formato: "#,##0" },
-      { titulo: "Conversão", largura: 14, alinhamento: "right", formato: "0.0%" },
+      { titulo: "Nome", largura: 32 },
+      { titulo: "Telefone", largura: 20 },
+      { titulo: "Consentimento", largura: 18, alinhamento: "center" },
+      { titulo: "Cadastro", largura: 14, alinhamento: "center" },
     ],
-    stores.map((s) => [
-      s.name,
-      s.city,
-      s.status === "atencao" ? "atenção" : s.status,
-      s.conversas,
-      s.pedidos,
-      s.conversas ? s.pedidos / s.conversas : 0,
+    banco.clientes.map((c) => [
+      c.nome,
+      c.telefone,
+      c.consentimento ? "autorizado" : "sem opt-in",
+      data(c.criadoEm),
     ]),
   );
 
   /* ---------- Produtos ---------- */
-  const catalogo = livro.addWorksheet("Produtos");
-  cabecalhoDaAba(catalogo, "Produtos mais consultados", `Gerado em ${carimbo}`, 6);
+  const produtos = livro.addWorksheet("Produtos");
+  cabecalhoDaAba(produtos, nomeLoja, "Catálogo", `Gerado em ${carimbo}`, 6);
   montarTabela(
-    catalogo,
+    produtos,
     5,
     [
       { titulo: "Produto", largura: 40 },
       { titulo: "Categoria", largura: 18 },
-      { titulo: "Consultas", largura: 13, alinhamento: "right", formato: "#,##0" },
       { titulo: "Estoque", largura: 12, alinhamento: "right", formato: "#,##0" },
       { titulo: "Mínimo", largura: 12, alinhamento: "right", formato: "#,##0" },
-      { titulo: "Preço", largura: 14, alinhamento: "right", formato: 'R$ #,##0.00' },
+      { titulo: "Receita", largura: 12, alinhamento: "center" },
+      { titulo: "Preço", largura: 14, alinhamento: "right", formato: "R$ #,##0.00" },
     ],
-    products.map((p) => [
-      p.name,
-      p.category,
-      p.askedTimes,
-      p.stock,
-      p.minStock,
-      p.price,
+    banco.produtos.map((p) => [
+      p.nome,
+      p.categoria,
+      p.estoque,
+      p.estoqueMinimo,
+      p.exigeReceita ? "sim" : "não",
+      p.preco,
+    ]),
+  );
+
+  /* ---------- Conversas ---------- */
+  const conversas = livro.addWorksheet("Conversas");
+  cabecalhoDaAba(conversas, nomeLoja, "Conversas", `Gerado em ${carimbo}`, 5);
+  montarTabela(
+    conversas,
+    5,
+    [
+      { titulo: "Cliente", largura: 30 },
+      { titulo: "Telefone", largura: 20 },
+      { titulo: "Status", largura: 18, alinhamento: "center" },
+      { titulo: "Mensagens", largura: 14, alinhamento: "right", formato: "#,##0" },
+      { titulo: "Atualizada", largura: 16, alinhamento: "center" },
+    ],
+    banco.conversas.map((c) => [
+      c.cliente,
+      c.telefone,
+      c.status === "com_atendente" ? "com atendente" : c.status,
+      c.mensagens.length,
+      data(c.atualizadaEm),
     ]),
   );
 
   /* ---------- Campanhas ---------- */
   const campanhas = livro.addWorksheet("Campanhas");
-  cabecalhoDaAba(campanhas, "Campanhas do período", `Gerado em ${carimbo}`, 6);
+  cabecalhoDaAba(campanhas, nomeLoja, "Campanhas", `Gerado em ${carimbo}`, 4);
   montarTabela(
     campanhas,
     5,
     [
-      { titulo: "Campanha", largura: 38 },
+      { titulo: "Campanha", largura: 36 },
       { titulo: "Status", largura: 14, alinhamento: "center" },
-      { titulo: "Público", largura: 13, alinhamento: "right", formato: "#,##0" },
-      { titulo: "Abertura", largura: 13, alinhamento: "right", formato: "0.0%" },
-      { titulo: "Conversão", largura: 13, alinhamento: "right", formato: "0.0%" },
-      { titulo: "Receita", largura: 16, alinhamento: "right", formato: 'R$ #,##0.00' },
+      { titulo: "Agendada", largura: 20 },
+      { titulo: "Criada", largura: 14, alinhamento: "center" },
     ],
-    campaigns.map((c) => [
-      c.name,
+    banco.campanhas.map((c) => [
+      c.nome,
       c.status,
-      c.audience,
-      c.sent ? c.opened / c.sent : 0,
-      c.sent ? c.converted / c.sent : 0,
-      c.revenue,
-    ]),
-  );
-
-  /* ---------- Séries ---------- */
-  const series = livro.addWorksheet("Séries");
-  cabecalhoDaAba(series, "Volume por hora e receita por dia", `Gerado em ${carimbo}`, 4);
-  montarTabela(
-    series,
-    5,
-    [
-      { titulo: "Hora", largura: 12, alinhamento: "center" },
-      { titulo: "Mensagens", largura: 15, alinhamento: "right", formato: "#,##0" },
-      { titulo: "Dia", largura: 12, alinhamento: "center" },
-      { titulo: "Receita", largura: 16, alinhamento: "right", formato: 'R$ #,##0.00' },
-    ],
-    hourlyVolume.map((h, i) => [
-      h.hour,
-      h.value,
-      revenueByDay[i]?.day ?? "",
-      revenueByDay[i]?.value ?? "",
+      c.agendadaPara || "sem data",
+      data(c.criadoEm),
     ]),
   );
 
   const buffer = await livro.xlsx.writeBuffer();
-  const arquivo = `preco-baixo-relatorio-${new Date().toISOString().slice(0, 10)}.xlsx`;
+  const arquivo = `relatorio-${new Date().toISOString().slice(0, 10)}.xlsx`;
 
   return new NextResponse(buffer as ArrayBuffer, {
     headers: {

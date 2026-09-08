@@ -1,11 +1,23 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
+import { useMemo, useRef } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { stores, type Store } from "@/lib/mock/stores";
 
 const RADIUS = 1;
+
+/**
+ * Um ponto luminoso na esfera.
+ *
+ * Cada ponto é uma conversa real em andamento nesta loja. Sem conversa, a
+ * esfera gira sozinha: é o estado honesto de quem ainda não conectou o
+ * WhatsApp ou não recebeu mensagem hoje.
+ */
+export type PontoOperacao = {
+  id: string;
+  /** Conversa que ainda precisa de resposta. */
+  urgente?: boolean;
+};
 
 /* ------------------------------------------------------------------
    Utilidades
@@ -26,11 +38,25 @@ function seededRandom(seed: number) {
   };
 }
 
-function latLonToVector3(lat: number, lon: number, radius = RADIUS) {
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
+/**
+ * Posição estável a partir de um texto.
+ *
+ * O mesmo identificador cai sempre no mesmo lugar da esfera, então a
+ * conversa não fica pulando de posição a cada quadro.
+ */
+function posicaoPorId(id: string, radius = RADIUS) {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const a = ((h >>> 0) % 10000) / 10000;
+  const b = (((h >>> 8) >>> 0) % 10000) / 10000;
+
+  const phi = Math.acos(1 - 2 * a);
+  const theta = 2 * Math.PI * b;
   return new THREE.Vector3(
-    -radius * Math.sin(phi) * Math.cos(theta),
+    radius * Math.sin(phi) * Math.cos(theta),
     radius * Math.cos(phi),
     radius * Math.sin(phi) * Math.sin(theta),
   );
@@ -221,93 +247,21 @@ function Atmosphere() {
 }
 
 /* ------------------------------------------------------------------
-   Arcos entre a matriz e as filiais
+   Conversas em andamento
    ------------------------------------------------------------------ */
 
-type ArcData = {
-  curve: THREE.QuadraticBezierCurve3;
-  geometry: THREE.BufferGeometry;
-  offset: number;
-  speed: number;
-};
-
-const arcMaterial = new THREE.LineBasicMaterial({
-  color: new THREE.Color("#ff2b4d"),
-  transparent: true,
-  opacity: 0.3,
-  depthWrite: false,
-  blending: THREE.AdditiveBlending,
-});
-
-function Arcs({ arcs }: { arcs: ArcData[] }) {
-  const pulseRefs = useRef<(THREE.Mesh | null)[]>([]);
-  const lines = useMemo(
-    () => arcs.map((arc) => new THREE.Line(arc.geometry, arcMaterial)),
-    [arcs],
-  );
-
-  useFrame((state) => {
-    const t = state.clock.elapsedTime;
-    arcs.forEach((arc, i) => {
-      const mesh = pulseRefs.current[i];
-      if (!mesh) return;
-      const progresso = (t * arc.speed + arc.offset) % 1;
-      mesh.position.copy(arc.curve.getPoint(progresso));
-      // Nasce e morre no caminho, para o pulso ter começo e fim.
-      const fade = Math.sin(progresso * Math.PI);
-      mesh.scale.setScalar(0.004 + fade * 0.008);
-      (mesh.material as THREE.MeshBasicMaterial).opacity = fade * 0.95;
-    });
-  });
-
-  return (
-    <group>
-      {arcs.map((_, i) => (
-        <group key={i}>
-          <primitive object={lines[i]} />
-          <mesh
-            ref={(el: THREE.Mesh | null) => {
-              pulseRefs.current[i] = el;
-            }}
-            scale={0.008}
-          >
-            <sphereGeometry args={[1, 8, 8]} />
-            <meshBasicMaterial
-              color="#ffa8b4"
-              transparent
-              depthWrite={false}
-              blending={THREE.AdditiveBlending}
-            />
-          </mesh>
-        </group>
-      ))}
-    </group>
-  );
-}
-
-/* ------------------------------------------------------------------
-   Unidades
-   ------------------------------------------------------------------ */
-
-function StoreNode({
-  store,
-  position,
+function NoConversa({
+  ponto,
   index,
-  onHover,
 }: {
-  store: Store;
-  position: THREE.Vector3;
+  ponto: PontoOperacao;
   index: number;
-  onHover: (store: Store | null, screen: { x: number; y: number } | null) => void;
 }) {
   const ringRef = useRef<THREE.Mesh>(null);
   const coreRef = useRef<THREE.Mesh>(null);
-  const offline = store.status === "offline";
-  const cor = offline
-    ? "#60606c"
-    : store.status === "atencao"
-      ? "#ffb020"
-      : "#ff3355";
+
+  const position = useMemo(() => posicaoPorId(ponto.id, RADIUS * 1.01), [ponto.id]);
+  const cor = ponto.urgente ? "#ffb020" : "#ff3355";
 
   const quaternion = useMemo(() => {
     const q = new THREE.Quaternion();
@@ -316,7 +270,6 @@ function StoreNode({
   }, [position]);
 
   useFrame((state) => {
-    if (offline) return;
     const t = (state.clock.elapsedTime * 0.5 + index * 0.37) % 1;
     if (ringRef.current) {
       ringRef.current.scale.setScalar(0.014 + t * 0.055);
@@ -328,15 +281,10 @@ function StoreNode({
     }
   });
 
-  const aoEntrar = (event: ThreeEvent<PointerEvent>) => {
-    event.stopPropagation();
-    onHover(store, { x: event.clientX, y: event.clientY });
-  };
-
   return (
     <group position={position} quaternion={quaternion}>
-      {/* A escala fica na malha, não só na animação: unidade offline não
-          entra no laço de quadro e ficaria do tamanho da geometria crua. */}
+      {/* A escala fica na malha, não só na animação: assim o ponto nunca
+          aparece do tamanho da geometria crua num quadro perdido. */}
       <mesh ref={coreRef} scale={0.0105}>
         <sphereGeometry args={[1, 10, 10]} />
         <meshBasicMaterial
@@ -346,28 +294,16 @@ function StoreNode({
           blending={THREE.AdditiveBlending}
         />
       </mesh>
-
-      {/* Alvo do ponteiro, maior que o ponto visível */}
-      <mesh
-        visible={false}
-        onPointerOver={aoEntrar}
-        onPointerOut={() => onHover(null, null)}
-      >
-        <sphereGeometry args={[0.05, 8, 8]} />
+      <mesh ref={ringRef} scale={0.018}>
+        <ringGeometry args={[0.66, 1, 32]} />
+        <meshBasicMaterial
+          color={cor}
+          transparent
+          side={THREE.DoubleSide}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
       </mesh>
-
-      {!offline && (
-        <mesh ref={ringRef} scale={0.018}>
-          <ringGeometry args={[0.66, 1, 32]} />
-          <meshBasicMaterial
-            color={cor}
-            transparent
-            side={THREE.DoubleSide}
-            depthWrite={false}
-            blending={THREE.AdditiveBlending}
-          />
-        </mesh>
-      )}
     </group>
   );
 }
@@ -376,41 +312,9 @@ function StoreNode({
    Cena
    ------------------------------------------------------------------ */
 
-function Scene({
-  count,
-  onHover,
-}: {
-  count: number;
-  onHover: (store: Store | null, screen: { x: number; y: number } | null) => void;
-}) {
+function Scene({ count, pontos }: { count: number; pontos: PontoOperacao[] }) {
   const group = useRef<THREE.Group>(null);
   const alvo = useRef({ x: 0, y: 0 });
-
-  const nodes = useMemo(
-    () =>
-      stores.map((store) => ({
-        store,
-        position: latLonToVector3(store.lat, store.lon, RADIUS * 1.01),
-      })),
-    [],
-  );
-
-  const arcs = useMemo<ArcData[]>(() => {
-    const hub = nodes[0].position;
-    return nodes.slice(1).map((node, i) => {
-      const meio = hub
-        .clone()
-        .add(node.position)
-        .multiplyScalar(0.5)
-        .normalize()
-        .multiplyScalar(RADIUS * (1.2 + hub.distanceTo(node.position) * 0.13));
-
-      const curve = new THREE.QuadraticBezierCurve3(hub, meio, node.position);
-      const geometry = new THREE.BufferGeometry().setFromPoints(curve.getPoints(48));
-
-      return { curve, geometry, offset: i * 0.17, speed: 0.15 + (i % 3) * 0.03 };
-    });
-  }, [nodes]);
 
   useFrame((state, delta) => {
     if (!group.current) return;
@@ -429,15 +333,8 @@ function Scene({
     <group ref={group} rotation={[-0.2, 0, 0.12]}>
       <Atmosphere />
       <ParticleSphere count={count} />
-      <Arcs arcs={arcs} />
-      {nodes.map((node, i) => (
-        <StoreNode
-          key={node.store.id}
-          store={node.store}
-          position={node.position}
-          index={i}
-          onHover={onHover}
-        />
+      {pontos.map((ponto, i) => (
+        <NoConversa key={ponto.id} ponto={ponto} index={i} />
       ))}
     </group>
   );
@@ -449,14 +346,11 @@ function Scene({
 
 export default function OperationsGlobe({
   quality = "alta",
+  pontos = [],
 }: {
   quality?: "alta" | "baixa";
+  pontos?: PontoOperacao[];
 }) {
-  const [hovered, setHovered] = useState<{
-    store: Store;
-    screen: { x: number; y: number };
-  } | null>(null);
-
   const count = quality === "alta" ? 11000 : 5000;
 
   return (
@@ -471,27 +365,8 @@ export default function OperationsGlobe({
         gl={{ antialias: true, powerPreference: "high-performance", alpha: true }}
         style={{ background: "transparent" }}
       >
-        <Scene
-          count={count}
-          onHover={(store, screen) =>
-            setHovered(store && screen ? { store, screen } : null)
-          }
-        />
+        <Scene count={count} pontos={pontos} />
       </Canvas>
-
-      {hovered && (
-        <div
-          className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-[calc(100%+14px)]"
-          style={{ left: hovered.screen.x, top: hovered.screen.y }}
-        >
-          <div className="glass rounded-xl px-3 py-2">
-            <p className="text-[12px] font-semibold text-fg">{hovered.store.name}</p>
-            <p className="tnum mt-0.5 font-mono text-[10.5px] text-fg-faint">
-              {hovered.store.conversas} conversas, {hovered.store.pedidos} pedidos
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

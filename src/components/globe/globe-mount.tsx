@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
+import type { PontoOperacao } from "./operations-globe";
 
 /** Enquanto o WebGL carrega, e onde ele não existe, a esfera é CSS puro. */
 function GlobeFallback() {
@@ -35,7 +36,13 @@ const OperationsGlobe = dynamic(() => import("./operations-globe"), {
  * Sem isso, a GPU continua desenhando 11 mil pontos enquanto a pessoa lê
  * outra parte da página, e é justamente aí que a rolagem engasga.
  */
-export function GlobeMount({ quality }: { quality?: "alta" | "baixa" }) {
+export function GlobeMount({
+  quality,
+  pontos,
+}: {
+  quality?: "alta" | "baixa";
+  pontos?: PontoOperacao[];
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const [visivel, setVisivel] = useState(true);
 
@@ -53,7 +60,11 @@ export function GlobeMount({ quality }: { quality?: "alta" | "baixa" }) {
 
   return (
     <div ref={ref} className="h-full w-full">
-      {visivel ? <OperationsGlobe quality={quality} /> : <GlobeFallback />}
+      {visivel ? (
+        <OperationsGlobe quality={quality} pontos={pontos} />
+      ) : (
+        <GlobeFallback />
+      )}
     </div>
   );
 }
