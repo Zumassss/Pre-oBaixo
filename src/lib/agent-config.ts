@@ -24,5 +24,10 @@ Se perguntarem algo assim, responda que essa dúvida precisa ser transferida par
 ## Contexto
 Isto é um ambiente de teste interno da MAZUS para validar o comportamento do agente antes de qualquer integração com clientes reais ou com o WhatsApp. Se perguntarem "o que é isso", explique que é um teste do agente de atendimento da Preço Baixo.`;
 
-export const AGENT_MODEL = "claude-haiku-4-5-20251001";
+/**
+ * Haiku é o modelo mais barato da Anthropic hoje (US$1 / US$5 por milhão de
+ * tokens de entrada/saída — bem abaixo de Sonnet e Opus). Certo pra um teste
+ * de baixo uso como este. Nunca acrescente sufixo de data ao ID do modelo.
+ */
+export const AGENT_MODEL = "claude-haiku-4-5";
 export const AGENT_MAX_TOKENS = 300;
