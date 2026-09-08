@@ -75,8 +75,8 @@ function calcularAvisos(banco: ReturnType<typeof useBanco>["banco"]): Aviso[] {
     avisos.push({
       id: "conversas",
       icon: MessageSquareWarning,
-      titulo: `${aguardando.length} ${aguardando.length === 1 ? "conversa aberta" : "conversas abertas"}`,
-      detalhe: "Confira se alguma precisa de atendente.",
+      titulo: `${aguardando.length} ${aguardando.length === 1 ? "conversa aguardando" : "conversas aguardando"}`,
+      detalhe: "Ninguém respondeu ainda. Confira se precisa de atendente.",
       href: "/conversas",
       tom: "info",
     });

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   Check,
+  FlaskConical,
   KeyRound,
   MessageSquareWarning,
   PlugZap,
@@ -15,6 +16,7 @@ import { Campo, Entrada } from "@/components/ui/modal";
 import { Reveal } from "@/components/ui/reveal";
 import { definirWhatsapp, salvarLoja, useBanco } from "@/lib/db/use-db";
 import { limparBanco } from "@/lib/db/local-db";
+import { carregarExemplos } from "@/lib/db/exemplos";
 import { LOJA_VAZIA, type Loja } from "@/lib/db/types";
 import { cn } from "@/lib/utils";
 
@@ -296,22 +298,49 @@ function FormularioLoja({
                 ))}
               </div>
 
-              <button
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      "Isso apaga todos os cadastros salvos neste navegador. Continuar?",
-                    )
-                  ) {
-                    limparBanco();
-                    setForm(LOJA_VAZIA);
-                  }
-                }}
-                className="btn-ghost mt-3 w-full !text-[12px] hover:!text-negative"
-              >
-                <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-                Apagar todos os dados
-              </button>
+              <div className="mt-3 grid grid-cols-1 gap-2">
+                <button
+                  onClick={() => {
+                    if (
+                      banco.clientes.length ||
+                      banco.produtos.length ||
+                      banco.conversas.length
+                    ) {
+                      const ok = window.confirm(
+                        "Isso substitui o que já está cadastrado por dados de exemplo. Continuar?",
+                      );
+                      if (!ok) return;
+                    }
+                    setForm(carregarExemplos().loja);
+                  }}
+                  className="btn-ghost w-full !text-[12px]"
+                >
+                  <FlaskConical className="h-3.5 w-3.5" strokeWidth={2} />
+                  Carregar dados de exemplo
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        "Isso apaga todos os cadastros salvos neste navegador. Continuar?",
+                      )
+                    ) {
+                      limparBanco();
+                      setForm(LOJA_VAZIA);
+                    }
+                  }}
+                  className="btn-ghost w-full !text-[12px] hover:!text-negative"
+                >
+                  <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+                  Apagar todos os dados
+                </button>
+              </div>
+
+              <p className="mt-2.5 text-[11px] leading-relaxed text-fg-ghost">
+                Os dados de exemplo são fictícios e servem só para ver as telas
+                cheias. Apague antes de usar a loja de verdade.
+              </p>
             </div>
           </Panel>
         </div>
