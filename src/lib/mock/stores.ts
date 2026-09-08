@@ -99,7 +99,7 @@ export const stores: Store[] = [
   },
 ];
 
-/** Rótulo legível — o valor cru é um código, não texto de interface. */
+/** Rótulo legível: o valor cru é um código, não texto de interface. */
 export const storeStatusLabel: Record<Store["status"], string> = {
   online: "online",
   atencao: "atenção",

@@ -9,14 +9,14 @@
 /**
  * Arredonda para 3 casas.
  *
- * `Math.sin`/`Math.cos` não são bit a bit iguais entre Node e navegador — a
+ * `Math.sin`/`Math.cos` não são bit a bit iguais entre Node e navegador: a
  * especificação permite implementações diferentes. Sem este corte, o HTML do
  * servidor e o do cliente divergem nos últimos dígitos e o React acusa erro de
  * hidratação. Toda conta com trigonometria que chega ao DOM passa por aqui.
  */
 const q = (n: number) => Math.round(n * 1000) / 1000;
 
-/** Ruído reproduzível a partir de uma semente — sempre o mesmo resultado. */
+/** Ruído reproduzível a partir de uma semente: sempre o mesmo resultado. */
 function noise(seed: number) {
   const x = Math.sin(seed * 127.1) * 43758.5453;
   return q(x - Math.floor(x));
@@ -87,7 +87,7 @@ export const kpis: Kpi[] = [
   },
 ];
 
-/** Volume de mensagens por hora — usado no gráfico de barras da operação. */
+/** Volume de mensagens por hora: usado no gráfico de barras da operação. */
 export const hourlyVolume = series(24, {
   base: 120,
   amplitude: 95,

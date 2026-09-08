@@ -1,59 +1,88 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
-type ChatState =
-  | { status: "idle" }
-  | { status: "loading"; question: string }
-  | { status: "answered"; question: string; reply: string }
-  | { status: "error"; question: string; error: string };
+export type ChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  at: number;
+  error?: boolean;
+};
+
+/** Quantas mensagens do histórico seguem para a API a cada pergunta. */
+const CONTEXTO_MAXIMO = 8;
 
 /**
- * Fala com o agente de verdade (rota /api/agente → Anthropic).
+ * Conversa com o agente, com histórico.
  *
- * Fica isolado num hook porque este é o único ponto do dashboard que faz
- * uma chamada real e paga — o resto da interface consome só dados
- * simulados de `src/lib/mock`.
+ * O histórico serve a duas coisas: aparece na tela e viaja junto na chamada,
+ * para o agente entender perguntas encadeadas. Só as últimas mensagens vão
+ * junto, senão cada pergunta ficaria progressivamente mais cara.
  */
 export function useAgentChat() {
-  const [state, setState] = useState<ChatState>({ status: "idle" });
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  async function ask(question: string) {
-    const trimmed = question.trim();
-    if (!trimmed || state.status === "loading") return;
+  const ask = useCallback(
+    async (question: string) => {
+      const texto = question.trim();
+      if (!texto || loading) return;
 
-    setState({ status: "loading", question: trimmed });
+      const pergunta: ChatMessage = {
+        id: `u-${Date.now()}`,
+        role: "user",
+        content: texto,
+        at: Date.now(),
+      };
 
-    try {
-      const res = await fetch("/api/agente", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: trimmed }),
-      });
-      const data = await res.json();
+      const historico = [...messages, pergunta];
+      setMessages(historico);
+      setLoading(true);
 
-      if (!res.ok) {
-        setState({
-          status: "error",
-          question: trimmed,
-          error: data.error ?? "Não foi possível falar com o agente.",
+      try {
+        const res = await fetch("/api/agente", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: historico
+              .slice(-CONTEXTO_MAXIMO)
+              .map(({ role, content }) => ({ role, content })),
+          }),
         });
-        return;
+        const data = await res.json();
+
+        setMessages((atual) => [
+          ...atual,
+          {
+            id: `a-${Date.now()}`,
+            role: "assistant",
+            content: res.ok
+              ? data.reply
+              : (data.error ?? "Não consegui responder agora."),
+            at: Date.now(),
+            error: !res.ok,
+          },
+        ]);
+      } catch {
+        setMessages((atual) => [
+          ...atual,
+          {
+            id: `a-${Date.now()}`,
+            role: "assistant",
+            content: "Falha de conexão com o agente.",
+            at: Date.now(),
+            error: true,
+          },
+        ]);
+      } finally {
+        setLoading(false);
       }
+    },
+    [messages, loading],
+  );
 
-      setState({ status: "answered", question: trimmed, reply: data.reply });
-    } catch {
-      setState({
-        status: "error",
-        question: trimmed,
-        error: "Falha de conexão com o agente.",
-      });
-    }
-  }
+  const clear = useCallback(() => setMessages([]), []);
 
-  function reset() {
-    setState({ status: "idle" });
-  }
-
-  return { state, ask, reset };
+  return { messages, loading, ask, clear };
 }

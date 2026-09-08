@@ -4,17 +4,11 @@ import { cn } from "@/lib/utils";
 export function Panel({
   children,
   className,
-  hot = false,
 }: {
   children: React.ReactNode;
   className?: string;
-  hot?: boolean;
 }) {
-  return (
-    <section className={cn("panel", hot && "panel-hot", className)}>
-      {children}
-    </section>
-  );
+  return <section className={cn("panel", className)}>{children}</section>;
 }
 
 export function PanelHeader({
@@ -32,10 +26,7 @@ export function PanelHeader({
 }) {
   return (
     <header
-      className={cn(
-        "flex items-start justify-between gap-4 px-5 pb-3 pt-4",
-        className,
-      )}
+      className={cn("flex items-start justify-between gap-4 px-5 pb-3 pt-4", className)}
     >
       <div className="min-w-0">
         {eyebrow && (
@@ -63,9 +54,18 @@ export function PanelHeader({
   );
 }
 
-export function PanelLink({ children }: { children: React.ReactNode }) {
+export function PanelLink({
+  children,
+  onClick,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+}) {
   return (
-    <button className="group flex shrink-0 items-center gap-1 text-[12px] font-medium text-fg-faint transition-colors hover:text-brand-400">
+    <button
+      onClick={onClick}
+      className="group flex shrink-0 items-center gap-1 text-[12px] font-medium text-fg-faint transition-colors hover:text-brand-400"
+    >
       {children}
       <ArrowUpRight
         className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
@@ -87,11 +87,11 @@ export function PageHeader({
   return (
     <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-[26px] font-semibold tracking-[-0.025em] text-fg">
+        <h1 className="text-[24px] font-semibold tracking-[-0.025em] text-fg">
           {title}
         </h1>
         {description && (
-          <p className="mt-1 max-w-2xl text-[13.5px] leading-relaxed text-fg-muted">
+          <p className="mt-1 max-w-xl text-[13px] leading-relaxed text-fg-muted">
             {description}
           </p>
         )}

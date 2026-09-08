@@ -157,41 +157,41 @@ export const knowledgeSources: KnowledgeSource[] = [
   },
 ];
 
-/** Regras de segurança do agente — o que ele nunca faz sozinho. */
+/** Regras de segurança do agente: o que ele nunca faz sozinho. */
 export const guardrails = [
   {
     id: "g-1",
     title: "Nunca prescrever ou sugerir medicamento",
     detail:
-      "Qualquer pedido de recomendação clínica é transferido ao farmacêutico responsável da unidade.",
+      "Pedido de recomendação clínica vai ao farmacêutico da unidade.",
     active: true,
   },
   {
     id: "g-2",
     title: "Nunca opinar sobre interação medicamentosa",
     detail:
-      "Perguntas sobre combinar medicamentos disparam transferência imediata, sem tentativa de resposta.",
+      "Pergunta sobre combinar medicamentos transfere na hora.",
     active: true,
   },
   {
     id: "g-3",
     title: "Conteúdo de orientação só se aprovado",
     detail:
-      "O agente só envia material revisado e assinado pelo farmacêutico responsável da rede.",
+      "Só envia material revisado e assinado pelo farmacêutico.",
     active: true,
   },
   {
     id: "g-4",
     title: "Consentimento antes de marketing",
     detail:
-      "Campanhas só alcançam clientes com opt-in registrado, conforme LGPD e política do WhatsApp.",
+      "Campanha só alcança quem tem opt-in registrado.",
     active: true,
   },
   {
     id: "g-5",
     title: "Dado sensível não sai do sistema",
     detail:
-      "Histórico de compra de medicamento nunca é exposto em campanha ou mensagem automática.",
+      "Compra de medicamento nunca entra em disparo automático.",
     active: true,
   },
 ];

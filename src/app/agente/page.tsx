@@ -9,6 +9,7 @@ import { PageHeader, Panel, PanelHeader } from "@/components/ui/panel";
 import { Table, Td, Thead, Tr } from "@/components/ui/table";
 import { MeterRow } from "@/components/charts";
 import { AgentFeed } from "@/components/agent/agent-feed";
+import { Reveal } from "@/components/ui/reveal";
 import { guardrails, knowledgeSources } from "@/lib/mock/catalog";
 import { agentConfidence } from "@/lib/mock/metrics";
 import { cn } from "@/lib/utils";
@@ -26,51 +27,46 @@ export default function AgentePage() {
     <div className="mx-auto max-w-[1560px]">
       <PageHeader
         title="Cérebro do Agente"
-        description="Tudo que o agente sabe, os limites do que ele pode fazer sozinho, e o que precisa passar por uma pessoa."
+        description="O que ele sabe, o que faz sozinho e o que passa por uma pessoa."
         action={
           <button className="btn-primary">
             <RefreshCw className="h-4 w-4" strokeWidth={2} />
-            Sincronizar agora
+            Sincronizar
           </button>
         }
       />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-        {/* Identidade do agente */}
-        <Panel hot className="xl:col-span-8">
+        <Panel className="xl:col-span-8">
           <PanelHeader eyebrow="Identidade" title="Como o agente se comporta" />
           <div className="px-5 pb-5">
-            <div className="tile p-4">
+            <Reveal className="tile p-4">
               <p className="text-[13px] leading-[1.65] text-fg-muted">
-                Você é o atendente digital das{" "}
+                Atendente digital das{" "}
                 <span className="font-medium text-fg">Farmácias Preço Baixo</span>.
-                Fala como alguém do balcão: direto, cordial e objetivo, sem
-                formalidade excessiva. Responde preço, disponibilidade, horário,
-                endereço e status de pedido consultando sempre o catálogo da
-                unidade certa.{" "}
+                Fala como alguém do balcão: direto, cordial, objetivo. Responde
+                preço, disponibilidade, horário, endereço e status de pedido
+                consultando o catálogo da unidade certa.{" "}
                 <span className="font-medium text-brand-300">
-                  Nunca indica, sugere ou opina sobre medicamento
-                </span>{" "}
-                — qualquer dúvida clínica vai para o farmacêutico responsável da
-                unidade.
+                  Nunca indica nem opina sobre medicamento
+                </span>
+                , qualquer dúvida clínica vai ao farmacêutico responsável.
               </p>
-            </div>
+            </Reveal>
 
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
-                { label: "Modelo", value: "Claude" },
+                { label: "Modelo", value: "Claude Haiku" },
                 { label: "Idioma", value: "pt-BR" },
                 { label: "Canal", value: "WhatsApp" },
                 { label: "Escalonamento", value: "Automático" },
               ].map((item) => (
-                <div key={item.label} className="tile p-3">
+                <Reveal key={item.label} className="tile p-3">
                   <p className="text-[10.5px] uppercase tracking-[0.12em] text-fg-ghost">
                     {item.label}
                   </p>
-                  <p className="mt-1 text-[13px] font-medium text-fg">
-                    {item.value}
-                  </p>
-                </div>
+                  <p className="mt-1 text-[13px] font-medium text-fg">{item.value}</p>
+                </Reveal>
               ))}
             </div>
 
@@ -78,7 +74,6 @@ export default function AgentePage() {
           </div>
         </Panel>
 
-        {/* Confiança */}
         <Panel className="xl:col-span-4">
           <PanelHeader eyebrow="Desempenho" title="Confiança por tarefa" />
           <div className="space-y-3.5 px-5 pb-5">
@@ -90,20 +85,18 @@ export default function AgentePage() {
                 tone={row.value >= 92 ? "good" : "brand"}
               />
             ))}
-            <div className="tile mt-4 flex items-start gap-2.5 p-3">
+            <Reveal className="tile mt-4 flex items-start gap-2.5 p-3">
               <Sparkles
                 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-400"
                 strokeWidth={2}
               />
               <p className="text-[11.5px] leading-relaxed text-fg-faint">
-                Abaixo de 85% de confiança, o agente para e chama uma pessoa em
-                vez de arriscar uma resposta.
+                Abaixo de 85% de confiança, o agente para e chama uma pessoa.
               </p>
-            </div>
+            </Reveal>
           </div>
         </Panel>
 
-        {/* Base de conhecimento */}
         <Panel className="xl:col-span-7">
           <PanelHeader
             eyebrow="Conhecimento"
@@ -145,11 +138,10 @@ export default function AgentePage() {
           </Table>
         </Panel>
 
-        {/* Guardrails */}
         <Panel className="xl:col-span-5">
           <PanelHeader
             eyebrow="Segurança"
-            title="O que o agente nunca faz sozinho"
+            title="O que ele nunca faz sozinho"
             action={
               <span className="chip chip-good">
                 <ShieldCheck className="h-3 w-3" strokeWidth={2} />
@@ -159,35 +151,29 @@ export default function AgentePage() {
           />
           <ul className="space-y-1 px-3 pb-4">
             {guardrails.map((rule) => (
-              <li
+              <Reveal
+                as="li"
                 key={rule.id}
-                className="flex items-start gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-white/[0.03]"
+                className="flex items-start gap-3 rounded-xl px-2 py-2.5"
               >
                 <span className="mt-1 flex h-4 w-7 shrink-0 items-center rounded-full bg-positive/25 p-0.5 ring-1 ring-inset ring-positive/40">
                   <span className="ml-auto h-3 w-3 rounded-full bg-positive shadow-[0_0_8px_1px_rgba(24,209,127,0.6)]" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[12.5px] font-medium text-fg">
-                    {rule.title}
-                  </p>
+                  <p className="text-[12.5px] font-medium text-fg">{rule.title}</p>
                   <p className="mt-0.5 text-[11.5px] leading-relaxed text-fg-faint">
                     {rule.detail}
                   </p>
                 </div>
-              </li>
+              </Reveal>
             ))}
           </ul>
         </Panel>
 
-        {/* Atividade */}
         <Panel className="xl:col-span-12">
-          <PanelHeader
-            eyebrow="Auditoria"
-            title="Registro de decisões do agente"
-            live
-          />
-          <div className="max-h-[360px] overflow-y-auto">
-            <AgentFeed limit={12} />
+          <PanelHeader eyebrow="Auditoria" title="Registro de decisões" live />
+          <div className="max-h-[340px] overflow-y-auto">
+            <AgentFeed limit={10} />
           </div>
         </Panel>
       </div>

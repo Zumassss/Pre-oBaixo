@@ -16,7 +16,7 @@ export function Thead({ columns }: { columns: string[] }) {
           <th
             key={column}
             className={cn(
-              "whitespace-nowrap px-4 py-2.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-fg-faint",
+              "whitespace-nowrap px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-fg-faint",
               i === columns.length - 1 && "text-right",
             )}
           >
@@ -31,15 +31,24 @@ export function Thead({ columns }: { columns: string[] }) {
 export function Tr({
   children,
   index = 0,
+  selected = false,
+  onClick,
 }: {
   children: React.ReactNode;
   index?: number;
+  selected?: boolean;
+  onClick?: () => void;
 }) {
   return (
     <tr
-      className="group border-b border-hairline/60 transition-colors last:border-0 hover:bg-white/[0.028]"
+      data-selected={selected}
+      onClick={onClick}
+      className={cn(
+        "selectable border-b border-hairline/60 last:border-0",
+        onClick && "cursor-pointer",
+      )}
       style={{
-        animation: `rise 0.5s cubic-bezier(0.16,1,0.3,1) ${index * 45}ms both`,
+        animation: `rise 0.45s cubic-bezier(0.16,1,0.3,1) ${Math.min(index, 12) * 35}ms both`,
       }}
     >
       {children}

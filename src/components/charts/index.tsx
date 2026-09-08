@@ -6,7 +6,7 @@ import { cn, formatBRL, formatCompact } from "@/lib/utils";
 /* ==================================================================
    Gráficos em SVG puro.
    Sem biblioteca: controle total do traço, peso zero no pacote e
-   nenhuma re-renderização cara — só transform e opacity animam.
+   nenhuma re-renderização cara: só transform e opacity animam.
    ================================================================== */
 
 /**
@@ -52,7 +52,7 @@ function smoothPath(points: { x: number; y: number }[]) {
 }
 
 /* ------------------------------------------------------------------
-   Sparkline — a linha miúda dentro dos indicadores
+   Sparkline: a linha miúda dentro dos indicadores
    ------------------------------------------------------------------ */
 
 export function Sparkline({
@@ -105,7 +105,7 @@ export function Sparkline({
 }
 
 /* ------------------------------------------------------------------
-   Gráfico de área — a série principal do painel
+   Gráfico de área: a série principal do painel
    ------------------------------------------------------------------ */
 
 export function AreaChart({
@@ -174,7 +174,7 @@ export function AreaChart({
           vectorEffect="non-scaling-stroke"
         />
 
-        {/* Ponto final destacado — "onde estamos agora" */}
+        {/* Ponto final destacado: "onde estamos agora" */}
         <circle
           cx={points[points.length - 1].x}
           cy={points[points.length - 1].y}
@@ -216,7 +216,7 @@ export function AreaChart({
 }
 
 /* ------------------------------------------------------------------
-   Barras — volume por hora
+   Barras: volume por hora
    ------------------------------------------------------------------ */
 
 export function BarSeries({
@@ -276,7 +276,7 @@ export function BarSeries({
 }
 
 /* ------------------------------------------------------------------
-   Medidor em arco — saúde da operação
+   Medidor em arco: saúde da operação
    ------------------------------------------------------------------ */
 
 export function ArcGauge({
@@ -369,7 +369,7 @@ export function ArcGauge({
 }
 
 /* ------------------------------------------------------------------
-   Barra de proporção — intenções e confiança
+   Barra de proporção: intenções e confiança
    ------------------------------------------------------------------ */
 
 export function MeterRow({
@@ -417,7 +417,7 @@ export function MeterRow({
 }
 
 /* ------------------------------------------------------------------
-   Colunas verticais — receita por dia
+   Colunas verticais: receita por dia
    ------------------------------------------------------------------ */
 
 export function ColumnChart({
@@ -427,7 +427,7 @@ export function ColumnChart({
 }: {
   data: { day: string; value: number }[];
   height?: number;
-  /** Server Components não podem passar funções — a formatação é escolhida por nome. */
+  /** Server Components não podem passar funções: a formatação é escolhida por nome. */
   formatAs?: "raw" | "compact" | "currency";
 }) {
   const max = Math.max(...data.map((d) => d.value));

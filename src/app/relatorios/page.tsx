@@ -1,7 +1,7 @@
-import { Download } from "lucide-react";
 import { PageHeader, Panel, PanelHeader } from "@/components/ui/panel";
 import { AreaChart, BarSeries, ColumnChart, MeterRow } from "@/components/charts";
 import { Table, Td, Thead, Tr } from "@/components/ui/table";
+import { ExportButton } from "@/components/relatorios/export-button";
 import {
   conversionTimeline,
   hourlyVolume,
@@ -19,13 +19,8 @@ export default function RelatoriosPage() {
     <div className="mx-auto max-w-[1560px]">
       <PageHeader
         title="Relatórios"
-        description="O que a operação produziu no período — o número que justifica o investimento na automação."
-        action={
-          <button className="btn-ghost">
-            <Download className="h-4 w-4" strokeWidth={2} />
-            Exportar PDF
-          </button>
-        }
+        description="O que a operação produziu no período."
+        action={<ExportButton />}
       />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
@@ -46,16 +41,14 @@ export default function RelatoriosPage() {
             <AreaChart values={responseTimeline} height={190} suffix="s" />
             <div className="mt-3 grid grid-cols-2 gap-3 border-t border-hairline pt-3">
               <div>
-                <p className="tnum font-mono text-[17px] font-semibold text-fg">
-                  8s
-                </p>
-                <p className="text-[10.5px] text-fg-ghost">média do agente</p>
+                <p className="tnum font-mono text-[17px] font-semibold text-fg">8s</p>
+                <p className="text-[10.5px] text-fg-ghost">agente</p>
               </div>
               <div>
                 <p className="tnum font-mono text-[17px] font-semibold text-fg-muted">
                   4 min
                 </p>
-                <p className="text-[10.5px] text-fg-ghost">média humana</p>
+                <p className="text-[10.5px] text-fg-ghost">humano</p>
               </div>
             </div>
           </div>
@@ -125,14 +118,12 @@ export default function RelatoriosPage() {
                         {storeStatusLabel[store.status]}
                       </span>
                     </Td>
-                    <Td className="tnum font-mono">
-                      {formatNumber(store.conversas)}
-                    </Td>
+                    <Td className="tnum font-mono">{formatNumber(store.conversas)}</Td>
                     <Td className="tnum font-mono">{store.pedidos}</Td>
                     <Td className="tnum font-mono">
                       {store.conversas
                         ? `${conversao.toFixed(1).replace(".", ",")}%`
-                        : "—"}
+                        : "sem dados"}
                     </Td>
                     <Td align="right">
                       {store.conversas ? (
@@ -148,7 +139,7 @@ export default function RelatoriosPage() {
                           </span>
                         </div>
                       ) : (
-                        <span className="text-fg-ghost">—</span>
+                        <span className="text-fg-ghost">sem dados</span>
                       )}
                     </Td>
                   </Tr>

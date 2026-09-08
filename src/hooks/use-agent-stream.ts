@@ -10,7 +10,7 @@ import {
 /**
  * Fluxo de eventos do agente.
  *
- * A geração acontece só depois da montagem — o HTML do servidor não pode
+ * A geração acontece só depois da montagem: o HTML do servidor não pode
  * conter valores aleatórios, senão a hidratação diverge.
  */
 export function useAgentStream(limit = 24) {
@@ -65,7 +65,7 @@ export function useCountUp(target: number, durationMs = 1100) {
 
     const tick = (now: number) => {
       const progress = Math.min(1, (now - start) / durationMs);
-      // easeOutExpo — chega rápido e assenta com suavidade
+      // easeOutExpo: chega rápido e assenta com suavidade
       const eased = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
       setValue(target * eased);
       if (progress < 1) frame = requestAnimationFrame(tick);

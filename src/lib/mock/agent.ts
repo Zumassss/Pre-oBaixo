@@ -3,7 +3,7 @@
  *
  * Hoje as ações são simuladas no cliente para dar vida à Central de Operações.
  * A troca para dados reais acontece em um único ponto: `subscribeAgentEvents`
- * passa a abrir um WebSocket/SSE em vez de gerar eventos localmente — todo o
+ * passa a abrir um WebSocket/SSE em vez de gerar eventos localmente: todo o
  * restante da interface consome exatamente o mesmo contrato.
  */
 
@@ -62,9 +62,9 @@ const templates: EventTemplate[] = [
     kind: "atendimento",
     title: "Respondendo cliente no WhatsApp",
     details: [
-      "Dúvida sobre horário de funcionamento — respondida em 1 turno",
+      "Dúvida sobre horário respondida em 1 turno",
       "Consulta de preço: Dipirona 500mg cx 20cp",
-      "Cliente perguntou sobre entrega no bairro — rota confirmada",
+      "Cliente perguntou sobre entrega, rota confirmada",
       "Verificando disponibilidade de Losartana 50mg",
     ],
   },
@@ -72,70 +72,70 @@ const templates: EventTemplate[] = [
     kind: "estoque",
     title: "Consultando estoque da unidade",
     details: [
-      "Amoxicilina 500mg — 42 unidades disponíveis",
-      "Omeprazol 20mg — repondo a partir da Matriz",
-      "Vitamina D 2000UI — 8 unidades, abaixo do mínimo",
-      "Insulina NPH — reservada para retirada às 16h",
+      "Amoxicilina 500mg, 42 unidades disponíveis",
+      "Omeprazol 20mg, repondo a partir da Matriz",
+      "Vitamina D 2000UI, 8 unidades, abaixo do mínimo",
+      "Insulina NPH reservada para retirada às 16h",
     ],
   },
   {
     kind: "promocao",
     title: "Disparando campanha segmentada",
     details: [
-      "Genéricos -30% enviada para 1.284 clientes com opt-in",
+      "Genéricos -30% para 1.284 clientes com opt-in",
       "Campanha de dermocosméticos agendada para 18h",
-      "Reenvio para não abertos — 312 contatos",
-      "Cupom de recompra enviado para clientes inativos há 60 dias",
+      "Reenvio para não abertos, 312 contatos",
+      "Cupom de recompra para inativos há 60 dias",
     ],
   },
   {
     kind: "followup",
     title: "Follow-up de recompra",
     details: [
-      "Losartana 50mg — ciclo de 30 dias encerrando amanhã",
-      "Metformina 850mg — lembrete enviado, cliente confirmou",
+      "Losartana 50mg, ciclo encerra amanhã",
+      "Metformina 850mg, cliente confirmou o lembrete",
       "Cliente respondeu ao lembrete e agendou retirada",
-      "Reposição de fralda geriátrica — pedido gerado",
+      "Reposição de fralda geriátrica, pedido gerado",
     ],
   },
   {
     kind: "orientacao",
     title: "Orientação de uso enviada",
     details: [
-      "Resumo de bula validado pelo farmacêutico responsável",
-      "Instrução de horário e posologia enviada com aviso legal",
-      "Conteúdo de cuidado enviado — sem recomendação clínica",
-      "Encaminhado material educativo aprovado sobre hipertensão",
+      "Resumo de bula validado pelo farmacêutico",
+      "Instrução de horário enviada com aviso legal",
+      "Conteúdo de cuidado enviado, sem recomendação clínica",
+      "Material aprovado sobre hipertensão enviado",
     ],
   },
   {
     kind: "crm",
     title: "Atualizando ficha no CRM",
     details: [
-      "Novo cliente cadastrado com consentimento LGPD registrado",
-      "Histórico de compra sincronizado — 3 itens",
-      "Preferência de contato atualizada para WhatsApp",
-      "Segmento reclassificado para «alta recorrência»",
+      "Novo cliente com consentimento registrado",
+      "Histórico de compra sincronizado, 3 itens",
+      "Contato preferido agora é WhatsApp",
+      "Segmento virou alta recorrência",
     ],
   },
   {
     kind: "handoff",
     title: "Transferindo para atendente humano",
     details: [
-      "Dúvida sobre interação medicamentosa — farmacêutico acionado",
-      "Cliente solicitou falar com pessoa — fila da unidade",
-      "Reclamação de pedido — encaminhada à gerência",
-      "Caso fora do escopo do agente — protocolo aberto",
+      "Interação medicamentosa, farmacêutico acionado",
+      "Cliente pediu atendente, foi para a fila da unidade",
+      "Reclamação de pedido encaminhada à gerência",
+      "Caso fora do escopo, protocolo aberto",
     ],
   },
   {
     kind: "alerta",
     title: "Alerta operacional",
     details: [
-      "Estoque crítico: Amoxicilina 500mg na Filial Santa Rita",
-      "Tempo de resposta acima da meta na Filial Vila Nova",
+      "Estoque crítico de Amoxicilina na Santa Rita",
+      "Resposta acima da meta na Filial Vila Nova",
       "Unidade Alto da Serra sem conexão há 12 min",
-      "Pico de mensagens 3× acima da média — escalando capacidade",
+      "Pico de mensagens 3x acima da média",
     ],
   },
 ];
@@ -150,7 +150,7 @@ const storeNames = [
   "Filial Vila Nova",
 ];
 
-/** Distribuição de frequência — atendimento domina o fluxo real. */
+/** Distribuição de frequência: atendimento domina o fluxo real. */
 const weightedKinds: AgentEventKind[] = [
   "atendimento",
   "atendimento",

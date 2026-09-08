@@ -43,7 +43,7 @@ export const conversations: Conversation[] = [
       {
         id: "m2",
         from: "agente",
-        text: "Boa tarde, Ana! Temos sim — Losartana Potássica 50mg, caixa com 30 comprimidos, por R$ 12,90. Temos 46 unidades na Filial Jardim América.",
+        text: "Boa tarde, Ana! Temos sim. Losartana Potássica 50mg, caixa com 30 comprimidos, por R$ 12,90. São 46 unidades na Filial Jardim América.",
         at: "14:31",
       },
       {
@@ -155,7 +155,7 @@ export const conversations: Conversation[] = [
       {
         id: "m2",
         from: "agente",
-        text: "Enviei o passo a passo de uso no seu WhatsApp — é o material aprovado pela nossa farmacêutica. Qualquer sintoma diferente, procure a unidade.",
+        text: "Enviei o passo a passo no seu WhatsApp, material aprovado pela nossa farmacêutica. Qualquer sintoma diferente, procure a unidade.",
         at: "13:47",
       },
     ],
@@ -362,6 +362,6 @@ export const campaigns: Campaign[] = [
     converted: 0,
     revenue: 0,
     channel: "WhatsApp",
-    scheduledFor: "—",
+    scheduledFor: "sem data",
   },
 ];

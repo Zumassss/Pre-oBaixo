@@ -18,7 +18,7 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Preço Baixo · Central de Operações",
   description:
-    "Sistema de gestão inteligente das Farmácias Preço Baixo — atendimento automatizado, CRM e operação em tempo real.",
+    "Sistema de gestão das Farmácias Preço Baixo: atendimento automatizado, CRM e operação em tempo real.",
 };
 
 export const viewport: Viewport = {

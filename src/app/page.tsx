@@ -1,63 +1,167 @@
-import {
-  ArcGauge,
-  BarSeries,
-  ColumnChart,
-  MeterRow,
-} from "@/components/charts";
-import { AgentFeed } from "@/components/agent/agent-feed";
+"use client";
+
+import { useMemo, useState } from "react";
+import { LayoutGrid, Rows3 } from "lucide-react";
+import { AgentConsole } from "@/components/dashboard/agent-console";
 import { GlobePanel } from "@/components/dashboard/globe-panel";
-import { KpiCard } from "@/components/dashboard/kpi-card";
-import { Panel, PanelHeader, PanelLink } from "@/components/ui/panel";
+import { KpiCard, type KpiView } from "@/components/dashboard/kpi-card";
+import { AgentFeed } from "@/components/agent/agent-feed";
+import { ArcGauge, BarSeries, ColumnChart, MeterRow } from "@/components/charts";
+import { Panel, PanelHeader } from "@/components/ui/panel";
+import { Reveal } from "@/components/ui/reveal";
+import { useAppState } from "@/components/providers/app-state";
 import {
   agentConfidence,
   hourlyVolume,
   intentBreakdown,
-  kpis,
   revenueByDay,
+  series,
 } from "@/lib/mock/metrics";
-import { stores } from "@/lib/mock/stores";
-import { cn } from "@/lib/utils";
+import { cn, formatBRL, formatNumber } from "@/lib/utils";
+
+type Modo = "essencial" | "completo";
+
+function SeletorModo({
+  modo,
+  onChange,
+}: {
+  modo: Modo;
+  onChange: (m: Modo) => void;
+}) {
+  const opcoes: { id: Modo; label: string; icon: typeof Rows3 }[] = [
+    { id: "essencial", label: "Essencial", icon: Rows3 },
+    { id: "completo", label: "Completo", icon: LayoutGrid },
+  ];
+
+  return (
+    <div className="flex items-center gap-1 rounded-full border border-hairline bg-white/[0.03] p-1">
+      {opcoes.map((o) => {
+        const ativo = modo === o.id;
+        const Icon = o.icon;
+        return (
+          <button
+            key={o.id}
+            onClick={() => onChange(o.id)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors",
+              ativo
+                ? "bg-brand-500/15 text-brand-300 ring-1 ring-inset ring-brand-500/30"
+                : "text-fg-faint hover:text-fg-muted",
+            )}
+          >
+            <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function CentralDeOperacoes() {
+  const [modo, setModo] = useState<Modo>("essencial");
+  const { escala, periodo, unidadeAtual } = useAppState();
+
+  // Os indicadores acompanham o filtro de unidade e período da barra superior.
+  const kpis = useMemo<KpiView[]>(
+    () => [
+      {
+        id: "conversas",
+        label: "Conversas atendidas",
+        value: formatNumber(escala(712)),
+        delta: 18.4,
+        hint: "pelo agente",
+        spark: series(20, { base: 140, amplitude: 55, trend: 1.8, seed: 3 }),
+      },
+      {
+        id: "automacao",
+        label: "Resolvido sem humano",
+        value: "87,2%",
+        delta: 6.1,
+        hint: "meta de 80%",
+        spark: series(20, { base: 82, amplitude: 7, trend: 0.2, seed: 11 }),
+      },
+      {
+        id: "resposta",
+        label: "Tempo de resposta",
+        value: "8s",
+        delta: -42.5,
+        hint: "média do agente",
+        spark: series(20, { base: 12, amplitude: 4, trend: -0.15, seed: 7 }),
+        invertido: true,
+      },
+      {
+        id: "receita",
+        label: "Receita influenciada",
+        value: formatBRL(escala(29800)),
+        delta: 24.7,
+        hint: "pedidos via WhatsApp",
+        spark: series(20, { base: 5800, amplitude: 2000, trend: 90, seed: 19 }),
+      },
+    ],
+    [escala],
+  );
+
   return (
     <div className="mx-auto max-w-[1560px]">
+      {/* Cabeçalho */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-[24px] font-semibold tracking-[-0.025em] text-fg">
+            Central de Operações
+          </h1>
+          <p className="mt-0.5 text-[13px] text-fg-muted">
+            {unidadeAtual ? unidadeAtual.name : "Todas as unidades"}
+            {periodo === "hoje" ? ", hoje" : periodo === "7dias" ? ", 7 dias" : ", 30 dias"}
+          </p>
+        </div>
+        <SeletorModo modo={modo} onChange={setModo} />
+      </div>
+
+      {/* Operação ao vivo e agente */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <GlobePanel className="h-[440px] sm:h-[520px] xl:col-span-8 xl:h-[560px]" />
+        <AgentConsole className="h-[480px] xl:col-span-4 xl:h-[560px]" />
+      </div>
+
       {/* Indicadores */}
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((kpi, i) => (
-          <KpiCard
-            key={kpi.id}
-            kpi={kpi}
-            index={i}
-            invertDelta={kpi.id === "resposta"}
-          />
+          <KpiCard key={kpi.id} kpi={kpi} index={i} />
         ))}
       </div>
 
-      {/* Bloco central */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-        {/* Coluna esquerda */}
-        <div className="flex flex-col gap-4 xl:col-span-3">
-          <Panel>
-            <PanelHeader
-              eyebrow="Fluxo"
-              title="Mensagens por hora"
-              action={<PanelLink>detalhes</PanelLink>}
-            />
+      {/* Histórico do agente */}
+      <Panel className="mt-4">
+        <PanelHeader eyebrow="Histórico" title="O que o agente fez" live />
+        <div className="max-h-[300px] overflow-y-auto">
+          <AgentFeed limit={10} />
+        </div>
+      </Panel>
+
+      {/* Modo completo */}
+      {modo === "completo" && (
+        <div
+          className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-12"
+          style={{ animation: "rise 0.45s cubic-bezier(0.16,1,0.3,1) both" }}
+        >
+          <Panel className="xl:col-span-5">
+            <PanelHeader eyebrow="Fluxo" title="Mensagens por hora" />
             <div className="px-5 pb-5">
               <BarSeries data={hourlyVolume} highlightFrom={17} />
               <div className="mt-4 flex items-center justify-between border-t border-hairline pt-3">
                 <div>
                   <p className="tnum font-mono text-[17px] font-semibold text-fg">
-                    2.847
+                    {formatNumber(escala(2847))}
                   </p>
-                  <p className="text-[11px] text-fg-ghost">mensagens hoje</p>
+                  <p className="text-[11px] text-fg-ghost">mensagens</p>
                 </div>
                 <span className="chip chip-hot">pico às 19h</span>
               </div>
             </div>
           </Panel>
 
-          <Panel className="flex-1">
+          <Panel className="xl:col-span-4">
             <PanelHeader eyebrow="Demanda" title="O que os clientes pedem" />
             <div className="space-y-3.5 px-5 pb-5">
               {intentBreakdown.map((intent) => (
@@ -70,28 +174,20 @@ export default function CentralDeOperacoes() {
               ))}
             </div>
           </Panel>
-        </div>
 
-        {/* Globo */}
-        <div className="xl:col-span-6">
-          <GlobePanel />
-        </div>
-
-        {/* Coluna direita */}
-        <div className="flex flex-col gap-4 xl:col-span-3">
-          <Panel>
-            <PanelHeader eyebrow="Saúde" title="Atendimentos resolvidos" />
+          <Panel className="xl:col-span-3">
+            <PanelHeader eyebrow="Saúde" title="Resolvidos" />
             <div className="px-5 pb-5 pt-1">
               <ArcGauge
-                value={983}
-                max={1200}
-                label="resolvidos pelo agente"
-                caption="de 1.127 conversas hoje"
+                value={escala(983)}
+                max={escala(1200)}
+                label="pelo agente"
+                caption={`de ${formatNumber(escala(1127))} conversas`}
               />
             </div>
           </Panel>
 
-          <Panel>
+          <Panel className="xl:col-span-4">
             <PanelHeader eyebrow="Modelo" title="Confiança do agente" />
             <div className="space-y-3.5 px-5 pb-5">
               {agentConfidence.map((row) => (
@@ -105,136 +201,45 @@ export default function CentralDeOperacoes() {
             </div>
           </Panel>
 
-          <Panel className="flex-1">
-            <PanelHeader eyebrow="Rede" title="Status das unidades" />
-            <div className="px-3 pb-4">
-              <ul className="space-y-0.5">
-                {stores.map((store) => (
-                  <li
-                    key={store.id}
-                    className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.03]"
-                  >
-                    <span
-                      className={cn(
-                        "h-1.5 w-1.5 shrink-0 rounded-full",
-                        store.status === "online" &&
-                          "bg-positive shadow-[0_0_6px_1px_rgba(24,209,127,0.7)]",
-                        store.status === "atencao" &&
-                          "bg-caution shadow-[0_0_6px_1px_rgba(255,176,32,0.6)]",
-                        store.status === "offline" && "bg-fg-ghost",
-                      )}
-                    />
-                    <span className="min-w-0 flex-1 truncate text-[12px] text-fg-muted">
-                      {store.name}
-                    </span>
-                    <span className="tnum shrink-0 font-mono text-[11px] text-fg-ghost">
-                      {store.conversas}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </Panel>
-        </div>
-      </div>
-
-      {/* Fluxo do agente + receita */}
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <Panel className="lg:col-span-7">
-          <PanelHeader
-            eyebrow="Fluxo do agente"
-            title="O que está acontecendo agora"
-            live
-            action={<PanelLink>histórico completo</PanelLink>}
-          />
-          <div className="max-h-[430px] overflow-y-auto">
-            <AgentFeed limit={14} />
-          </div>
-        </Panel>
-
-        <div className="flex flex-col gap-4 lg:col-span-5">
-          <Panel>
-            <PanelHeader
-              eyebrow="Resultado"
-              title="Receita influenciada pelo agente"
-              action={<PanelLink>relatório</PanelLink>}
-            />
+          <Panel className="xl:col-span-5">
+            <PanelHeader eyebrow="Resultado" title="Receita por dia" />
             <div className="px-5 pb-5">
               <ColumnChart data={revenueByDay} formatAs="compact" />
-              <div className="mt-4 grid grid-cols-3 gap-3 border-t border-hairline pt-4">
-                <div>
-                  <p className="tnum font-mono text-[16px] font-semibold text-fg">
-                    R$ 186 mil
-                  </p>
-                  <p className="text-[10.5px] text-fg-ghost">na semana</p>
-                </div>
-                <div>
-                  <p className="tnum font-mono text-[16px] font-semibold text-fg">
-                    R$ 74,20
-                  </p>
-                  <p className="text-[10.5px] text-fg-ghost">ticket médio</p>
-                </div>
-                <div>
-                  <p className="tnum font-mono text-[16px] font-semibold text-positive">
-                    +24,7%
-                  </p>
-                  <p className="text-[10.5px] text-fg-ghost">vs. semana ant.</p>
-                </div>
-              </div>
             </div>
           </Panel>
 
-          <Panel className="flex-1">
+          <Panel className="xl:col-span-3">
             <PanelHeader
               eyebrow="Atenção"
-              title="Precisa de decisão humana"
-              action={<span className="chip chip-warn">3 abertos</span>}
+              title="Precisa de você"
+              action={<span className="chip chip-warn">3</span>}
             />
             <ul className="space-y-1 px-3 pb-4">
               {[
-                {
-                  title: "Estoque crítico · Amoxicilina 500mg",
-                  detail: "Filial Santa Rita · 18 un (mín. 40)",
-                  tone: "warn" as const,
-                },
-                {
-                  title: "Unidade sem conexão há 12 min",
-                  detail: "Filial Alto da Serra · WhatsApp desconectado",
-                  tone: "warn" as const,
-                },
-                {
-                  title: "Campanha aguardando aprovação",
-                  detail: "Dermocosméticos · agendada para hoje 18h",
-                  tone: "brand" as const,
-                },
+                { titulo: "Estoque crítico", detalhe: "Amoxicilina, Santa Rita" },
+                { titulo: "Unidade sem conexão", detalhe: "Alto da Serra, 12 min" },
+                { titulo: "Campanha aguardando", detalhe: "Dermocosméticos, 18h" },
               ].map((item) => (
-                <li
-                  key={item.title}
-                  className="flex items-start gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-white/[0.03]"
+                <Reveal
+                  as="li"
+                  key={item.titulo}
+                  className="flex items-start gap-2.5 rounded-xl px-2 py-2.5"
                 >
-                  <span
-                    className={cn(
-                      "mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full",
-                      item.tone === "warn" ? "bg-caution" : "bg-brand-500",
-                    )}
-                  />
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-caution" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[12.5px] font-medium text-fg">
-                      {item.title}
+                      {item.titulo}
                     </p>
                     <p className="mt-0.5 truncate text-[11.5px] text-fg-ghost">
-                      {item.detail}
+                      {item.detalhe}
                     </p>
                   </div>
-                  <button className="btn-ghost shrink-0 !px-3 !py-1 !text-[11px]">
-                    resolver
-                  </button>
-                </li>
+                </Reveal>
               ))}
             </ul>
           </Panel>
         </div>
-      </div>
+      )}
     </div>
   );
 }
