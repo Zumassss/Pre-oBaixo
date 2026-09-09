@@ -363,6 +363,12 @@
     color: var(--color-caution);
   }
 
+  .chip-info {
+    border-color: color-mix(in oklab, var(--color-info) 32%, transparent);
+    background: color-mix(in oklab, var(--color-info) 12%, transparent);
+    color: var(--color-info);
+  }
+
   .eyebrow {
     font-size: 10px;
     font-weight: 600;

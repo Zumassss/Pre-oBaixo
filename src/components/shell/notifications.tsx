@@ -5,6 +5,9 @@ import Link from "next/link";
 import {
   Bell,
   CircleCheck,
+  ClipboardList,
+  PackageCheck,
+  Stethoscope,
   MessageSquareWarning,
   PackageX,
   Settings,
@@ -52,6 +55,50 @@ function calcularAvisos(banco: ReturnType<typeof useBanco>["banco"]): Aviso[] {
       detalhe: "Sem a conexão, nenhuma conversa chega ao sistema.",
       href: "/configuracoes",
       tom: "alerta",
+    });
+  }
+
+  // Receita pendente vem antes de tudo: é o que impede a loja de entregar.
+  const naReceita = banco.pedidos.filter(
+    (p) => p.status === "aguardando_receita",
+  );
+  if (naReceita.length > 0) {
+    avisos.push({
+      id: "receita",
+      icon: Stethoscope,
+      titulo: `${naReceita.length} ${naReceita.length === 1 ? "pedido aguardando" : "pedidos aguardando"} receita`,
+      detalhe: "O farmacêutico precisa conferir antes de separar.",
+      href: "/pedidos",
+      tom: "alerta",
+    });
+  }
+
+  const prontos = banco.pedidos.filter((p) => p.status === "pronto");
+  if (prontos.length > 0) {
+    avisos.push({
+      id: "prontos",
+      icon: PackageCheck,
+      titulo: `${prontos.length} ${prontos.length === 1 ? "pedido pronto" : "pedidos prontos"} para retirada`,
+      detalhe: prontos
+        .slice(0, 3)
+        .map((p) => p.cliente)
+        .join(", "),
+      href: "/pedidos",
+      tom: "info",
+    });
+  }
+
+  const aguardandoPagamento = banco.pedidos.filter(
+    (p) => p.status === "aguardando_pagamento",
+  );
+  if (aguardandoPagamento.length > 0) {
+    avisos.push({
+      id: "pagamento",
+      icon: ClipboardList,
+      titulo: `${aguardandoPagamento.length} ${aguardandoPagamento.length === 1 ? "pedido aguardando" : "pedidos aguardando"} pagamento`,
+      detalhe: "Confira se o Pix caiu na conta da loja.",
+      href: "/pedidos",
+      tom: "info",
     });
   }
 

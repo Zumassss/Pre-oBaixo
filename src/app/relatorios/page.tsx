@@ -1,7 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
-import { ChartNoAxesCombined, MessagesSquare, Package, Users } from "lucide-react";
+import {
+  ChartNoAxesCombined,
+  ClipboardList,
+  MessagesSquare,
+  Package,
+  Wallet,
+} from "lucide-react";
 import Link from "next/link";
 import { PageHeader, Panel, PanelHeader } from "@/components/ui/panel";
 import { Table, Td, Thead, Tr } from "@/components/ui/table";
@@ -10,6 +16,7 @@ import { Reveal } from "@/components/ui/reveal";
 import { ExportButton } from "@/components/relatorios/export-button";
 import { useAppState, periodoLabel } from "@/components/providers/app-state";
 import { useBanco } from "@/lib/db/use-db";
+import { STATUS_PEDIDO_LABEL } from "@/lib/db/types";
 import { formatBRLCents, formatNumber } from "@/lib/utils";
 
 export default function RelatoriosPage() {
@@ -28,11 +35,27 @@ export default function RelatoriosPage() {
     () => banco.clientes.filter((c) => c.criadoEm >= desde),
     [banco.clientes, desde],
   );
+  const pedidos = useMemo(
+    () => banco.pedidos.filter((p) => p.criadoEm >= desde),
+    [banco.pedidos, desde],
+  );
+
+  // Só entra como faturamento o pedido que saiu da loja e foi pago. Pedido
+  // em preparo ainda pode ser cancelado, e contar isso como receita seria
+  // inflar o número.
+  const faturamento = pedidos
+    .filter((p) => p.status === "entregue" && p.pago)
+    .reduce((soma, p) => soma + p.total, 0);
+  const ticketMedio = (() => {
+    const entregues = pedidos.filter((p) => p.status === "entregue" && p.pago);
+    return entregues.length ? faturamento / entregues.length : 0;
+  })();
 
   const temAlgo =
     banco.clientes.length > 0 ||
     banco.produtos.length > 0 ||
-    banco.conversas.length > 0;
+    banco.conversas.length > 0 ||
+    banco.pedidos.length > 0;
 
   const criticos = banco.produtos.filter((p) => p.estoque < p.estoqueMinimo);
 
@@ -44,16 +67,18 @@ export default function RelatoriosPage() {
       icon: MessagesSquare,
     },
     {
-      label: "Clientes novos",
-      valor: formatNumber(clientesNovos.length),
-      hint: `${banco.clientes.length} no total`,
-      icon: Users,
+      label: "Pedidos no período",
+      valor: formatNumber(pedidos.length),
+      hint: `${clientesNovos.length} clientes novos`,
+      icon: ClipboardList,
     },
     {
-      label: "Produtos cadastrados",
-      valor: formatNumber(banco.produtos.length),
-      hint: `${criticos.length} abaixo do mínimo`,
-      icon: Package,
+      label: "Faturamento",
+      valor: formatBRLCents(faturamento),
+      hint: ticketMedio
+        ? `ticket médio ${formatBRLCents(ticketMedio)}`
+        : "só pedidos entregues e pagos",
+      icon: Wallet,
     },
     {
       label: "Interações com o agente",
@@ -113,6 +138,57 @@ export default function RelatoriosPage() {
               );
             })}
           </div>
+
+          <Panel>
+            <PanelHeader
+              eyebrow="Vendas"
+              title="Pedidos do período"
+              action={
+                pedidos.length > 0 ? (
+                  <span className="chip">{pedidos.length} pedidos</span>
+                ) : undefined
+              }
+            />
+            {pedidos.length === 0 ? (
+              <EmptyState
+                icon={ClipboardList}
+                title="Nenhum pedido no período"
+                description="Troque o período na barra de cima ou registre um pedido."
+              />
+            ) : (
+              <Table>
+                <Thead
+                  columns={["Pedido", "Cliente", "Itens", "Status", "Pagamento", "Total"]}
+                />
+                <tbody>
+                  {pedidos.map((pedido, i) => (
+                    <Tr key={pedido.id} index={i}>
+                      <Td className="tnum font-mono text-fg-faint">
+                        #{pedido.numero}
+                      </Td>
+                      <Td className="font-medium text-fg">{pedido.cliente}</Td>
+                      <Td className="tnum font-mono text-fg-faint">
+                        {pedido.itens.reduce((n, it) => n + it.quantidade, 0)}
+                      </Td>
+                      <Td className="text-fg-faint">
+                        {STATUS_PEDIDO_LABEL[pedido.status].toLowerCase()}
+                      </Td>
+                      <Td className="text-fg-faint">
+                        {pedido.pago
+                          ? "pago"
+                          : pedido.formaPagamento === "pix"
+                            ? "pix pendente"
+                            : "na retirada"}
+                      </Td>
+                      <Td align="right" className="tnum font-mono font-medium text-fg">
+                        {formatBRLCents(pedido.total)}
+                      </Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </Panel>
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
             <Panel className="xl:col-span-7">

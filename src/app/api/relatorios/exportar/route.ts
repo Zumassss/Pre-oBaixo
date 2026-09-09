@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
-import type { BancoLocal } from "@/lib/db/types";
+import { STATUS_PEDIDO_LABEL, type BancoLocal } from "@/lib/db/types";
 
 export const runtime = "nodejs";
 
@@ -145,6 +145,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Dados inválidos." }, { status: 400 });
   }
 
+  // Um navegador com dado de versão anterior pode não ter pedidos ainda.
+  const pedidos = banco.pedidos ?? [];
+
   const livro = new ExcelJS.Workbook();
   livro.creator = "MAZUS";
   livro.company = banco.loja?.nome || "Preço Baixo";
@@ -193,6 +196,18 @@ export async function POST(request: Request) {
         "Conversas registradas",
         banco.conversas.length,
         `${banco.conversas.filter((c) => c.status !== "resolvida").length} ainda em aberto`,
+      ],
+      [
+        "Pedidos registrados",
+        pedidos.length,
+        `${pedidos.filter((p) => p.status !== "entregue" && p.status !== "cancelado").length} ainda em aberto`,
+      ],
+      [
+        "Faturamento entregue e pago",
+        pedidos
+          .filter((p) => p.status === "entregue" && p.pago)
+          .reduce((soma, p) => soma + p.total, 0),
+        "Soma dos pedidos que saíram da loja e foram pagos",
       ],
       [
         "Campanhas criadas",
@@ -275,6 +290,43 @@ export async function POST(request: Request) {
       c.status === "com_atendente" ? "com atendente" : c.status,
       c.mensagens.length,
       data(c.atualizadaEm),
+    ]),
+  );
+
+  /* ---------- Pedidos ---------- */
+  const abaPedidos = livro.addWorksheet("Pedidos");
+  cabecalhoDaAba(abaPedidos, nomeLoja, "Pedidos", `Gerado em ${carimbo}`, 8);
+  montarTabela(
+    abaPedidos,
+    5,
+    [
+      { titulo: "Pedido", largura: 10, alinhamento: "center" },
+      { titulo: "Cliente", largura: 28 },
+      { titulo: "Telefone", largura: 18 },
+      { titulo: "Origem", largura: 12, alinhamento: "center" },
+      { titulo: "Itens", largura: 40 },
+      { titulo: "Status", largura: 22, alinhamento: "center" },
+      { titulo: "Pagamento", largura: 16, alinhamento: "center" },
+      {
+        titulo: "Total",
+        largura: 14,
+        alinhamento: "right",
+        formato: 'R$ #,##0.00',
+      },
+    ],
+    pedidos.map((p) => [
+      p.numero,
+      p.cliente,
+      p.telefone || "sem telefone",
+      p.origem === "whatsapp" ? "WhatsApp" : "Balcão",
+      p.itens.map((i) => `${i.quantidade}x ${i.nome}`).join(", "),
+      STATUS_PEDIDO_LABEL[p.status],
+      p.pago
+        ? "pago"
+        : p.formaPagamento === "pix"
+          ? "pix pendente"
+          : "na retirada",
+      p.total,
     ]),
   );
 

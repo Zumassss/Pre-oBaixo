@@ -5,6 +5,7 @@ import { Activity, MessagesSquare, Package, Users } from "lucide-react";
 import { AgentConsole } from "@/components/dashboard/agent-console";
 import { GlobePanel } from "@/components/dashboard/globe-panel";
 import { SetupChecklist } from "@/components/dashboard/setup-checklist";
+import { FilaPedidos } from "@/components/dashboard/fila-pedidos";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Reveal } from "@/components/ui/reveal";
@@ -88,6 +89,16 @@ export default function Painel() {
         <AgentConsole className="h-[460px] xl:col-span-4 xl:h-[540px]" />
       </div>
 
+      {/* Pedidos e histórico */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <div className="xl:col-span-7">
+          <FilaPedidos banco={banco} />
+        </div>
+        <div className="xl:col-span-5">
+          <HistoricoAgente eventos={eventos} />
+        </div>
+      </div>
+
       {/* Indicadores */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {indicadores.map((item, i) => {
@@ -115,58 +126,66 @@ export default function Painel() {
         })}
       </div>
 
-      {/* Histórico do agente */}
-      <Panel>
-        <PanelHeader
-          eyebrow="Histórico"
-          title="Atividade do agente"
-          action={
-            eventos.length > 0 ? (
-              <span className="chip">{eventos.length} registros</span>
-            ) : undefined
-          }
-        />
-        {eventos.length === 0 ? (
-          <EmptyState
-            icon={Activity}
-            title="Nenhuma atividade ainda"
-            description="Assim que você conversar com o agente ou o WhatsApp começar a receber mensagens, tudo aparece aqui."
-          />
-        ) : (
-          <ul data-lenis-prevent className="max-h-[320px] overflow-y-auto px-2 pb-2">
-            {eventos.map((evento) => (
-              <Reveal
-                as="li"
-                key={evento.id}
-                className="flex items-start gap-3 rounded-xl p-3"
-              >
-                <span
-                  className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${
-                    evento.tipo === "erro"
-                      ? "bg-caution"
-                      : evento.tipo === "pergunta"
-                        ? "bg-info"
-                        : "bg-brand-500"
-                  }`}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline gap-2">
-                    <p className="truncate text-[12.5px] font-medium text-fg">
-                      {evento.titulo}
-                    </p>
-                    <span className="tnum ml-auto shrink-0 font-mono text-[10.5px] text-fg-ghost">
-                      {horario(evento.em)}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 line-clamp-2 text-[11.5px] leading-relaxed text-fg-faint">
-                    {evento.detalhe}
-                  </p>
-                </div>
-              </Reveal>
-            ))}
-          </ul>
-        )}
-      </Panel>
     </div>
+  );
+}
+
+function HistoricoAgente({
+  eventos,
+}: {
+  eventos: { id: string; tipo: string; titulo: string; detalhe: string; em: number }[];
+}) {
+  return (
+    <Panel>
+      <PanelHeader
+        eyebrow="Histórico"
+        title="Atividade do agente"
+        action={
+          eventos.length > 0 ? (
+            <span className="chip">{eventos.length} registros</span>
+          ) : undefined
+        }
+      />
+      {eventos.length === 0 ? (
+        <EmptyState
+          icon={Activity}
+          title="Nenhuma atividade ainda"
+          description="Assim que você conversar com o agente ou o WhatsApp começar a receber mensagens, tudo aparece aqui."
+        />
+      ) : (
+        <ul data-lenis-prevent className="max-h-[352px] overflow-y-auto px-2 pb-2">
+          {eventos.map((evento) => (
+            <Reveal
+              as="li"
+              key={evento.id}
+              className="flex items-start gap-3 rounded-xl p-3"
+            >
+              <span
+                className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${
+                  evento.tipo === "erro"
+                    ? "bg-caution"
+                    : evento.tipo === "pergunta"
+                      ? "bg-info"
+                      : "bg-brand-500"
+                }`}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline gap-2">
+                  <p className="truncate text-[12.5px] font-medium text-fg">
+                    {evento.titulo}
+                  </p>
+                  <span className="tnum ml-auto shrink-0 font-mono text-[10.5px] text-fg-ghost">
+                    {horario(evento.em)}
+                  </span>
+                </div>
+                <p className="mt-0.5 line-clamp-2 text-[11.5px] leading-relaxed text-fg-faint">
+                  {evento.detalhe}
+                </p>
+              </div>
+            </Reveal>
+          ))}
+        </ul>
+      )}
+    </Panel>
   );
 }

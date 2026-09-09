@@ -1,7 +1,14 @@
 "use client";
 
 import { atualizarBanco, novoId } from "./local-db";
-import type { BancoLocal, Conversa, Mensagem } from "./types";
+import type {
+  BancoLocal,
+  Conversa,
+  ItemPedido,
+  Mensagem,
+  Pedido,
+  Produto,
+} from "./types";
 
 /**
  * Dados de exemplo.
@@ -47,8 +54,150 @@ function conversa(
   };
 }
 
+function pedido(
+  numero: number,
+  cliente: string,
+  telefone: string,
+  origem: Pedido["origem"],
+  itens: ItemPedido[],
+  status: Pedido["status"],
+  forma: Pedido["formaPagamento"],
+  pago: boolean,
+  minutosAtras: number,
+  extras: Partial<Pedido> = {},
+): Pedido {
+  const em = Date.now() - minutosAtras * 60 * 1000;
+  return {
+    id: novoId("ped"),
+    numero,
+    cliente,
+    telefone,
+    origem,
+    itens,
+    total: itens.reduce((s, i) => s + i.precoUnitario * i.quantidade, 0),
+    status,
+    formaPagamento: forma,
+    pago,
+    receitaConferidaPor: "",
+    observacao: "",
+    criadoEm: em,
+    atualizadoEm: em,
+    ...extras,
+  };
+}
+
+/**
+ * Item de pedido apontando para um produto de verdade do catálogo.
+ *
+ * O `produtoId` precisa ser o mesmo do catálogo, senão a entrega não acha o
+ * produto para dar baixa no estoque e o pedido vira enfeite.
+ */
+function item(
+  produto: Produto,
+  quantidade: number,
+): ItemPedido {
+  return {
+    produtoId: produto.id,
+    nome: produto.nome,
+    precoUnitario: produto.preco,
+    quantidade,
+    exigeReceita: produto.exigeReceita,
+  };
+}
+
 export function carregarExemplos(): BancoLocal {
   const agora = Date.now();
+
+  // O catálogo nasce aqui porque os pedidos abaixo precisam apontar
+  // para estes produtos, não para cópias soltas.
+  const produtos: Produto[] = [
+    {
+      id: novoId("sku"),
+      nome: "Dipirona Sódica 500mg 20 comprimidos",
+      categoria: "Genérico",
+      preco: 8.9,
+      estoque: 312,
+      estoqueMinimo: 60,
+      exigeReceita: false,
+      criadoEm: agora - 30 * 24 * HORA,
+    },
+    {
+      id: novoId("sku"),
+      nome: "Losartana Potássica 50mg 30 comprimidos",
+      categoria: "Genérico",
+      preco: 12.9,
+      estoque: 146,
+      estoqueMinimo: 50,
+      exigeReceita: true,
+      criadoEm: agora - 30 * 24 * HORA,
+    },
+    {
+      id: novoId("sku"),
+      nome: "Amoxicilina 500mg 21 cápsulas",
+      categoria: "Genérico",
+      preco: 24.5,
+      estoque: 18,
+      estoqueMinimo: 40,
+      exigeReceita: true,
+      criadoEm: agora - 28 * 24 * HORA,
+    },
+    {
+      id: novoId("sku"),
+      nome: "Omeprazol 20mg 28 cápsulas",
+      categoria: "Genérico",
+      preco: 14.2,
+      estoque: 204,
+      estoqueMinimo: 50,
+      exigeReceita: false,
+      criadoEm: agora - 25 * 24 * HORA,
+    },
+    {
+      id: novoId("sku"),
+      nome: "Metformina 850mg 30 comprimidos",
+      categoria: "Genérico",
+      preco: 11.4,
+      estoque: 168,
+      estoqueMinimo: 45,
+      exigeReceita: true,
+      criadoEm: agora - 20 * 24 * HORA,
+    },
+    {
+      id: novoId("sku"),
+      nome: "Protetor Solar FPS 50 120ml",
+      categoria: "Dermocosmético",
+      preco: 62.9,
+      estoque: 74,
+      estoqueMinimo: 20,
+      exigeReceita: false,
+      criadoEm: agora - 18 * 24 * HORA,
+    },
+    {
+      id: novoId("sku"),
+      nome: "Vitamina D 2000UI 60 cápsulas",
+      categoria: "Similar",
+      preco: 39.9,
+      estoque: 8,
+      estoqueMinimo: 25,
+      exigeReceita: false,
+      criadoEm: agora - 12 * 24 * HORA,
+    },
+    {
+      id: novoId("sku"),
+      nome: "Fralda Geriátrica G 8 unidades",
+      categoria: "Higiene",
+      preco: 34.9,
+      estoque: 96,
+      estoqueMinimo: 30,
+      exigeReceita: false,
+      criadoEm: agora - 10 * 24 * HORA,
+    },
+  ];
+
+  const acharProduto = (trecho: string) => {
+    const encontrado = produtos.find((p) => p.nome.includes(trecho));
+    if (!encontrado) throw new Error(`Produto de exemplo ausente: ${trecho}`);
+    return encontrado;
+  };
 
   const banco: BancoLocal = {
     loja: {
@@ -127,88 +276,7 @@ export function carregarExemplos(): BancoLocal {
       },
     ],
 
-    produtos: [
-      {
-        id: novoId("sku"),
-        nome: "Dipirona Sódica 500mg 20 comprimidos",
-        categoria: "Genérico",
-        preco: 8.9,
-        estoque: 312,
-        estoqueMinimo: 60,
-        exigeReceita: false,
-        criadoEm: agora - 30 * 24 * HORA,
-      },
-      {
-        id: novoId("sku"),
-        nome: "Losartana Potássica 50mg 30 comprimidos",
-        categoria: "Genérico",
-        preco: 12.9,
-        estoque: 146,
-        estoqueMinimo: 50,
-        exigeReceita: true,
-        criadoEm: agora - 30 * 24 * HORA,
-      },
-      {
-        id: novoId("sku"),
-        nome: "Amoxicilina 500mg 21 cápsulas",
-        categoria: "Genérico",
-        preco: 24.5,
-        estoque: 18,
-        estoqueMinimo: 40,
-        exigeReceita: true,
-        criadoEm: agora - 28 * 24 * HORA,
-      },
-      {
-        id: novoId("sku"),
-        nome: "Omeprazol 20mg 28 cápsulas",
-        categoria: "Genérico",
-        preco: 14.2,
-        estoque: 204,
-        estoqueMinimo: 50,
-        exigeReceita: false,
-        criadoEm: agora - 25 * 24 * HORA,
-      },
-      {
-        id: novoId("sku"),
-        nome: "Metformina 850mg 30 comprimidos",
-        categoria: "Genérico",
-        preco: 11.4,
-        estoque: 168,
-        estoqueMinimo: 45,
-        exigeReceita: true,
-        criadoEm: agora - 20 * 24 * HORA,
-      },
-      {
-        id: novoId("sku"),
-        nome: "Protetor Solar FPS 50 120ml",
-        categoria: "Dermocosmético",
-        preco: 62.9,
-        estoque: 74,
-        estoqueMinimo: 20,
-        exigeReceita: false,
-        criadoEm: agora - 18 * 24 * HORA,
-      },
-      {
-        id: novoId("sku"),
-        nome: "Vitamina D 2000UI 60 cápsulas",
-        categoria: "Similar",
-        preco: 39.9,
-        estoque: 8,
-        estoqueMinimo: 25,
-        exigeReceita: false,
-        criadoEm: agora - 12 * 24 * HORA,
-      },
-      {
-        id: novoId("sku"),
-        nome: "Fralda Geriátrica G 8 unidades",
-        categoria: "Higiene",
-        preco: 34.9,
-        estoque: 96,
-        estoqueMinimo: 30,
-        exigeReceita: false,
-        criadoEm: agora - 10 * 24 * HORA,
-      },
-    ],
+    produtos,
 
     conversas: [
       conversa("Ana Paula Ribeiro", "27 99812-4821", "aberta", [
@@ -289,6 +357,66 @@ export function carregarExemplos(): BancoLocal {
         agendadaPara: "",
         criadoEm: agora - 6 * HORA,
       },
+    ],
+
+    pagamentos: {
+      chavePix: "00.000.000/0001-00",
+      beneficiario: "Preco Baixo Vila Velha",
+      cidade: "Vila Velha",
+    },
+
+    pedidos: [
+      pedido(
+        4,
+        "Ana Paula Ribeiro",
+        "27 99812-4821",
+        "whatsapp",
+        [item(acharProduto("Losartana"), 2)],
+        "aguardando_receita",
+        "balcao",
+        false,
+        18,
+        { observacao: "Cliente retira no fim da tarde" },
+      ),
+      pedido(
+        3,
+        "Marta Souza",
+        "27 99630-7734",
+        "whatsapp",
+        [
+          item(acharProduto("Fralda"), 2),
+          item(acharProduto("Protetor Solar"), 1),
+        ],
+        "aguardando_pagamento",
+        "pix",
+        false,
+        52,
+      ),
+      pedido(
+        2,
+        "Fernanda Alves",
+        "27 99402-5512",
+        "whatsapp",
+        [
+          item(acharProduto("Dipirona"), 1),
+          item(acharProduto("Vitamina D"), 1),
+        ],
+        "em_preparo",
+        "pix",
+        true,
+        95,
+      ),
+      pedido(
+        1,
+        "Roberto Nogueira",
+        "27 99377-8846",
+        "balcao",
+        [item(acharProduto("Omeprazol"), 1)],
+        "pronto",
+        "balcao",
+        false,
+        180,
+      ),
     ],
 
     eventos: [

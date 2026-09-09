@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   Check,
   FlaskConical,
+  QrCode,
   KeyRound,
   MessageSquareWarning,
   PlugZap,
@@ -14,10 +15,16 @@ import {
 import { PageHeader, Panel, PanelHeader } from "@/components/ui/panel";
 import { Campo, Entrada } from "@/components/ui/modal";
 import { Reveal } from "@/components/ui/reveal";
-import { definirWhatsapp, salvarLoja, useBanco } from "@/lib/db/use-db";
+import {
+  definirWhatsapp,
+  salvarLoja,
+  salvarPagamentos,
+  useBanco,
+} from "@/lib/db/use-db";
 import { limparBanco } from "@/lib/db/local-db";
 import { carregarExemplos } from "@/lib/db/exemplos";
 import { LOJA_VAZIA, type Loja } from "@/lib/db/types";
+import { pixConfigurado } from "@/lib/pix";
 import { cn } from "@/lib/utils";
 
 export default function ConfiguracoesPage() {
@@ -238,6 +245,67 @@ function FormularioLoja({
                   ? "Marcar como desconectado"
                   : "Marcar como conectado"}
               </button>
+            </div>
+          </Panel>
+
+          {/* Pagamentos */}
+          <Panel>
+            <PanelHeader
+              eyebrow="Cobrança"
+              title="Pix da loja"
+              action={
+                <span
+                  className={cn(
+                    "chip",
+                    pixConfigurado(banco.pagamentos) ? "chip-good" : "chip-warn",
+                  )}
+                >
+                  {pixConfigurado(banco.pagamentos) ? "ativo" : "sem chave"}
+                </span>
+              }
+            />
+            <div className="space-y-3 px-5 pb-5">
+              <div className="flex items-start gap-2.5">
+                <QrCode
+                  className="mt-0.5 h-4 w-4 shrink-0 text-fg-faint"
+                  strokeWidth={2}
+                />
+                <p className="text-[12.5px] leading-relaxed text-fg-muted">
+                  Com a chave abaixo o sistema gera o Pix copia e cola de cada
+                  pedido, com o valor já preenchido. A baixa do pagamento ainda
+                  é manual: confirmar sozinho exige um provedor como Mercado
+                  Pago ou Asaas conectado.
+                </p>
+              </div>
+
+              <Campo label="Chave Pix" hint="CPF, CNPJ, telefone, email ou chave aleatória.">
+                <Entrada
+                  value={banco.pagamentos.chavePix}
+                  onChange={(e) => salvarPagamentos({ chavePix: e.target.value })}
+                  placeholder="Ex: 00.000.000/0001-00"
+                />
+              </Campo>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Campo label="Nome do recebedor" hint="Como aparece no app do cliente.">
+                  <Entrada
+                    value={banco.pagamentos.beneficiario}
+                    onChange={(e) =>
+                      salvarPagamentos({ beneficiario: e.target.value })
+                    }
+                    placeholder="Ex: Preço Baixo Vila Velha"
+                    maxLength={25}
+                  />
+                </Campo>
+                <Campo label="Cidade">
+                  <Entrada
+                    value={banco.pagamentos.cidade}
+                    onChange={(e) => salvarPagamentos({ cidade: e.target.value })}
+                    placeholder="Ex: Vila Velha"
+                    maxLength={15}
+                  />
+                </Campo>
+              </div>
             </div>
           </Panel>
 

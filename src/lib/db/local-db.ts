@@ -40,6 +40,7 @@ export function lerBanco(): BancoLocal {
       ...BANCO_VAZIO,
       ...salvo,
       loja: { ...BANCO_VAZIO.loja, ...salvo.loja },
+      pagamentos: { ...BANCO_VAZIO.pagamentos, ...salvo.pagamentos },
     };
     return cache;
   } catch {

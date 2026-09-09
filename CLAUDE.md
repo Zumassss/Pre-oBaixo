@@ -27,6 +27,14 @@ docs/referencias/       imagens que definiram a direção visual
 - **Nada de biblioteca de gráfico.** Os gráficos são SVG próprio em
   `src/components/charts`. Mantenha assim: é mais leve e o traço combina com
   o resto da interface.
+- **Item de pedido guarda `produtoId` do catálogo de verdade.** Copiar só o
+  nome quebra a baixa de estoque na entrega em silêncio: o pedido fecha e o
+  estoque não mexe.
+- **Pix é gerado de verdade, confirmação não.** `lib/pix.ts` monta o BR Code
+  com a chave da loja e funciona no app do banco; `npm run verificar:pix`
+  confere o CRC e lê o payload de volta. Saber que o cliente pagou depende de
+  um provedor com webhook, que não existe ainda: a tela precisa continuar
+  dizendo isso em vez de simular baixa automática.
 - **O Lenis não descobre sozinho que a página cresceu.** Ele guarda a altura
   em cache e só remede em `resize` da janela. Aqui a altura muda sem resize
   nenhum: navegação do App Router, dados chegando do armazenamento local,
@@ -49,6 +57,10 @@ docs/referencias/       imagens que definiram a direção visual
   geometria crua.
 
 ## Regra de produto que não se negocia
+
+Pedido com item de tarja não anda sozinho: entra em `aguardando_receita` e
+só sai quando alguém registra a conferência. Não é etapa cosmética de fila, é
+o que separa o sistema de um problema sanitário.
 
 O agente **nunca** indica, sugere ou opina sobre medicamento, dose ou
 interação — isso é transferido ao farmacêutico responsável. Conteúdo de

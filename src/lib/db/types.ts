@@ -90,6 +90,103 @@ export type Conversa = {
   atualizadaEm: number;
 };
 
+/* ------------------------------------------------------------------
+   Pedidos
+   ------------------------------------------------------------------ */
+
+/**
+ * Um item já dentro do pedido.
+ *
+ * O preço e a exigência de receita são copiados do catálogo no momento em
+ * que o pedido nasce. Se o produto mudar de preço amanhã, o pedido de hoje
+ * continua valendo o que foi combinado com o cliente.
+ */
+export type ItemPedido = {
+  produtoId: string;
+  nome: string;
+  precoUnitario: number;
+  quantidade: number;
+  exigeReceita: boolean;
+};
+
+/**
+ * Etapas de um pedido.
+ *
+ * `aguardando_receita` existe por exigência regulatória: pedido com item de
+ * tarja não anda sozinho, o farmacêutico precisa conferir a receita antes.
+ * `aguardando_pagamento` só aparece quando a cobrança é por Pix; quem paga
+ * no balcão paga na hora de retirar.
+ */
+export type StatusPedido =
+  | "aguardando_receita"
+  | "aguardando_pagamento"
+  | "em_preparo"
+  | "pronto"
+  | "entregue"
+  | "cancelado";
+
+export type FormaPagamento = "balcao" | "pix";
+
+export type OrigemPedido = "whatsapp" | "balcao";
+
+export type Pedido = {
+  id: string;
+  /** Número curto e sequencial, para a equipe chamar em voz alta. */
+  numero: number;
+  cliente: string;
+  telefone: string;
+  origem: OrigemPedido;
+  itens: ItemPedido[];
+  total: number;
+  status: StatusPedido;
+  formaPagamento: FormaPagamento;
+  pago: boolean;
+  /** Quem conferiu a receita, quando havia item de tarja. */
+  receitaConferidaPor: string;
+  observacao: string;
+  criadoEm: number;
+  atualizadoEm: number;
+};
+
+export const STATUS_PEDIDO_LABEL: Record<StatusPedido, string> = {
+  aguardando_receita: "Aguardando receita",
+  aguardando_pagamento: "Aguardando pagamento",
+  em_preparo: "Em preparo",
+  pronto: "Pronto para retirada",
+  entregue: "Entregue",
+  cancelado: "Cancelado",
+};
+
+/** Ordem em que as etapas aparecem na fila. */
+export const FILA_PEDIDOS: StatusPedido[] = [
+  "aguardando_receita",
+  "aguardando_pagamento",
+  "em_preparo",
+  "pronto",
+];
+
+export function pedidoExigeReceita(pedido: Pedido) {
+  return pedido.itens.some((i) => i.exigeReceita);
+}
+
+export function pedidoEmAberto(pedido: Pedido) {
+  return pedido.status !== "entregue" && pedido.status !== "cancelado";
+}
+
+/** Configuração de cobrança. Sem chave Pix, só resta receber no balcão. */
+export type Pagamentos = {
+  chavePix: string;
+  /** Nome do recebedor como sai no app do banco do cliente. */
+  beneficiario: string;
+  cidade: string;
+};
+
+export const PAGAMENTOS_VAZIO: Pagamentos = {
+  chavePix: "",
+  beneficiario: "",
+  cidade: "",
+};
+
 /** Registro do que o agente fez. Só entra aqui o que aconteceu de verdade. */
 export type EventoAgente = {
   id: string;
@@ -106,9 +203,11 @@ export type BancoLocal = {
   produtos: Produto[];
   campanhas: Campanha[];
   conversas: Conversa[];
+  pedidos: Pedido[];
   eventos: EventoAgente[];
   /** Conexão com a API do WhatsApp, ainda não ligada. */
   whatsappConectado: boolean;
+  pagamentos: Pagamentos;
 };
 
 export const BANCO_VAZIO: BancoLocal = {
@@ -117,6 +216,8 @@ export const BANCO_VAZIO: BancoLocal = {
   produtos: [],
   campanhas: [],
   conversas: [],
+  pedidos: [],
   eventos: [],
   whatsappConectado: false,
+  pagamentos: PAGAMENTOS_VAZIO,
 };

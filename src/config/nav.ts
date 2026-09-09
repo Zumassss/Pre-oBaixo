@@ -4,6 +4,7 @@ import {
   ChartNoAxesCombined,
   MessagesSquare,
   Megaphone,
+  ClipboardList,
   Package,
   Settings,
   Users,
@@ -33,6 +34,12 @@ export const navGroups: NavGroup[] = [
         label: "Conversas",
         icon: MessagesSquare,
         curto: "Conversas",
+      },
+      {
+        href: "/pedidos",
+        label: "Pedidos",
+        icon: ClipboardList,
+        curto: "Pedidos",
       },
       {
         href: "/campanhas",
@@ -77,6 +84,7 @@ export const navGroups: NavGroup[] = [
 export const pageMeta: Record<string, { title: string; parent: string }> = {
   "/": { title: "Painel", parent: "Operação" },
   "/conversas": { title: "Conversas", parent: "Operação" },
+  "/pedidos": { title: "Pedidos", parent: "Operação" },
   "/campanhas": { title: "Campanhas", parent: "Operação" },
   "/clientes": { title: "Clientes", parent: "Cadastros" },
   "/catalogo": { title: "Catálogo", parent: "Cadastros" },
