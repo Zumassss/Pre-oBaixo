@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "verificar:pix": "node scripts/verificar-pix.mjs"
+    "verificar:pix": "node scripts/verificar-pix.mjs",
+    "verificar:whatsapp": "node scripts/verificar-whatsapp.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",

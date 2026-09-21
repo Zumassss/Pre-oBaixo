@@ -1,10 +1,5 @@
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
-import {
-  AGENT_MAX_TOKENS,
-  AGENT_MODEL,
-  AGENT_SYSTEM_PROMPT,
-} from "@/lib/agent-config";
+import { responder } from "@/lib/agente";
 
 export const runtime = "nodejs";
 
@@ -98,27 +93,10 @@ export async function POST(request: Request) {
     );
   }
 
-  try {
-    const anthropic = new Anthropic({ apiKey });
-    const resposta = await anthropic.messages.create({
-      model: AGENT_MODEL,
-      max_tokens: AGENT_MAX_TOKENS,
-      system: AGENT_SYSTEM_PROMPT,
-      messages: contexto,
-    });
-
-    const reply = resposta.content
-      .filter((bloco) => bloco.type === "text")
-      .map((bloco) => bloco.text)
-      .join("\n")
-      .trim();
-
-    return NextResponse.json({ reply });
-  } catch (erro) {
-    console.error("Falha na chamada à Anthropic:", erro);
-    return NextResponse.json(
-      { error: "O agente não respondeu agora. Tente de novo." },
-      { status: 502 },
-    );
+  const resultado = await responder(contexto);
+  if (!resultado.ok) {
+    return NextResponse.json({ error: resultado.erro }, { status: 502 });
   }
+
+  return NextResponse.json({ reply: resultado.texto });
 }

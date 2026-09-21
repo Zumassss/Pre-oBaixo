@@ -27,6 +27,18 @@ docs/referencias/       imagens que definiram a direção visual
 - **Nada de biblioteca de gráfico.** Os gráficos são SVG próprio em
   `src/components/charts`. Mantenha assim: é mais leve e o traço combina com
   o resto da interface.
+- **A assinatura do webhook do WhatsApp é conferida sobre o corpo cru.**
+  `await request.text()` antes de qualquer `JSON.parse`. Reserializar o JSON
+  muda espaço e ordem de chave, e a conta do HMAC nunca fecha. Sem essa
+  conferência, qualquer um que descubra a URL faz o agente responder na conta
+  da loja.
+- **O webhook responde 200 mesmo quando algo dá errado do nosso lado.** A Meta
+  reenvia a mesma mensagem enquanto não receber 200, e aí o cliente recebe
+  resposta repetida. Erro nosso vai para o log, não para o código HTTP. A
+  exceção é assinatura inválida, que é recusada com 401.
+- **O agente vive em `lib/agente.ts`, não em cada rota.** Chat do painel e
+  WhatsApp chamam a mesma função. Com a chamada duplicada, um dia a regra de
+  medicamento valeria em um canal e não no outro.
 - **Item de pedido guarda `produtoId` do catálogo de verdade.** Copiar só o
   nome quebra a baixa de estoque na entrega em silêncio: o pedido fecha e o
   estoque não mexe.
