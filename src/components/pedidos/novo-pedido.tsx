@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, Minus, Plus, Search, Trash2 } from "lucide-react";
+import { AlertTriangle, Bike, Minus, Plus, Search, Store, Trash2 } from "lucide-react";
 import { Modal, Campo, Entrada } from "@/components/ui/modal";
 import { criarPedido } from "@/lib/db/use-db";
-import type { BancoLocal, ItemPedido, Pedido } from "@/lib/db/types";
+import type { VisaoLoja, ItemPedido, Pedido } from "@/lib/db/types";
 import { cn, formatBRLCents } from "@/lib/utils";
 
 /**
@@ -20,7 +20,7 @@ export function NovoPedido({
   aberto,
   onFechar,
 }: {
-  banco: BancoLocal;
+  banco: VisaoLoja;
   aberto: boolean;
   onFechar: (criado?: Pedido | null) => void;
 }) {
@@ -28,6 +28,8 @@ export function NovoPedido({
   const [telefone, setTelefone] = useState("");
   const [origem, setOrigem] = useState<Pedido["origem"]>("whatsapp");
   const [forma, setForma] = useState<Pedido["formaPagamento"]>("balcao");
+  const [entrega, setEntrega] = useState<Pedido["formaEntrega"]>("retirada");
+  const [endereco, setEndereco] = useState("");
   const [observacao, setObservacao] = useState("");
   const [busca, setBusca] = useState("");
   const [itens, setItens] = useState<ItemPedido[]>([]);
@@ -39,8 +41,14 @@ export function NovoPedido({
       .slice(0, 6);
   }, [banco.produtos, busca]);
 
-  const total = itens.reduce((s, i) => s + i.precoUnitario * i.quantidade, 0);
+  const subtotal = itens.reduce((s, i) => s + i.precoUnitario * i.quantidade, 0);
   const temReceita = itens.some((i) => i.exigeReceita);
+
+  // Sem motoboy cadastrado, entrega não é oferecida: prometer o que a loja
+  // não faz é pior que não oferecer.
+  const temMotoboy = banco.loja.temMotoboy;
+  const taxa = entrega === "entrega" ? banco.loja.taxaEntrega : 0;
+  const total = subtotal + taxa;
 
   function adicionar(produtoId: string) {
     const produto = banco.produtos.find((p) => p.id === produtoId);
@@ -82,6 +90,8 @@ export function NovoPedido({
     setTelefone("");
     setOrigem("whatsapp");
     setForma("balcao");
+    setEntrega("retirada");
+    setEndereco("");
     setObservacao("");
     setBusca("");
     setItens([]);
@@ -96,10 +106,30 @@ export function NovoPedido({
       origem,
       itens,
       formaPagamento: forma,
+      formaEntrega: entrega,
+      enderecoEntrega: endereco.trim(),
+      taxaEntrega: banco.loja.taxaEntrega,
       observacao: observacao.trim(),
     });
     limpar();
     onFechar(criado);
+  }
+
+  /**
+   * Nome digitado bate com um cliente cadastrado: aproveita o que já existe.
+   *
+   * Quem está no balcão com o cliente esperando não deve ter que redigitar um
+   * endereço que o sistema já tem.
+   */
+  function escolherCliente(nome: string) {
+    setCliente(nome);
+    const achado = banco.clientes.find(
+      (c) => c.nome.toLowerCase() === nome.trim().toLowerCase(),
+    );
+    if (achado) {
+      if (achado.telefone) setTelefone(achado.telefone);
+      if (achado.endereco) setEndereco(achado.endereco);
+    }
   }
 
   function estoqueDe(produtoId: string) {
@@ -119,8 +149,8 @@ export function NovoPedido({
           <Campo label="Cliente">
             <Entrada
               value={cliente}
-              onChange={(e) => setCliente(e.target.value)}
-              placeholder="Nome de quem vai retirar"
+              onChange={(e) => escolherCliente(e.target.value)}
+              placeholder="Nome de quem vai receber"
               list="clientes-cadastrados"
               required
               autoFocus
@@ -275,11 +305,29 @@ export function NovoPedido({
               })}
             </ul>
 
-            <div className="mt-1 flex items-center justify-between border-t border-hairline px-2 pt-2">
-              <span className="text-[12px] text-fg-muted">Total</span>
-              <span className="tnum font-mono text-[15px] font-semibold text-fg">
-                {formatBRLCents(total)}
-              </span>
+            <div className="mt-1 space-y-1 border-t border-hairline px-2 pt-2">
+              {taxa > 0 && (
+                <>
+                  <div className="flex items-center justify-between text-[12px] text-fg-faint">
+                    <span>Produtos</span>
+                    <span className="tnum font-mono">
+                      {formatBRLCents(subtotal)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[12px] text-fg-faint">
+                    <span>Entrega</span>
+                    <span className="tnum font-mono">
+                      {formatBRLCents(taxa)}
+                    </span>
+                  </div>
+                </>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] text-fg-muted">Total</span>
+                <span className="tnum font-mono text-[15px] font-semibold text-fg">
+                  {formatBRLCents(total)}
+                </span>
+              </div>
             </div>
           </div>
         )}
@@ -296,6 +344,77 @@ export function NovoPedido({
               validar a receita.
             </p>
           </div>
+        )}
+
+        {/* Como o pedido chega ao cliente */}
+        <Campo
+          label="Entrega"
+          hint={
+            temMotoboy
+              ? `Motoboy desta loja: ${formatBRLCents(banco.loja.taxaEntrega)} de taxa.`
+              : "Esta loja não tem motoboy cadastrado. Ative em Configurações."
+          }
+        >
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setEntrega("retirada")}
+              className={cn(
+                "flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors",
+                entrega === "retirada"
+                  ? "border-brand-500/50 bg-brand-500/[0.12] text-fg"
+                  : "border-hairline bg-white/[0.03] text-fg-muted hover:bg-white/[0.06]",
+              )}
+            >
+              <Store className="h-4 w-4 shrink-0" strokeWidth={2} />
+              <span>
+                <span className="block text-[12.5px] font-medium">
+                  Retira na loja
+                </span>
+                <span className="block text-[10.5px] text-fg-ghost">
+                  cliente busca no balcão
+                </span>
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => temMotoboy && setEntrega("entrega")}
+              disabled={!temMotoboy}
+              title={
+                temMotoboy ? undefined : "Loja sem motoboy: só retirada no balcão"
+              }
+              className={cn(
+                "flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors",
+                entrega === "entrega"
+                  ? "border-brand-500/50 bg-brand-500/[0.12] text-fg"
+                  : "border-hairline bg-white/[0.03] text-fg-muted hover:bg-white/[0.06]",
+                !temMotoboy && "cursor-not-allowed opacity-40 hover:bg-white/[0.03]",
+              )}
+            >
+              <Bike className="h-4 w-4 shrink-0" strokeWidth={2} />
+              <span>
+                <span className="block text-[12.5px] font-medium">Motoboy</span>
+                <span className="block text-[10.5px] text-fg-ghost">
+                  entrega no endereço
+                </span>
+              </span>
+            </button>
+          </div>
+        </Campo>
+
+        {entrega === "entrega" && (
+          <Campo
+            label="Endereço da entrega"
+            hint="Quem vai levar precisa achar sem ligar de volta."
+          >
+            <Entrada
+              value={endereco}
+              onChange={(e) => setEndereco(e.target.value)}
+              placeholder="Rua, número, complemento e bairro"
+              required
+            />
+          </Campo>
         )}
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -328,7 +447,10 @@ export function NovoPedido({
             <div className="grid grid-cols-2 gap-1.5">
               {(
                 [
-                  ["balcao", "Na retirada"],
+                  [
+                    "balcao",
+                    entrega === "entrega" ? "Na entrega" : "Na retirada",
+                  ],
                   ["pix", "Pix"],
                 ] as const
               ).map(([valor, rotulo]) => (

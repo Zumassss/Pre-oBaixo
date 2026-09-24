@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { AppShell } from "@/components/shell/app-shell";
+import { Portao } from "@/components/providers/portao";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -32,7 +32,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${inter.variable} ${mono.variable} h-full antialiased`}
     >
       <body className="min-h-full">
-        <AppShell>{children}</AppShell>
+        <Portao>{children}</Portao>
       </body>
     </html>
   );

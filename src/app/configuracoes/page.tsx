@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  Bike,
   Check,
   FlaskConical,
   QrCode,
@@ -62,7 +63,7 @@ function FormularioLoja({
     setTimeout(() => setSalvo(false), 2400);
   }
 
-  function alterar(campo: keyof Loja, valor: string) {
+  function alterar<C extends keyof Loja>(campo: C, valor: Loja[C]) {
     setForm((atual) => ({ ...atual, [campo]: valor }));
   }
 
@@ -187,6 +188,50 @@ function FormularioLoja({
                   placeholder="Ex: CRF-ES 00000"
                 />
               </Campo>
+            </div>
+
+            {/* Entrega */}
+            <div className="tile p-3.5">
+              <label className="flex cursor-pointer items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={form.temMotoboy}
+                  onChange={(e) => alterar("temMotoboy", e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-brand-500)]"
+                />
+                <span>
+                  <span className="flex items-center gap-1.5 text-[12.5px] font-medium text-fg">
+                    <Bike className="h-3.5 w-3.5 text-fg-faint" strokeWidth={2} />
+                    Esta loja entrega por motoboy
+                  </span>
+                  <span className="mt-0.5 block text-[11.5px] leading-relaxed text-fg-faint">
+                    Sem isto marcado, todo pedido é retirada no balcão e a opção
+                    de entrega nem aparece para quem atende.
+                  </span>
+                </span>
+              </label>
+
+              {form.temMotoboy && (
+                <div className="mt-3 max-w-[200px]">
+                  <Campo
+                    label="Taxa de entrega"
+                    hint="Zero significa entrega grátis."
+                  >
+                    <Entrada
+                      type="number"
+                      min={0}
+                      step="0.5"
+                      value={String(form.taxaEntrega)}
+                      onChange={(e) =>
+                        alterar(
+                          "taxaEntrega",
+                          Math.max(0, Number(e.target.value) || 0),
+                        )
+                      }
+                    />
+                  </Campo>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-1">

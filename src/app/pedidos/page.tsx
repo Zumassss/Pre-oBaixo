@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import {
   ArrowRight,
+  Bike,
   ClipboardList,
+  MapPin,
   MessageCircle,
   Plus,
   QrCode,
@@ -48,8 +50,10 @@ function rotuloDoAvanco(pedido: Pedido) {
       return "Separar";
     case "pronto":
       return "Marcar pronto";
+    case "saiu_entrega":
+      return "Despachar com motoboy";
     case "entregue":
-      return "Entregar";
+      return pedido.formaEntrega === "entrega" ? "Confirmar entrega" : "Entregar";
     default:
       return "";
   }
@@ -127,7 +131,10 @@ export default function PedidosPage() {
             label: "Aguardando receita",
             valor: String(contarPor("aguardando_receita")),
           },
-          { label: "Prontos para retirada", valor: String(contarPor("pronto")) },
+          {
+            label: "Prontos e em rota",
+            valor: String(contarPor("pronto") + contarPor("saiu_entrega")),
+          },
           { label: "A receber", valor: formatBRLCents(aReceber) },
         ].map((stat, i) => (
           <Reveal
@@ -284,6 +291,17 @@ function CartaoPedido({
                 Balcão
               </span>
             )}
+
+            {/* Como o pedido sai da loja decide o trabalho de quem separa,
+                então fica junto do nome, não escondido no rodapé. */}
+            {pedido.formaEntrega === "entrega" ? (
+              <span className="chip chip-info !px-2 !py-[2px] !text-[9.5px]">
+                <Bike className="h-3 w-3" strokeWidth={2} />
+                motoboy
+              </span>
+            ) : (
+              <span className="chip !px-2 !py-[2px] !text-[9.5px]">retirada</span>
+            )}
           </div>
 
           <p className="mt-1 text-[12px] leading-relaxed text-fg-faint">
@@ -291,6 +309,13 @@ function CartaoPedido({
               .map((i) => `${i.quantidade}x ${i.nome}`)
               .join(" · ")}
           </p>
+
+          {pedido.formaEntrega === "entrega" && pedido.enderecoEntrega && (
+            <p className="mt-1 flex items-start gap-1 text-[11.5px] text-fg-muted">
+              <MapPin className="mt-[2px] h-3 w-3 shrink-0" strokeWidth={2} />
+              {pedido.enderecoEntrega}
+            </p>
+          )}
 
           {pedido.observacao && (
             <p className="mt-1 text-[11.5px] italic text-fg-ghost">
@@ -310,6 +335,11 @@ function CartaoPedido({
           <span className="tnum font-mono text-[15px] font-semibold text-fg">
             {formatBRLCents(pedido.total)}
           </span>
+          {pedido.taxaEntrega > 0 && (
+            <span className="tnum -mt-1 font-mono text-[10.5px] text-fg-ghost">
+              {formatBRLCents(pedido.subtotal)} + {formatBRLCents(pedido.taxaEntrega)} de entrega
+            </span>
+          )}
           <div className="flex items-center gap-1.5">
             <span
               className={cn(
@@ -321,7 +351,9 @@ function CartaoPedido({
                 ? "pago"
                 : pedido.formaPagamento === "pix"
                   ? "pix pendente"
-                  : "paga na retirada"}
+                  : pedido.formaEntrega === "entrega"
+                    ? "paga na entrega"
+                    : "paga na retirada"}
             </span>
             <ChipStatus status={pedido.status} className="!px-2 !py-[2px] !text-[9.5px]" />
           </div>

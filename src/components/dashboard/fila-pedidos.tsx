@@ -1,12 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, ClipboardList, MessageCircle, Store } from "lucide-react";
+import {
+  ArrowUpRight,
+  Bike,
+  ClipboardList,
+  MessageCircle,
+  Store,
+} from "lucide-react";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Reveal } from "@/components/ui/reveal";
 import { ChipStatus, IconeStatus } from "@/components/pedidos/status";
-import { pedidoEmAberto, type BancoLocal } from "@/lib/db/types";
+import { pedidoEmAberto, type VisaoLoja } from "@/lib/db/types";
 import { cn, formatBRLCents } from "@/lib/utils";
 
 /**
@@ -16,7 +22,7 @@ import { cn, formatBRLCents } from "@/lib/utils";
  * que falta fazer e quanto ainda não entrou. O detalhe e as ações ficam na
  * tela de Pedidos; aqui é só o retrato de agora.
  */
-export function FilaPedidos({ banco }: { banco: BancoLocal }) {
+export function FilaPedidos({ banco }: { banco: VisaoLoja }) {
   const abertos = banco.pedidos.filter(pedidoEmAberto);
   const aReceber = abertos
     .filter((p) => !p.pago)
@@ -119,9 +125,14 @@ export function FilaPedidos({ banco }: { banco: BancoLocal }) {
                       />
                     )}
                   </div>
-                  <p className="truncate text-[11px] text-fg-ghost">
-                    {pedido.itens.reduce((n, i) => n + i.quantidade, 0)} itens ·{" "}
-                    {pedido.itens[0]?.nome ?? "sem item"}
+                  <p className="flex items-center gap-1 truncate text-[11px] text-fg-ghost">
+                    {pedido.formaEntrega === "entrega" && (
+                      <Bike className="h-3 w-3 shrink-0 text-info" strokeWidth={2} />
+                    )}
+                    <span className="truncate">
+                      {pedido.itens.reduce((n, i) => n + i.quantidade, 0)} itens ·{" "}
+                      {pedido.itens[0]?.nome ?? "sem item"}
+                    </span>
                   </p>
                 </div>
 

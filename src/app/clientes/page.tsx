@@ -11,6 +11,14 @@ import { useAppState } from "@/components/providers/app-state";
 import { criarCliente, removerCliente, useBanco } from "@/lib/db/use-db";
 import { cn } from "@/lib/utils";
 
+const FORM_VAZIO = {
+  nome: "",
+  telefone: "",
+  endereco: "",
+  consentimento: true,
+  observacao: "",
+};
+
 function dataCurta(em: number) {
   return new Date(em).toLocaleDateString("pt-BR", {
     day: "2-digit",
@@ -24,12 +32,7 @@ export default function ClientesPage() {
   const { busca } = useAppState();
   const [buscaLocal, setBuscaLocal] = useState("");
   const [aberto, setAberto] = useState(false);
-  const [form, setForm] = useState({
-    nome: "",
-    telefone: "",
-    consentimento: true,
-    observacao: "",
-  });
+  const [form, setForm] = useState(FORM_VAZIO);
 
   const termo = (buscaLocal || busca).toLowerCase().trim();
 
@@ -50,10 +53,11 @@ export default function ClientesPage() {
     criarCliente({
       nome: form.nome.trim(),
       telefone: form.telefone.trim(),
+      endereco: form.endereco.trim(),
       consentimento: form.consentimento,
       observacao: form.observacao.trim(),
     });
-    setForm({ nome: "", telefone: "", consentimento: true, observacao: "" });
+    setForm(FORM_VAZIO);
     setAberto(false);
   }
 
@@ -213,6 +217,17 @@ export default function ClientesPage() {
               onChange={(e) => setForm({ ...form, telefone: e.target.value })}
               placeholder="Ex: 27 99999-0000"
               required
+            />
+          </Campo>
+
+          <Campo
+            label="Endereço (opcional)"
+            hint="Só é necessário se o cliente for receber por motoboy."
+          >
+            <Entrada
+              value={form.endereco}
+              onChange={(e) => setForm({ ...form, endereco: e.target.value })}
+              placeholder="Ex: Rua das Acácias, 45, ap. 202 - Centro"
             />
           </Campo>
 

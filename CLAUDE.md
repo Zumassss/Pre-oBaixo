@@ -18,6 +18,35 @@ src/hooks/              fluxo do agente, relógio, contadores
 docs/referencias/       imagens que definiram a direção visual
 ```
 
+## O modelo de dados (leia antes de mexer em `src/lib/db/`)
+
+O sistema atende uma **rede** de farmácias, com dois perfis de acesso.
+
+- `Banco` é a rede inteira: usuários, lojas, o bloco de dados de cada loja e a
+  sessão. Só a visão de rede e a barra lateral encostam nele.
+- `VisaoLoja` é o recorte de UMA loja (os dados dela mais o cadastro). É o que
+  **toda** tela de operação consome, via `useBanco()`. Nenhuma tela recebe a
+  rede, então nenhuma tela consegue mostrar dado de outra unidade, nem por
+  engano.
+- Toda escrita passa por `alterarDados()` em `use-db.ts`, que descobre a loja
+  pela **sessão**, não por quem chamou. É por isso que nenhuma operação
+  consegue gravar na loja errada. Não crie caminho de escrita que receba
+  `lojaId` de fora sem checar o papel do usuário, como fazem
+  `salvarLojaDaRede` e `criarLojaNaRede`.
+- O armazenamento é a chave `preco-baixo:v2`. Quem usou a versão de loja única
+  tem cadastros em `preco-baixo:v1`, e `migrarDaVersaoAntiga()` os traz para a
+  primeira loja. Apagar a chave antiga seria jogar fora o trabalho de alguém.
+- **Os usuários vêm sempre do código, nunca do armazenamento.** Se viessem do
+  que está salvo, uma base gravada por uma versão antiga poderia deixar
+  alguém trancado fora do sistema, sem senha e sem conserto.
+
+## O login não é autenticação
+
+As senhas `1234` estão em texto puro no navegador e qualquer pessoa as lê. Elas
+separam os dois perfis na demonstração, nada mais. **Antes de existir dado real
+de cliente aqui dentro, isto tem que virar verificação no servidor.** Não
+escreva texto de interface que sugira que o acesso é protegido.
+
 ## Regras deste projeto
 
 - **Nenhuma tela inventa número.** Tudo sai da camada em `src/lib/db/`, que
@@ -42,6 +71,21 @@ docs/referencias/       imagens que definiram a direção visual
 - **Item de pedido guarda `produtoId` do catálogo de verdade.** Copiar só o
   nome quebra a baixa de estoque na entrega em silêncio: o pedido fecha e o
   estoque não mexe.
+- **O estoque cai exatamente uma vez, quando o produto sai da loja.** Na
+  retirada, isso é a entrega no balcão; na entrega por motoboy, é o despacho,
+  porque dali em diante a caixa não está mais na prateleira. Quem decide é
+  `saiDoEstoque()` em `use-db.ts`. Mexer nas etapas sem olhar essa função dá
+  baixa dupla ou baixa nenhuma.
+- **Loja sem motoboy não oferece entrega.** `Loja.temMotoboy` desliga a opção
+  na tela e zera a taxa no pedido. Prometer entrega que a unidade não faz é
+  pior que não oferecer.
+- **O agente só sabe o que mandarem para ele.** O catálogo e os dados da loja
+  vivem no navegador, então quem os envia é o cliente, em
+  `lib/agente-contexto.ts`. O servidor recorta o que chega antes de montar o
+  texto: sem esse corte, uma requisição grande vira uma conta grande na API.
+  No **WhatsApp o servidor não tem esses dados**, e por isso o contexto de lá
+  diz ao agente, com todas as letras, que ele não pode informar preço nem
+  disponibilidade. Enquanto não houver banco de dados, não tire essa frase.
 - **Pix é gerado de verdade, confirmação não.** `lib/pix.ts` monta o BR Code
   com a chave da loja e funciona no app do banco; `npm run verificar:pix`
   confere o CRC e lê o payload de volta. Saber que o cliente pagou depende de

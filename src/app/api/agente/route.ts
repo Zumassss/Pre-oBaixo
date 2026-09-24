@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { responder } from "@/lib/agente";
+import { montarTextoDoContexto } from "@/lib/agente-contexto";
 
 export const runtime = "nodejs";
 
@@ -93,7 +94,17 @@ export async function POST(request: Request) {
     );
   }
 
-  const resultado = await responder(contexto);
+  // O catálogo e os dados da loja viajam junto porque só o navegador os tem.
+  // O servidor recorta o que chega antes de usar: sem isso, uma requisição
+  // grande viraria uma conta grande na API.
+  const dadosDaLoja =
+    typeof corpo === "object" && corpo !== null
+      ? (corpo as Record<string, unknown>).loja
+      : undefined;
+
+  const resultado = await responder(contexto, {
+    contexto: montarTextoDoContexto(dadosDaLoja),
+  });
   if (!resultado.ok) {
     return NextResponse.json({ error: resultado.erro }, { status: 502 });
   }

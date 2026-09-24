@@ -1,13 +1,56 @@
 /**
  * Tipos do sistema.
  *
- * Este sistema pertence a UMA unidade da rede. Ele não conhece as outras
- * lojas e não deve exibir dado de nenhuma delas. A visão consolidada da rede
- * é outro produto, para o administrador geral, e virá depois.
+ * O sistema atende uma REDE de farmácias. Cada loja enxerga apenas os
+ * próprios dados; quem vê a rede inteira é o administrador, e só ele.
+ * Essa separação é a regra mais importante do modelo: se um dia a tela de
+ * uma loja mostrar dado de outra, é falha grave, não detalhe.
  */
 
-/** A unidade que usa este sistema. */
+/* ------------------------------------------------------------------
+   Acesso
+   ------------------------------------------------------------------ */
+
+/**
+ * Quem está usando o sistema.
+ *
+ * `admin` administra a rede toda. `loja` opera uma unidade e não sai dela.
+ */
+export type Papel = "admin" | "loja";
+
+export type Usuario = {
+  id: string;
+  /** O que a pessoa digita para entrar. */
+  usuario: string;
+  nome: string;
+  papel: Papel;
+  /**
+   * Senha de demonstração, guardada em texto puro no navegador.
+   *
+   * Isto NÃO é autenticação de verdade e não protege nada: qualquer pessoa
+   * com o navegador aberto lê o valor. Serve para separar os perfis durante
+   * a demonstração. Antes de existir dado real de cliente, isto tem que
+   * virar autenticação de servidor (o Supabase do projeto já resolve).
+   */
+  senha: string;
+  /** Preenchido só quando o papel é `loja`. */
+  lojaId?: string;
+};
+
+export type Sessao = {
+  usuarioId: string;
+  /** Qual loja o administrador está olhando agora. */
+  lojaSelecionada: string;
+  em: number;
+};
+
+/* ------------------------------------------------------------------
+   Loja
+   ------------------------------------------------------------------ */
+
+/** O cadastro de uma unidade da rede. */
 export type Loja = {
+  id: string;
   nome: string;
   endereco: string;
   bairro: string;
@@ -21,22 +64,40 @@ export type Loja = {
   horarios: string;
   /** Fica falso até alguém preencher os dados obrigatórios. */
   configurada: boolean;
+  /** Sem motoboy, todo pedido é retirada no balcão. */
+  temMotoboy: boolean;
+  /** Quanto a loja cobra para entregar. Zero significa entrega grátis. */
+  taxaEntrega: number;
+  /** Loja desativada some da operação mas o histórico continua. */
+  ativa: boolean;
+  criadaEm: number;
 };
 
-export const LOJA_VAZIA: Loja = {
-  nome: "",
-  endereco: "",
-  bairro: "",
-  cidade: "",
-  uf: "",
-  cep: "",
-  telefone: "",
-  cnpj: "",
-  farmaceutico: "",
-  crf: "",
-  horarios: "",
-  configurada: false,
-};
+export function novaLoja(id: string, nome: string): Loja {
+  return {
+    id,
+    nome,
+    endereco: "",
+    bairro: "",
+    cidade: "",
+    uf: "",
+    cep: "",
+    telefone: "",
+    cnpj: "",
+    farmaceutico: "",
+    crf: "",
+    horarios: "",
+    configurada: false,
+    temMotoboy: false,
+    taxaEntrega: 0,
+    ativa: true,
+    criadaEm: Date.now(),
+  };
+}
+
+/* ------------------------------------------------------------------
+   Cadastros da loja
+   ------------------------------------------------------------------ */
 
 export type Cliente = {
   id: string;
@@ -45,6 +106,8 @@ export type Cliente = {
   /** Consentimento para receber campanha, exigido pela LGPD. */
   consentimento: boolean;
   observacao: string;
+  /** Usado para entrega, quando houver. */
+  endereco: string;
   criadoEm: number;
 };
 
@@ -69,6 +132,10 @@ export type Campanha = {
   agendadaPara: string;
   criadoEm: number;
 };
+
+/* ------------------------------------------------------------------
+   Atendimento
+   ------------------------------------------------------------------ */
 
 export type OrigemMensagem = "cliente" | "agente" | "atendente";
 
@@ -115,19 +182,24 @@ export type ItemPedido = {
  * `aguardando_receita` existe por exigência regulatória: pedido com item de
  * tarja não anda sozinho, o farmacêutico precisa conferir a receita antes.
  * `aguardando_pagamento` só aparece quando a cobrança é por Pix; quem paga
- * no balcão paga na hora de retirar.
+ * no balcão paga na hora de receber. `saiu_entrega` só existe quando o
+ * pedido vai de motoboy.
  */
 export type StatusPedido =
   | "aguardando_receita"
   | "aguardando_pagamento"
   | "em_preparo"
   | "pronto"
+  | "saiu_entrega"
   | "entregue"
   | "cancelado";
 
 export type FormaPagamento = "balcao" | "pix";
 
 export type OrigemPedido = "whatsapp" | "balcao";
+
+/** Retirada no balcão ou entrega por motoboy. */
+export type FormaEntrega = "retirada" | "entrega";
 
 export type Pedido = {
   id: string;
@@ -137,9 +209,16 @@ export type Pedido = {
   telefone: string;
   origem: OrigemPedido;
   itens: ItemPedido[];
+  /** Soma dos itens, sem a taxa de entrega. */
+  subtotal: number;
+  taxaEntrega: number;
+  /** Subtotal mais a taxa. É o que o cliente paga. */
   total: number;
   status: StatusPedido;
   formaPagamento: FormaPagamento;
+  formaEntrega: FormaEntrega;
+  /** Para onde levar, quando for entrega. */
+  enderecoEntrega: string;
   pago: boolean;
   /** Quem conferiu a receita, quando havia item de tarja. */
   receitaConferidaPor: string;
@@ -152,7 +231,8 @@ export const STATUS_PEDIDO_LABEL: Record<StatusPedido, string> = {
   aguardando_receita: "Aguardando receita",
   aguardando_pagamento: "Aguardando pagamento",
   em_preparo: "Em preparo",
-  pronto: "Pronto para retirada",
+  pronto: "Pronto",
+  saiu_entrega: "Saiu para entrega",
   entregue: "Entregue",
   cancelado: "Cancelado",
 };
@@ -163,6 +243,7 @@ export const FILA_PEDIDOS: StatusPedido[] = [
   "aguardando_pagamento",
   "em_preparo",
   "pronto",
+  "saiu_entrega",
 ];
 
 export function pedidoExigeReceita(pedido: Pedido) {
@@ -172,6 +253,19 @@ export function pedidoExigeReceita(pedido: Pedido) {
 export function pedidoEmAberto(pedido: Pedido) {
   return pedido.status !== "entregue" && pedido.status !== "cancelado";
 }
+
+/* ------------------------------------------------------------------
+   Agente e cobrança
+   ------------------------------------------------------------------ */
+
+/** Registro do que o agente fez. Só entra aqui o que aconteceu de verdade. */
+export type EventoAgente = {
+  id: string;
+  tipo: "pergunta" | "resposta" | "erro" | "sistema";
+  titulo: string;
+  detalhe: string;
+  em: number;
+};
 
 /** Configuração de cobrança. Sem chave Pix, só resta receber no balcão. */
 export type Pagamentos = {
@@ -187,37 +281,157 @@ export const PAGAMENTOS_VAZIO: Pagamentos = {
   cidade: "",
 };
 
-/** Registro do que o agente fez. Só entra aqui o que aconteceu de verdade. */
-export type EventoAgente = {
-  id: string;
-  tipo: "pergunta" | "resposta" | "erro" | "sistema";
-  titulo: string;
-  detalhe: string;
-  em: number;
-};
+/* ------------------------------------------------------------------
+   O banco
+   ------------------------------------------------------------------ */
 
-/** Tudo que o sistema guarda hoje. */
-export type BancoLocal = {
-  loja: Loja;
+/** Tudo que pertence a uma loja. Nenhuma loja lê o bloco da outra. */
+export type DadosLoja = {
   clientes: Cliente[];
   produtos: Produto[];
   campanhas: Campanha[];
   conversas: Conversa[];
   pedidos: Pedido[];
   eventos: EventoAgente[];
-  /** Conexão com a API do WhatsApp, ainda não ligada. */
+  /** Conexão com a API do WhatsApp daquela unidade. */
   whatsappConectado: boolean;
   pagamentos: Pagamentos;
 };
 
-export const BANCO_VAZIO: BancoLocal = {
-  loja: LOJA_VAZIA,
-  clientes: [],
-  produtos: [],
-  campanhas: [],
-  conversas: [],
-  pedidos: [],
-  eventos: [],
-  whatsappConectado: false,
-  pagamentos: PAGAMENTOS_VAZIO,
+export function dadosVazios(): DadosLoja {
+  return {
+    clientes: [],
+    produtos: [],
+    campanhas: [],
+    conversas: [],
+    pedidos: [],
+    eventos: [],
+    whatsappConectado: false,
+    pagamentos: { ...PAGAMENTOS_VAZIO },
+  };
+}
+
+/**
+ * Completa um bloco lido do armazenamento com os campos que faltarem.
+ *
+ * Uma base gravada por uma versão anterior pode não ter uma coleção que o
+ * código de hoje espera. Sem isto, a tela quebraria ao percorrer `undefined`.
+ */
+export function completarDados(salvo?: Partial<DadosLoja>): DadosLoja {
+  const base = dadosVazios();
+  if (!salvo) return base;
+  return {
+    ...base,
+    ...salvo,
+    pagamentos: { ...base.pagamentos, ...salvo.pagamentos },
+  };
+}
+
+export type Banco = {
+  usuarios: Usuario[];
+  lojas: Loja[];
+  /** Os dados de cada loja, indexados pelo id dela. */
+  dados: Record<string, DadosLoja>;
+  sessao: Sessao | null;
 };
+
+export const LOJA_TESTE_ID = "loja-teste-1";
+
+/**
+ * O estado inicial do sistema.
+ *
+ * Nasce com os dois acessos da demonstração e uma loja vazia. Os cadastros
+ * ficam em branco de propósito: o sistema nunca inventa cliente, produto ou
+ * número. O que aparecer na tela foi alguém que cadastrou.
+ */
+export function bancoInicial(): Banco {
+  return {
+    usuarios: [
+      {
+        id: "u-admin",
+        usuario: "administrador",
+        nome: "Administrador",
+        papel: "admin",
+        senha: "1234",
+      },
+      {
+        id: "u-loja-teste-1",
+        usuario: "loja teste 1",
+        nome: "Loja Teste 1",
+        papel: "loja",
+        senha: "1234",
+        lojaId: LOJA_TESTE_ID,
+      },
+    ],
+    lojas: [novaLoja(LOJA_TESTE_ID, "Loja Teste 1")],
+    dados: { [LOJA_TESTE_ID]: dadosVazios() },
+    sessao: null,
+  };
+}
+
+/* ------------------------------------------------------------------
+   Ajudas de leitura
+   ------------------------------------------------------------------ */
+
+export function usuarioDaSessao(banco: Banco): Usuario | null {
+  if (!banco.sessao) return null;
+  const id = banco.sessao.usuarioId;
+  return banco.usuarios.find((u) => u.id === id) ?? null;
+}
+
+/**
+ * Qual loja está sendo operada agora.
+ *
+ * Para quem opera uma loja, é sempre a dela, sem escolha. Para o
+ * administrador, é a que ele selecionou.
+ */
+export function lojaAtiva(banco: Banco): Loja | null {
+  const usuario = usuarioDaSessao(banco);
+  if (!usuario) return null;
+
+  const id =
+    usuario.papel === "loja" ? usuario.lojaId : banco.sessao?.lojaSelecionada;
+  if (!id) return null;
+
+  return banco.lojas.find((l) => l.id === id) ?? null;
+}
+
+export function dadosDaLoja(banco: Banco, lojaId: string): DadosLoja {
+  return banco.dados[lojaId] ?? dadosVazios();
+}
+
+/* ------------------------------------------------------------------
+   A visão de uma loja
+   ------------------------------------------------------------------ */
+
+/**
+ * O que uma tela de operação enxerga: os dados de uma loja mais o cadastro
+ * dela. É deliberadamente o recorte de UMA unidade.
+ *
+ * Toda tela de operação consome isto, nunca o `Banco` inteiro. Assim, se um
+ * dia alguém errar uma consulta, o erro não tem como vazar dado de outra
+ * loja: a tela não recebe a rede, recebe a loja.
+ */
+export type VisaoLoja = DadosLoja & { loja: Loja };
+
+/** Loja em branco, para começar um formulário sem esperar o banco carregar. */
+export const LOJA_VAZIA: Loja = { ...novaLoja("", ""), criadaEm: 0 };
+
+/** Visão em branco, usada na primeira renderização e no servidor. */
+export function visaoVazia(): VisaoLoja {
+  return { ...dadosVazios(), loja: { ...LOJA_VAZIA } };
+}
+
+export function visaoDaLoja(banco: Banco, lojaId: string): VisaoLoja {
+  const loja = banco.lojas.find((l) => l.id === lojaId);
+  return {
+    ...dadosDaLoja(banco, lojaId),
+    loja: loja ?? { ...LOJA_VAZIA },
+  };
+}
+
+/** A visão da loja que a sessão está operando agora. */
+export function visaoAtiva(banco: Banco): VisaoLoja {
+  const loja = lojaAtiva(banco);
+  return loja ? visaoDaLoja(banco, loja.id) : visaoVazia();
+}

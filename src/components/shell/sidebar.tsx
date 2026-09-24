@@ -1,22 +1,34 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, PanelLeftClose, PanelLeftOpen, Store } from "lucide-react";
+import {
+  Check,
+  ChevronsUpDown,
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
+  ShieldCheck,
+  Store,
+} from "lucide-react";
 import { LogoFull, LogoMark } from "@/components/brand/logo";
-import { navGroups } from "@/config/nav";
+import { menuDoPapel } from "@/config/nav";
 import { useAppState } from "@/components/providers/app-state";
-import { useBanco } from "@/lib/db/use-db";
+import { sair, selecionarLoja, useSessao } from "@/lib/db/use-db";
 import { cn } from "@/lib/utils";
 
 export function Sidebar() {
   const pathname = usePathname();
   const { barraRecolhida, alternarBarra } = useAppState();
-  const { banco } = useBanco();
+  const { usuario, loja, rede } = useSessao();
 
-  const nomeLoja = banco.loja.nome || "Loja não configurada";
-  const localLoja = banco.loja.configurada
-    ? [banco.loja.bairro, banco.loja.cidade].filter(Boolean).join(", ")
+  const grupos = menuDoPapel(usuario?.papel ?? null);
+  const ehAdmin = usuario?.papel === "admin";
+
+  const nomeLoja = loja?.nome || "Loja não configurada";
+  const localLoja = loja?.configurada
+    ? [loja.bairro, loja.cidade].filter(Boolean).join(", ")
     : "Preencha em Configurações";
 
   return (
@@ -62,41 +74,45 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* Identidade da unidade */}
+      {/* Unidade em operação */}
       <div className={cn("px-3 pb-4", barraRecolhida && "px-2")}>
-        <div
-          className={cn(
-            "tile flex items-center gap-2.5 p-2.5",
-            barraRecolhida && "justify-center p-2",
-          )}
-          title={barraRecolhida ? nomeLoja : undefined}
-        >
-          <span
+        {ehAdmin ? (
+          <SeletorDeLoja
+            lojas={rede.lojas}
+            atualId={loja?.id ?? ""}
+            recolhida={barraRecolhida}
+          />
+        ) : (
+          <div
             className={cn(
-              "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
-              banco.loja.configurada
-                ? "bg-brand-500/12 text-brand-400 ring-1 ring-inset ring-brand-500/25"
-                : "bg-white/[0.05] text-fg-ghost ring-1 ring-inset ring-white/10",
+              "tile flex items-center gap-2.5 p-2.5",
+              barraRecolhida && "justify-center p-2",
             )}
+            title={barraRecolhida ? nomeLoja : undefined}
           >
-            <Store className="h-3.5 w-3.5" strokeWidth={2} />
-          </span>
-          {!barraRecolhida && (
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[12px] font-semibold text-fg">
-                {nomeLoja}
-              </p>
-              <p className="truncate text-[10.5px] text-fg-ghost">{localLoja}</p>
-            </div>
-          )}
-        </div>
+            <MarcaDaLoja configurada={Boolean(loja?.configurada)} />
+            {!barraRecolhida && (
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[12px] font-semibold text-fg">
+                  {nomeLoja}
+                </p>
+                <p className="truncate text-[10.5px] text-fg-ghost">
+                  {localLoja}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <nav
         data-lenis-prevent
-        className={cn("flex-1 overflow-y-auto px-3 pb-4", barraRecolhida && "px-2")}
+        className={cn(
+          "flex-1 overflow-y-auto px-3 pb-4",
+          barraRecolhida && "px-2",
+        )}
       >
-        {navGroups.map((group) => (
+        {grupos.map((group) => (
           <div key={group.label} className="mb-5">
             {!barraRecolhida && <p className="eyebrow px-3 pb-2">{group.label}</p>}
             <ul className="space-y-0.5">
@@ -137,16 +153,15 @@ export function Sidebar() {
       </nav>
 
       <div className="border-t border-hairline p-3">
-        <button
+        <div
           className={cn(
-            "selectable group flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left",
+            "flex items-center gap-3 rounded-xl px-2 py-2",
             barraRecolhida && "justify-center px-0",
           )}
-          title={barraRecolhida ? "Mateus Zumach" : undefined}
         >
           <div className="relative shrink-0">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-[12px] font-bold text-white">
-              MZ
+              {iniciais(usuario?.nome ?? "")}
             </div>
             <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-ink bg-positive" />
           </div>
@@ -154,26 +169,172 @@ export function Sidebar() {
             <>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13px] font-semibold text-fg">
-                  Mateus Zumach
+                  {usuario?.nome ?? ""}
                 </p>
-                <p className="truncate text-[11px] text-fg-faint">Gerente da loja</p>
+                <p className="truncate text-[11px] text-fg-faint">
+                  {ehAdmin ? "Administrador da rede" : "Operação da loja"}
+                </p>
               </div>
-              <LogOut
-                className="h-4 w-4 shrink-0 text-fg-ghost transition-colors group-hover:text-fg-muted"
-                strokeWidth={1.8}
-              />
+              <button
+                onClick={sair}
+                aria-label="Sair do sistema"
+                title="Sair do sistema"
+                className="shrink-0 rounded-lg p-1.5 text-fg-ghost transition-colors hover:bg-white/[0.06] hover:text-negative"
+              >
+                <LogOut className="h-4 w-4" strokeWidth={1.8} />
+              </button>
             </>
           )}
-        </button>
+        </div>
+        {barraRecolhida && (
+          <button
+            onClick={sair}
+            aria-label="Sair do sistema"
+            title="Sair do sistema"
+            className="mt-1 flex w-full justify-center rounded-lg p-1.5 text-fg-ghost transition-colors hover:bg-white/[0.06] hover:text-negative"
+          >
+            <LogOut className="h-4 w-4" strokeWidth={1.8} />
+          </button>
+        )}
       </div>
     </aside>
+  );
+}
+
+function MarcaDaLoja({ configurada }: { configurada: boolean }) {
+  return (
+    <span
+      className={cn(
+        "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
+        configurada
+          ? "bg-brand-500/12 text-brand-400 ring-1 ring-inset ring-brand-500/25"
+          : "bg-white/[0.05] text-fg-ghost ring-1 ring-inset ring-white/10",
+      )}
+    >
+      <Store className="h-3.5 w-3.5" strokeWidth={2} />
+    </span>
+  );
+}
+
+/**
+ * A troca de loja do administrador.
+ *
+ * Trocar aqui muda o que TODA a operação mostra: painel, pedidos, catálogo,
+ * conversas. É por isso que o seletor fica no lugar onde a loja aparece, e
+ * não escondido em configurações: ele responde "de qual loja é o que estou
+ * vendo", que é a pergunta mais fácil de errar num sistema de rede.
+ */
+function SeletorDeLoja({
+  lojas,
+  atualId,
+  recolhida,
+}: {
+  lojas: { id: string; nome: string; ativa: boolean; configurada: boolean }[];
+  atualId: string;
+  recolhida: boolean;
+}) {
+  const [aberto, setAberto] = useState(false);
+  const atual = lojas.find((l) => l.id === atualId);
+
+  if (recolhida) {
+    return (
+      <div
+        className="tile flex justify-center p-2"
+        title={atual?.nome ?? "Nenhuma loja"}
+      >
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-500/12 text-brand-400 ring-1 ring-inset ring-brand-500/25">
+          <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2} />
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setAberto((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={aberto}
+        className="tile flex w-full items-center gap-2.5 p-2.5 text-left transition-colors hover:bg-white/[0.05]"
+      >
+        <MarcaDaLoja configurada={Boolean(atual?.configurada)} />
+        <div className="min-w-0 flex-1">
+          <p className="eyebrow !text-[9px]">Operando</p>
+          <p className="truncate text-[12px] font-semibold text-fg">
+            {atual?.nome ?? "Nenhuma loja"}
+          </p>
+        </div>
+        <ChevronsUpDown
+          className="h-3.5 w-3.5 shrink-0 text-fg-ghost"
+          strokeWidth={2}
+        />
+      </button>
+
+      {aberto && (
+        <>
+          <button
+            aria-label="Fechar"
+            onClick={() => setAberto(false)}
+            className="fixed inset-0 z-40 cursor-default"
+          />
+          <div
+            role="listbox"
+            data-lenis-prevent
+            className="glass-solid absolute left-0 right-0 top-[calc(100%+6px)] z-50 max-h-[280px] overflow-y-auto rounded-xl p-1 shadow-[0_24px_60px_-16px_rgba(0,0,0,0.95)]"
+            style={{ animation: "rise 0.18s cubic-bezier(0.16,1,0.3,1) both" }}
+          >
+            {lojas.map((l) => (
+              <button
+                key={l.id}
+                role="option"
+                aria-selected={l.id === atualId}
+                onClick={() => {
+                  selecionarLoja(l.id);
+                  setAberto(false);
+                }}
+                className={cn(
+                  "selectable flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[12.5px]",
+                  l.id === atualId ? "text-fg" : "text-fg-muted",
+                )}
+              >
+                <span className="min-w-0 flex-1 truncate">{l.nome}</span>
+                {!l.ativa && (
+                  <span className="chip !px-1.5 !py-0 !text-[9px]">pausada</span>
+                )}
+                {l.id === atualId && (
+                  <Check
+                    className="h-3.5 w-3.5 shrink-0 text-brand-400"
+                    strokeWidth={2.5}
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function iniciais(nome: string) {
+  return (
+    nome
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase() || "?"
   );
 }
 
 /** Barra inferior para telas estreitas. */
 export function MobileNav() {
   const pathname = usePathname();
-  const items = navGroups.flatMap((g) => g.items).slice(0, 5);
+  const { usuario } = useSessao();
+  const items = menuDoPapel(usuario?.papel ?? null)
+    .flatMap((g) => g.items)
+    .slice(0, 5);
 
   return (
     <nav className="glass fixed inset-x-0 bottom-0 z-40 border-x-0 border-b-0 lg:hidden">

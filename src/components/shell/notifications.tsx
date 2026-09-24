@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  Bike,
   Bell,
   CircleCheck,
   ClipboardList,
@@ -75,14 +76,32 @@ function calcularAvisos(banco: ReturnType<typeof useBanco>["banco"]): Aviso[] {
 
   const prontos = banco.pedidos.filter((p) => p.status === "pronto");
   if (prontos.length > 0) {
+    const paraEntrega = prontos.filter((p) => p.formaEntrega === "entrega").length;
     avisos.push({
       id: "prontos",
       icon: PackageCheck,
-      titulo: `${prontos.length} ${prontos.length === 1 ? "pedido pronto" : "pedidos prontos"} para retirada`,
-      detalhe: prontos
-        .slice(0, 3)
-        .map((p) => p.cliente)
-        .join(", "),
+      titulo: `${prontos.length} ${prontos.length === 1 ? "pedido pronto" : "pedidos prontos"}`,
+      detalhe: paraEntrega
+        ? `${paraEntrega} esperando motoboy. ${prontos
+            .slice(0, 2)
+            .map((p) => p.cliente)
+            .join(", ")}`
+        : prontos
+            .slice(0, 3)
+            .map((p) => p.cliente)
+            .join(", "),
+      href: "/pedidos",
+      tom: "info",
+    });
+  }
+
+  const emRota = banco.pedidos.filter((p) => p.status === "saiu_entrega");
+  if (emRota.length > 0) {
+    avisos.push({
+      id: "rota",
+      icon: Bike,
+      titulo: `${emRota.length} ${emRota.length === 1 ? "pedido a caminho" : "pedidos a caminho"}`,
+      detalhe: "Confirme a entrega quando o motoboy voltar.",
       href: "/pedidos",
       tom: "info",
     });

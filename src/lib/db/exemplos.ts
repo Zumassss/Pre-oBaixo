@@ -1,13 +1,16 @@
 "use client";
 
 import { atualizarBanco, novoId } from "./local-db";
-import type {
-  BancoLocal,
-  Conversa,
-  ItemPedido,
-  Mensagem,
-  Pedido,
-  Produto,
+import {
+  completarDados,
+  type Conversa,
+  type ItemPedido,
+  lojaAtiva,
+  type Mensagem,
+  type Pedido,
+  type Produto,
+  type VisaoLoja,
+  visaoVazia,
 } from "./types";
 
 /**
@@ -17,11 +20,14 @@ import type {
  * disto é carregado sozinho: alguém precisa clicar em Configurações. O botão
  * de apagar limpa tudo e devolve o sistema ao estado vazio.
  *
- * O conteúdo é de UMA loja, a de Vila Velha, coerente com o modelo do
- * produto: esta ferramenta nunca vê dado de outra unidade.
+ * O conteúdo entra na loja que estiver aberta na sessão, e só nela. Nenhuma
+ * outra unidade da rede é tocada.
  */
 
 const HORA = 60 * 60 * 1000;
+
+/** A taxa que a loja de exemplo cobra para entregar. */
+const TAXA_ENTREGA = 6;
 
 function mensagem(
   origem: Mensagem["origem"],
@@ -67,6 +73,8 @@ function pedido(
   extras: Partial<Pedido> = {},
 ): Pedido {
   const em = Date.now() - minutosAtras * 60 * 1000;
+  const subtotal = itens.reduce((s, i) => s + i.precoUnitario * i.quantidade, 0);
+  const taxaEntrega = extras.formaEntrega === "entrega" ? TAXA_ENTREGA : 0;
   return {
     id: novoId("ped"),
     numero,
@@ -74,9 +82,13 @@ function pedido(
     telefone,
     origem,
     itens,
-    total: itens.reduce((s, i) => s + i.precoUnitario * i.quantidade, 0),
+    subtotal,
+    taxaEntrega,
+    total: subtotal + taxaEntrega,
     status,
     formaPagamento: forma,
+    formaEntrega: "retirada",
+    enderecoEntrega: "",
     pago,
     receitaConferidaPor: "",
     observacao: "",
@@ -105,7 +117,7 @@ function item(
   };
 }
 
-export function carregarExemplos(): BancoLocal {
+export function carregarExemplos(): VisaoLoja {
   const agora = Date.now();
 
   // O catálogo nasce aqui porque os pedidos abaixo precisam apontar
@@ -199,21 +211,24 @@ export function carregarExemplos(): BancoLocal {
     return encontrado;
   };
 
-  const banco: BancoLocal = {
-    loja: {
-      nome: "Preço Baixo Vila Velha",
-      endereco: "Rua Jair de Andrade, 120",
-      bairro: "Centro",
-      cidade: "Vila Velha",
-      uf: "ES",
-      cep: "29100-000",
-      telefone: "27 3000-0000",
-      cnpj: "00.000.000/0001-00",
-      farmaceutico: "Renata Lopes",
-      crf: "CRF-ES 00000",
-      horarios: "Segunda a sábado das 8h às 22h, domingo das 8h às 20h",
-      configurada: true,
-    },
+  const cadastroDaLoja = {
+    nome: "Preço Baixo Vila Velha",
+    endereco: "Rua Jair de Andrade, 120",
+    bairro: "Centro",
+    cidade: "Vila Velha",
+    uf: "ES",
+    cep: "29100-000",
+    telefone: "27 3000-0000",
+    cnpj: "00.000.000/0001-00",
+    farmaceutico: "Renata Lopes",
+    crf: "CRF-ES 00000",
+    horarios: "Segunda a sábado das 8h às 22h, domingo das 8h às 20h",
+    configurada: true,
+    temMotoboy: true,
+    taxaEntrega: TAXA_ENTREGA,
+  };
+
+  const dados = completarDados({
 
     whatsappConectado: true,
 
@@ -221,6 +236,7 @@ export function carregarExemplos(): BancoLocal {
       {
         id: novoId("cli"),
         nome: "Ana Paula Ribeiro",
+        endereco: "Rua das Acácias, 45 - Centro",
         telefone: "27 99812-4821",
         consentimento: true,
         observacao: "Compra Losartana todo mês",
@@ -229,6 +245,7 @@ export function carregarExemplos(): BancoLocal {
       {
         id: novoId("cli"),
         nome: "Carlos Eduardo Lima",
+        endereco: "Av. Champagnat, 880, ap. 302 - Praia da Costa",
         telefone: "27 99745-1177",
         consentimento: true,
         observacao: "",
@@ -237,6 +254,7 @@ export function carregarExemplos(): BancoLocal {
       {
         id: novoId("cli"),
         nome: "Marta Souza",
+        endereco: "Rua Henrique Moscoso, 210 - Glória",
         telefone: "27 99630-7734",
         consentimento: true,
         observacao: "Insulina, precisa de refrigeração",
@@ -245,6 +263,7 @@ export function carregarExemplos(): BancoLocal {
       {
         id: novoId("cli"),
         nome: "José Antônio Farias",
+        endereco: "Rua Luiz Pinto Bandeira, 76 - Itapuã",
         telefone: "27 99518-3390",
         consentimento: false,
         observacao: "Prefere ser chamado por telefone",
@@ -253,6 +272,7 @@ export function carregarExemplos(): BancoLocal {
       {
         id: novoId("cli"),
         nome: "Fernanda Alves",
+        endereco: "Rua Antônio Ataíde, 1120, ap. 704 - Centro",
         telefone: "27 99402-5512",
         consentimento: true,
         observacao: "",
@@ -261,6 +281,7 @@ export function carregarExemplos(): BancoLocal {
       {
         id: novoId("cli"),
         nome: "Roberto Nogueira",
+        endereco: "Rua São Simão, 33 - Divino Espírito Santo",
         telefone: "27 99377-8846",
         consentimento: true,
         observacao: "",
@@ -269,6 +290,7 @@ export function carregarExemplos(): BancoLocal {
       {
         id: novoId("cli"),
         nome: "Luciana Prado",
+        endereco: "Av. Carioca, 512 - Itaparica",
         telefone: "27 99260-2204",
         consentimento: false,
         observacao: "Não compra desde julho",
@@ -367,7 +389,7 @@ export function carregarExemplos(): BancoLocal {
 
     pedidos: [
       pedido(
-        4,
+        6,
         "Ana Paula Ribeiro",
         "27 99812-4821",
         "whatsapp",
@@ -379,7 +401,7 @@ export function carregarExemplos(): BancoLocal {
         { observacao: "Cliente retira no fim da tarde" },
       ),
       pedido(
-        3,
+        5,
         "Marta Souza",
         "27 99630-7734",
         "whatsapp",
@@ -391,9 +413,14 @@ export function carregarExemplos(): BancoLocal {
         "pix",
         false,
         52,
+        {
+          formaEntrega: "entrega",
+          enderecoEntrega: "Rua Henrique Moscoso, 210 - Glória",
+          observacao: "Insulina: levar em bolsa térmica",
+        },
       ),
       pedido(
-        2,
+        4,
         "Fernanda Alves",
         "27 99402-5512",
         "whatsapp",
@@ -405,9 +432,13 @@ export function carregarExemplos(): BancoLocal {
         "pix",
         true,
         95,
+        {
+          formaEntrega: "entrega",
+          enderecoEntrega: "Rua Antônio Ataíde, 1120, ap. 704 - Centro",
+        },
       ),
       pedido(
-        1,
+        3,
         "Roberto Nogueira",
         "27 99377-8846",
         "balcao",
@@ -416,6 +447,39 @@ export function carregarExemplos(): BancoLocal {
         "balcao",
         false,
         180,
+      ),
+      // Dois pedidos já fechados: sem eles o faturamento do período fica em
+      // zero e a demonstração não mostra o número que mais interessa a quem
+      // decide comprar o sistema.
+      pedido(
+        2,
+        "Ana Paula Ribeiro",
+        "27 99812-4821",
+        "whatsapp",
+        [
+          item(acharProduto("Dipirona"), 2),
+          item(acharProduto("Vitamina D"), 1),
+        ],
+        "entregue",
+        "pix",
+        true,
+        300,
+        {
+          formaEntrega: "entrega",
+          enderecoEntrega: "Rua das Acácias, 45 - Centro",
+        },
+      ),
+      pedido(
+        1,
+        "José Antônio Farias",
+        "27 99518-3390",
+        "balcao",
+        [item(acharProduto("Metformina"), 1)],
+        "entregue",
+        "balcao",
+        true,
+        420,
+        { receitaConferidaPor: "Renata Lopes" },
       ),
     ],
 
@@ -449,7 +513,25 @@ export function carregarExemplos(): BancoLocal {
         em: agora - 90 * 60 * 1000 + 3000,
       },
     ],
-  };
+  });
 
-  return atualizarBanco(() => banco);
+  // Entra na loja aberta na sessão, e só nela. Sem sessão não há onde
+  // gravar, e devolver a visão vazia é mais honesto que gravar às cegas.
+  let visao: VisaoLoja = visaoVazia();
+
+  atualizarBanco((banco) => {
+    const atual = lojaAtiva(banco);
+    if (!atual) return banco;
+
+    const loja = { ...atual, ...cadastroDaLoja };
+    visao = { ...dados, loja };
+
+    return {
+      ...banco,
+      lojas: banco.lojas.map((l) => (l.id === atual.id ? loja : l)),
+      dados: { ...banco.dados, [atual.id]: dados },
+    };
+  });
+
+  return visao;
 }

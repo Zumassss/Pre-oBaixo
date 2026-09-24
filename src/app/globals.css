@@ -555,3 +555,96 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ============================================================
+   Entrada no sistema
+
+   A assinatura da tela de login: a cruz da marca batendo como sinal
+   vital, com o traço do monitor atravessando o fundo. Vem do mundo de
+   quem usa isto, e não de um catálogo de efeitos.
+
+   Tudo aqui é CSS e SVG. O globo 3D do painel já é a peça pesada do
+   sistema; colocar outra na porta de entrada faria a primeira impressão
+   ser a de um sistema lento.
+   ============================================================ */
+
+@keyframes batida {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 transparent);
+  }
+  /* A sístole: sobe rápido e volta, como o traço do monitor. */
+  8% {
+    transform: scale(1.055);
+    filter: drop-shadow(
+      0 0 22px color-mix(in oklab, var(--color-brand-500) 60%, transparent)
+    );
+  }
+  22% {
+    transform: scale(0.995);
+  }
+  40% {
+    transform: scale(1.012);
+  }
+}
+
+/* O ponto claro que corre por cima do traço apagado. */
+@keyframes varredura {
+  from {
+    stroke-dashoffset: 120;
+  }
+  to {
+    stroke-dashoffset: -1880;
+  }
+}
+
+@keyframes respiro {
+  0%,
+  100% {
+    opacity: 0.32;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.06);
+  }
+}
+
+@layer components {
+  /* O ritmo é um só: a cruz bate uma vez por complexo do traço, e os dois
+     tempos abaixo são a mesma conta (3.2s de varredura, 2 batidas). */
+  .bate {
+    animation: batida 1.6s cubic-bezier(0.3, 0, 0.5, 1) infinite;
+    transform-origin: center;
+  }
+
+  .traco-vivo {
+    stroke-dasharray: 120 2000;
+    animation: varredura 3.2s linear infinite;
+  }
+
+  .aura-respira {
+    animation: respiro 5.5s ease-in-out infinite;
+  }
+
+  /* Entrada em cascata dos blocos do cartão. */
+  .sobe-em-cascata > * {
+    animation: rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .sobe-em-cascata > *:nth-child(1) {
+    animation-delay: 60ms;
+  }
+  .sobe-em-cascata > *:nth-child(2) {
+    animation-delay: 140ms;
+  }
+  .sobe-em-cascata > *:nth-child(3) {
+    animation-delay: 220ms;
+  }
+  .sobe-em-cascata > *:nth-child(4) {
+    animation-delay: 300ms;
+  }
+  .sobe-em-cascata > *:nth-child(5) {
+    animation-delay: 380ms;
+  }
+}

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
-import { STATUS_PEDIDO_LABEL, type BancoLocal } from "@/lib/db/types";
+import { STATUS_PEDIDO_LABEL, type VisaoLoja } from "@/lib/db/types";
 
 export const runtime = "nodejs";
 
@@ -138,9 +138,9 @@ function data(em: number) {
  * esta rota passa a ler do servidor e o corpo da requisição some.
  */
 export async function POST(request: Request) {
-  let banco: BancoLocal;
+  let banco: VisaoLoja;
   try {
-    banco = (await request.json()) as BancoLocal;
+    banco = (await request.json()) as VisaoLoja;
   } catch {
     return NextResponse.json({ error: "Dados inválidos." }, { status: 400 });
   }
@@ -236,12 +236,14 @@ export async function POST(request: Request) {
     [
       { titulo: "Nome", largura: 32 },
       { titulo: "Telefone", largura: 20 },
+      { titulo: "Endereço", largura: 36 },
       { titulo: "Consentimento", largura: 18, alinhamento: "center" },
       { titulo: "Cadastro", largura: 14, alinhamento: "center" },
     ],
     banco.clientes.map((c) => [
       c.nome,
       c.telefone,
+      c.endereco || "",
       c.consentimento ? "autorizado" : "sem opt-in",
       data(c.criadoEm),
     ]),
@@ -306,7 +308,15 @@ export async function POST(request: Request) {
       { titulo: "Origem", largura: 12, alinhamento: "center" },
       { titulo: "Itens", largura: 40 },
       { titulo: "Status", largura: 22, alinhamento: "center" },
+      { titulo: "Entrega", largura: 14, alinhamento: "center" },
+      { titulo: "Endereço", largura: 34 },
       { titulo: "Pagamento", largura: 16, alinhamento: "center" },
+      {
+        titulo: "Taxa",
+        largura: 11,
+        alinhamento: "right",
+        formato: 'R$ #,##0.00',
+      },
       {
         titulo: "Total",
         largura: 14,
@@ -321,11 +331,16 @@ export async function POST(request: Request) {
       p.origem === "whatsapp" ? "WhatsApp" : "Balcão",
       p.itens.map((i) => `${i.quantidade}x ${i.nome}`).join(", "),
       STATUS_PEDIDO_LABEL[p.status],
+      p.formaEntrega === "entrega" ? "Motoboy" : "Retirada",
+      p.enderecoEntrega || "",
       p.pago
         ? "pago"
         : p.formaPagamento === "pix"
           ? "pix pendente"
-          : "na retirada",
+          : p.formaEntrega === "entrega"
+            ? "na entrega"
+            : "na retirada",
+      p.taxaEntrega ?? 0,
       p.total,
     ]),
   );

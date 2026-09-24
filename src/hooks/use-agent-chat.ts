@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { extrairContexto } from "@/lib/agente-contexto";
+import { useBanco } from "@/lib/db/use-db";
 
 export type ChatMessage = {
   id: string;
@@ -21,6 +23,7 @@ const CONTEXTO_MAXIMO = 8;
  * junto, senão cada pergunta ficaria progressivamente mais cara.
  */
 export function useAgentChat() {
+  const { banco } = useBanco();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -48,6 +51,8 @@ export function useAgentChat() {
             messages: historico
               .slice(-CONTEXTO_MAXIMO)
               .map(({ role, content }) => ({ role, content })),
+            // Sem isto o agente responde preço e horário no escuro.
+            loja: extrairContexto(banco),
           }),
         });
         const data = await res.json();
@@ -79,7 +84,7 @@ export function useAgentChat() {
         setLoading(false);
       }
     },
-    [messages, loading],
+    [messages, loading, banco],
   );
 
   const clear = useCallback(() => setMessages([]), []);

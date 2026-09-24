@@ -5,6 +5,7 @@ import {
   CircleDollarSign,
   CircleX,
   PackageCheck,
+  Bike,
   ShoppingBag,
   Stethoscope,
 } from "lucide-react";
@@ -22,6 +23,7 @@ const ESTILO: Record<StatusPedido, { chip: string; ponto: string }> = {
   aguardando_pagamento: { chip: "chip-info", ponto: "bg-info" },
   em_preparo: { chip: "chip-hot", ponto: "bg-brand-500" },
   pronto: { chip: "chip-good", ponto: "bg-positive" },
+  saiu_entrega: { chip: "chip-info", ponto: "bg-info" },
   entregue: { chip: "", ponto: "bg-fg-ghost" },
   cancelado: { chip: "", ponto: "bg-fg-ghost" },
 };
@@ -51,6 +53,8 @@ export function IconeStatus({
       return <ShoppingBag {...props} />;
     case "pronto":
       return <PackageCheck {...props} />;
+    case "saiu_entrega":
+      return <Bike {...props} />;
     case "cancelado":
       return <CircleX {...props} />;
     default:

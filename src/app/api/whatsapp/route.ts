@@ -111,6 +111,11 @@ export async function POST(request: Request) {
           "Esta conversa chegou pelo WhatsApp da loja, de um cliente real.",
           apresentacao,
           "Responda curto, como mensagem de WhatsApp.",
+          // O catálogo vive no navegador de quem opera a loja, e este código
+          // roda no servidor: por aqui ele não existe. Enquanto não houver
+          // banco de dados, dizer isso ao agente é o que impede que ele
+          // invente preço e estoque para um cliente de verdade.
+          "Você NÃO tem acesso ao catálogo, ao estoque nem aos preços desta loja nesta conversa. Nunca informe preço ou disponibilidade: diga que vai confirmar com a equipe e que alguém responde em seguida.",
         ]
           .filter(Boolean)
           .join(" "),
