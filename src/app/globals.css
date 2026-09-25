@@ -89,6 +89,14 @@
     0 10px 30px -18px rgba(0, 0, 0, 0.9);
   --vidro-fundo: rgba(10, 10, 14, 0.72);
   --vidro-solido-fundo: rgba(20, 20, 26, 0.97);
+  --vidro-desfoque: blur(18px) saturate(150%);
+  /* O menu desfoca mais e satura menos que o vidro decorativo: aqui o que
+     está atrás não pode competir com a opção que a pessoa vai clicar. */
+  --vidro-desfoque-solido: blur(22px) saturate(130%);
+  /* O fio de luz no topo do vidro, que é o que dá a impressão de
+     espessura. No escuro ele é branco; no claro, mais forte ainda. */
+  --vidro-realce: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --vidro-sombra: 0 6px 20px -10px rgba(0, 0, 0, 0.7);
   --sombra-flutuante: 0 24px 60px -16px rgba(0, 0, 0, 0.95);
   --brilho-cursor: rgba(255, 255, 255, 0.07);
 
@@ -186,8 +194,26 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.9),
     0 1px 2px rgba(16, 22, 38, 0.04),
     0 8px 24px -16px rgba(16, 22, 38, 0.16);
-  --vidro-fundo: rgba(255, 255, 255, 0.82);
-  --vidro-solido-fundo: rgba(255, 255, 255, 0.98);
+  /* Vidro no claro é outro material.
+     
+     Branco a 82% sobre uma página branca não refrata nada: não havia o que
+     ver atrás, então o efeito simplesmente não acontecia. Aqui a camada fica
+     bem mais transparente, o desfoque e a saturação sobem para o que está
+     atrás vazar com cor, e a espessura vem de um fio de luz no topo mais uma
+     sombra curta embaixo. É assim que vidro claro é feito: o que o define é
+     a borda, não o preenchimento. */
+  /* 0,58 deixava o texto de trás legível demais e a barra superior virava
+     duas camadas de leitura ao mesmo tempo. Com 0,72 e mais desfoque, o que
+     está atrás vira movimento e cor, que é o que faz vidro parecer vidro,
+     sem virar um segundo texto. */
+  --vidro-fundo: rgba(255, 255, 255, 0.72);
+  --vidro-solido-fundo: rgba(255, 255, 255, 0.965);
+  --vidro-desfoque: blur(28px) saturate(170%);
+  /* Saturação alta é o que dá graça ao vidro decorativo e é o que atrapalha
+     no menu: ela reforça a cor do que está atrás bem na hora de ler. */
+  --vidro-desfoque-solido: blur(26px) saturate(115%);
+  --vidro-realce: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --vidro-sombra: 0 6px 20px -8px rgba(16, 22, 38, 0.16);
   --sombra-flutuante: 0 20px 50px -14px rgba(16, 22, 38, 0.24);
   --brilho-cursor: rgba(16, 22, 38, 0.045);
 
@@ -443,18 +469,20 @@
   /* ---------- Vidro de verdade, só onde flutua ---------- */
   .glass {
     background: var(--vidro-fundo);
-    backdrop-filter: blur(18px) saturate(150%);
-    -webkit-backdrop-filter: blur(18px) saturate(150%);
-    border: 1px solid var(--color-hairline);
+    backdrop-filter: var(--vidro-desfoque);
+    -webkit-backdrop-filter: var(--vidro-desfoque);
+    border: 1px solid var(--color-hairline-strong);
+    box-shadow: var(--vidro-realce), var(--vidro-sombra);
   }
 
   /* Menu suspenso: quase opaco. Sobre uma tabela, o vidro translúcido
      deixava o texto de trás competir com as opções. */
   .glass-solid {
     background: var(--vidro-solido-fundo);
-    backdrop-filter: blur(20px) saturate(140%);
-    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    backdrop-filter: var(--vidro-desfoque-solido);
+    -webkit-backdrop-filter: var(--vidro-desfoque-solido);
     border: 1px solid var(--color-hairline-strong);
+    box-shadow: var(--vidro-realce);
   }
 
   /* ---------- Botões ---------- */
@@ -625,6 +653,13 @@
       transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
+  /* Mesma regra da barra lateral: acende na hora, apaga com calma. */
+  .reveal:hover::after,
+  .reveal:hover::before {
+    transition-duration: 90ms;
+    transition-timing-function: ease-out;
+  }
+
   /* Brilho difuso sobre a superfície */
   .reveal::after {
     content: "";
@@ -634,7 +669,7 @@
     border-radius: inherit;
     pointer-events: none;
     opacity: 0;
-    transition: opacity 260ms ease;
+    transition: opacity 240ms ease;
     background: radial-gradient(
       circle 220px at var(--mx, 50%) var(--my, 50%),
       var(--brilho-cursor),
@@ -653,7 +688,7 @@
     padding: 1px;
     pointer-events: none;
     opacity: 0;
-    transition: opacity 260ms ease;
+    transition: opacity 240ms ease;
     background: radial-gradient(
       circle 180px at var(--mx, 50%) var(--my, 50%),
       color-mix(in oklab, var(--color-brand-500) 75%, transparent),
@@ -677,16 +712,24 @@
     z-index: 2;
   }
 
-  /* Realce de item selecionável (lista, linha de tabela, item de menu) */
+  /* Realce de item selecionável (lista, linha de tabela, item de menu)
+     
+     A entrada é curta e com `ease-out`, que é rápido no começo: hover tem
+     que parecer resposta, não animação. Com 160ms de `ease`, que é lento no
+     início, a barra lateral dava a sensação de estar pensando antes de
+     acender. A saída fica mais longa de propósito, senão o menu pisca
+     quando o cursor atravessa vários itens. */
   .selectable {
     position: relative;
     transition:
-      background-color 160ms ease,
-      color 160ms ease;
+      background-color 220ms ease,
+      color 220ms ease;
   }
 
   .selectable:hover {
     background-color: var(--color-nivel-2);
+    transition-duration: 60ms;
+    transition-timing-function: ease-out;
   }
 
   .selectable[data-selected="true"] {

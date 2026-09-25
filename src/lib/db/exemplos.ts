@@ -26,6 +26,9 @@ import {
 
 const HORA = 60 * 60 * 1000;
 
+/** Um dia em minutos, que é a unidade dos exemplos de conversa. */
+const DIA = 24 * 60;
+
 /** A taxa que a loja de exemplo cobra para entregar. */
 const TAXA_ENTREGA = 6;
 
@@ -33,12 +36,14 @@ function mensagem(
   origem: Mensagem["origem"],
   texto: string,
   minutosAtras: number,
+  autor = "",
 ): Mensagem {
   return {
     id: novoId("msg"),
     origem,
     texto,
     em: Date.now() - minutosAtras * 60 * 1000,
+    autor: origem === "atendente" ? autor : "",
   };
 }
 
@@ -47,16 +52,20 @@ function conversa(
   telefone: string,
   status: Conversa["status"],
   mensagens: Mensagem[],
+  assumidaPor = "",
 ): Conversa {
+  const primeira = mensagens[0]?.em ?? Date.now();
+  const ultima = mensagens[mensagens.length - 1]?.em ?? Date.now();
   return {
     id: novoId("cnv"),
     cliente,
     telefone,
     status,
     mensagens,
-    atualizadaEm: mensagens.length
-      ? mensagens[mensagens.length - 1].em
-      : Date.now(),
+    atualizadaEm: ultima,
+    assumidaPor,
+    assumidaEm: assumidaPor ? ultima : 0,
+    criadaEm: primeira,
   };
 }
 
@@ -328,8 +337,9 @@ export function carregarExemplos(): VisaoLoja {
           "atendente",
           "Olá Carlos, aqui é a Renata, farmacêutica. Pode me dizer o nome dos dois medicamentos?",
           45,
+          "Renata Lopes",
         ),
-      ]),
+      ], "Renata Lopes"),
 
       conversa("Marta Souza", "27 99630-7734", "aberta", [
         mensagem("cliente", "Bom dia, chegou a insulina que eu pedi?", 90),
@@ -349,6 +359,39 @@ export function carregarExemplos(): VisaoLoja {
         mensagem("cliente", "Quanto custa o protetor solar FPS 50?", 400),
         mensagem("agente", "O de 120ml está R$ 62,90 e temos em estoque.", 399),
       ]),
+
+      // Conversas antigas da mesma cliente. Servem para o histórico ter
+      // profundidade de verdade: sem elas, a tela de histórico mostraria uma
+      // linha por pessoa e não provaria nada.
+      conversa("Ana Paula Ribeiro", "27 99812-4821", "resolvida", [
+        mensagem("cliente", "Bom dia! A Losartana chegou?", DIA * 8),
+        mensagem(
+          "agente",
+          "Bom dia, Ana! Chegou sim, temos em estoque. Quer que eu separe uma caixa?",
+          DIA * 8 - 2,
+        ),
+        mensagem("cliente", "Quero sim, obrigada", DIA * 8 - 40),
+      ]),
+
+      conversa("Ana Paula Ribeiro", "27 99812-4821", "resolvida", [
+        mensagem("cliente", "Vocês entregam no Centro?", DIA * 20),
+        mensagem(
+          "agente",
+          "Entregamos sim. A taxa de entrega é R$ 6,00 e o motoboy leva no mesmo dia.",
+          DIA * 20 - 3,
+        ),
+      ], "Renata Lopes"),
+
+      conversa("Marta Souza", "27 99630-7734", "resolvida", [
+        mensagem("cliente", "Preciso de fralda geriátrica tamanho G", DIA * 5),
+        mensagem(
+          "atendente",
+          "Oi Marta, temos o pacote com 8 unidades por R$ 34,90. Separo para você?",
+          DIA * 5 - 5,
+          "Renata Lopes",
+        ),
+        mensagem("cliente", "Separa duas, por favor", DIA * 5 - 30),
+      ], "Renata Lopes"),
     ],
 
     campanhas: [

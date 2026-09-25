@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   ArrowRight,
   Bike,
+  Hand,
   Check,
   ChevronDown,
   ClipboardList,
@@ -309,6 +310,12 @@ const ROTINA = [
     icone: MessagesSquare,
   },
   {
+    titulo: "Assumir o atendimento",
+    texto:
+      "Em Assumir conversa, você entra no lugar do agente e o seu nome fica visível para a equipe. Escrever uma resposta já assume sozinho. Devolver ao agente desfaz.",
+    icone: Hand,
+  },
+  {
     titulo: "Estoque baixo",
     texto:
       "Quando um produto fica abaixo do mínimo que você cadastrou, ele aparece no sino da barra de cima e no relatório.",
@@ -336,6 +343,11 @@ const DUVIDAS = [
     pergunta: "Apaguei um pedido sem querer. Dá para voltar?",
     resposta:
       "Não. Remover é definitivo. Para um pedido que não vai acontecer, use Cancelar em vez de remover: ele sai da fila mas continua no histórico e nos relatórios.",
+  },
+  {
+    pergunta: "Onde foram parar as conversas que eu resolvi?",
+    resposta:
+      "Para o histórico. Conversa resolvida sai da fila de propósito, senão a lista de quem atende cresce para sempre e some o que ainda dá trabalho. Em Conversas, na aba Histórico, cada cliente tem tudo o que já foi falado com ele, e dali dá para iniciar uma conversa nova já com os dados preenchidos.",
   },
   {
     pergunta: "A tela está clara demais ou escura demais. Dá para trocar?",

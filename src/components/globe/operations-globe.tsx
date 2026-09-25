@@ -103,9 +103,71 @@ const sphereVertex = /* glsl */ `
   }
 `;
 
+/* ------------------------------------------------------------------
+   Paleta por tema
+
+   O globo era desenhado com AdditiveBlending, que SOMA luz. Sobre preto isso
+   é o que faz as partículas brilharem. Sobre branco não faz nada: branco já
+   é luz máxima, e somar mais luz em cima devolve branco. Era por isso que o
+   globo virava um borrão rosa no tema claro.
+
+   No claro ele passa a usar blending normal, com cor escura por cima do
+   fundo, que é como um desenho se comporta no papel. As cores também
+   invertem de lógica: no escuro o tom forte é o mais claro, no claro é o
+   mais escuro.
+   ------------------------------------------------------------------ */
+
+export type PaletaGlobo = {
+  blending: THREE.Blending;
+  corProfunda: string;
+  corQuente: string;
+  /** Multiplicador de opacidade das partículas. */
+  alfa: number;
+  corAtmosfera: string;
+  forcaAtmosfera: number;
+  corPonto: string;
+  corPontoUrgente: string;
+  brilhoDeFundo: string;
+};
+
+const PALETA_ESCURA: PaletaGlobo = {
+  blending: THREE.AdditiveBlending,
+  corProfunda: "#9e0a20",
+  corQuente: "#ff5f72",
+  alfa: 1,
+  corAtmosfera: "#ff2d4d",
+  forcaAtmosfera: 0.42,
+  corPonto: "#ff3355",
+  corPontoUrgente: "#ffb020",
+  brilhoDeFundo:
+    "radial-gradient(circle, rgba(255,23,65,0.18) 0%, rgba(196,5,41,0.08) 38%, transparent 70%)",
+};
+
+const PALETA_CLARA: PaletaGlobo = {
+  blending: THREE.NormalBlending,
+  // No escuro o tom "quente" é o mais claro, porque energia ali é luz. No
+  // claro é o contrário: energia é tinta, então o quente é o mais escuro.
+  corProfunda: "#c9788a",
+  corQuente: "#8c041d",
+  alfa: 2.4,
+  corAtmosfera: "#a80427",
+  // Mais fraca que no escuro: no claro a atmosfera vira um anel escuro na
+  // borda, e um anel forte pesaria a tela toda.
+  forcaAtmosfera: 0.14,
+  corPonto: "#b8052a",
+  corPontoUrgente: "#8a5a00",
+  brilhoDeFundo:
+    "radial-gradient(circle, rgba(201,5,48,0.07) 0%, rgba(201,5,48,0.03) 38%, transparent 70%)",
+};
+
+export function paletaDoGlobo(claro: boolean) {
+  return claro ? PALETA_CLARA : PALETA_ESCURA;
+}
+
 const sphereFragment = /* glsl */ `
   uniform vec3 uColorDeep;
   uniform vec3 uColorHot;
+  uniform float uAlfa;
   varying float vFade;
   varying float vSeed;
 
@@ -114,13 +176,22 @@ const sphereFragment = /* glsl */ `
     float d = dot(c, c);
     if (d > 0.25) discard;
 
-    float alpha = smoothstep(0.25, 0.0, d) * vFade;
+    // Somando luz, partícula fraca ainda acende sobre preto. Pintando por
+    // cima, partícula fraca simplesmente não existe sobre branco: daí o
+    // reforço de opacidade no tema claro.
+    float alpha = clamp(smoothstep(0.25, 0.0, d) * vFade * uAlfa, 0.0, 1.0);
     float calor = clamp(vFade * 1.15 + step(0.9, vSeed) * 0.5, 0.0, 1.0);
     gl_FragColor = vec4(mix(uColorDeep, uColorHot, calor), alpha);
   }
 `;
 
-function ParticleSphere({ count }: { count: number }) {
+function ParticleSphere({
+  count,
+  paleta,
+}: {
+  count: number;
+  paleta: PaletaGlobo;
+}) {
   const materialRef = useRef<THREE.ShaderMaterial>(null);
   const { gl } = useThree();
 
@@ -153,10 +224,11 @@ function ParticleSphere({ count }: { count: number }) {
       uTime: { value: 0 },
       uSize: { value: 0.036 },
       uPixelRatio: { value: gl.getPixelRatio() },
-      uColorDeep: { value: new THREE.Color("#9e0a20") },
-      uColorHot: { value: new THREE.Color("#ff5f72") },
+      uColorDeep: { value: new THREE.Color(paleta.corProfunda) },
+      uColorHot: { value: new THREE.Color(paleta.corQuente) },
+      uAlfa: { value: paleta.alfa },
     }),
-    [gl],
+    [gl, paleta],
   );
 
   useFrame((state) => {
@@ -194,7 +266,7 @@ function ParticleSphere({ count }: { count: number }) {
         fragmentShader={sphereFragment}
         transparent
         depthWrite={false}
-        blending={THREE.AdditiveBlending}
+        blending={paleta.blending}
       />
     </points>
   );
@@ -219,16 +291,20 @@ const glowVertex = /* glsl */ `
 
 const glowFragment = /* glsl */ `
   uniform vec3 uColor;
+  uniform float uForca;
   varying float vIntensity;
   void main() {
-    gl_FragColor = vec4(uColor, vIntensity * 0.42);
+    gl_FragColor = vec4(uColor, vIntensity * uForca);
   }
 `;
 
-function Atmosphere() {
+function Atmosphere({ paleta }: { paleta: PaletaGlobo }) {
   const uniforms = useMemo(
-    () => ({ uColor: { value: new THREE.Color("#ff2d4d") } }),
-    [],
+    () => ({
+      uColor: { value: new THREE.Color(paleta.corAtmosfera) },
+      uForca: { value: paleta.forcaAtmosfera },
+    }),
+    [paleta],
   );
   return (
     <mesh scale={1.09}>
@@ -240,7 +316,7 @@ function Atmosphere() {
         transparent
         depthWrite={false}
         side={THREE.BackSide}
-        blending={THREE.AdditiveBlending}
+        blending={paleta.blending}
       />
     </mesh>
   );
@@ -253,15 +329,17 @@ function Atmosphere() {
 function NoConversa({
   ponto,
   index,
+  paleta,
 }: {
   ponto: PontoOperacao;
   index: number;
+  paleta: PaletaGlobo;
 }) {
   const ringRef = useRef<THREE.Mesh>(null);
   const coreRef = useRef<THREE.Mesh>(null);
 
   const position = useMemo(() => posicaoPorId(ponto.id, RADIUS * 1.01), [ponto.id]);
-  const cor = ponto.urgente ? "#ffb020" : "#ff3355";
+  const cor = ponto.urgente ? paleta.corPontoUrgente : paleta.corPonto;
 
   const quaternion = useMemo(() => {
     const q = new THREE.Quaternion();
@@ -291,7 +369,7 @@ function NoConversa({
           color={cor}
           transparent
           depthWrite={false}
-          blending={THREE.AdditiveBlending}
+          blending={paleta.blending}
         />
       </mesh>
       <mesh ref={ringRef} scale={0.018}>
@@ -301,7 +379,7 @@ function NoConversa({
           transparent
           side={THREE.DoubleSide}
           depthWrite={false}
-          blending={THREE.AdditiveBlending}
+          blending={paleta.blending}
         />
       </mesh>
     </group>
@@ -312,7 +390,15 @@ function NoConversa({
    Cena
    ------------------------------------------------------------------ */
 
-function Scene({ count, pontos }: { count: number; pontos: PontoOperacao[] }) {
+function Scene({
+  count,
+  pontos,
+  paleta,
+}: {
+  count: number;
+  pontos: PontoOperacao[];
+  paleta: PaletaGlobo;
+}) {
   const group = useRef<THREE.Group>(null);
   const alvo = useRef({ x: 0, y: 0 });
 
@@ -331,10 +417,10 @@ function Scene({ count, pontos }: { count: number; pontos: PontoOperacao[] }) {
 
   return (
     <group ref={group} rotation={[-0.2, 0, 0.12]}>
-      <Atmosphere />
-      <ParticleSphere count={count} />
+      <Atmosphere paleta={paleta} />
+      <ParticleSphere count={count} paleta={paleta} />
       {pontos.map((ponto, i) => (
-        <NoConversa key={ponto.id} ponto={ponto} index={i} />
+        <NoConversa key={ponto.id} ponto={ponto} index={i} paleta={paleta} />
       ))}
     </group>
   );
@@ -347,25 +433,35 @@ function Scene({ count, pontos }: { count: number; pontos: PontoOperacao[] }) {
 export default function OperationsGlobe({
   quality = "alta",
   pontos = [],
+  claro = false,
 }: {
   quality?: "alta" | "baixa";
   pontos?: PontoOperacao[];
+  claro?: boolean;
 }) {
   const count = quality === "alta" ? 11000 : 5000;
+  const paleta = paletaDoGlobo(claro);
 
   return (
     <div className="relative h-full w-full">
       {/* Luz de fundo em gradiente puro. Um blur grande aqui custaria caro e
           acinzentaria a cor. */}
-      <div className="pointer-events-none absolute left-1/2 top-1/2 aspect-square w-[80%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,23,65,0.18)_0%,rgba(196,5,41,0.08)_38%,transparent_70%)]" />
+      <div
+        className="pointer-events-none absolute left-1/2 top-1/2 aspect-square w-[80%] -translate-x-1/2 -translate-y-1/2 rounded-full"
+        style={{ background: paleta.brilhoDeFundo }}
+      />
 
+      {/* A troca de tema recria a cena inteira. Trocar blending e uniformes
+          em material já compilado é caminho de bug silencioso, e mudar de
+          tema é raro o bastante para um remonte não custar nada. */}
       <Canvas
+        key={claro ? "claro" : "escuro"}
         camera={{ position: [0, 0, 3.4], fov: 42 }}
         dpr={[1, 1.6]}
         gl={{ antialias: true, powerPreference: "high-performance", alpha: true }}
         style={{ background: "transparent" }}
       >
-        <Scene count={count} pontos={pontos} />
+        <Scene count={count} pontos={pontos} paleta={paleta} />
       </Canvas>
     </div>
   );

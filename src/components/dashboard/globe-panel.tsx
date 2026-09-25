@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { PlugZap } from "lucide-react";
 import { GlobeMount } from "@/components/globe/globe-mount";
+import { useTema } from "@/components/providers/tema";
 import type { PontoOperacao } from "@/components/globe/operations-globe";
 import { useBanco } from "@/lib/db/use-db";
 import { cn, formatNumber } from "@/lib/utils";
@@ -14,12 +15,13 @@ import { cn, formatNumber } from "@/lib/utils";
  * Cada ponto aceso na esfera é uma conversa aberta de verdade. Sem conversa,
  * a esfera gira parada e o painel diz o que falta para começar a receber.
  *
- * Este painel fica escuro nos dois temas (`pele-escura`). O globo é partícula
- * de luz somada sobre preto: sobre branco ele some. É a mesma escolha de um
- * mapa ou de um player de vídeo dentro de uma interface clara.
+ * O tema chega até aqui porque o globo é desenhado em WebGL e precisa trocar
+ * de técnica, não só de cor: no escuro ele soma luz, no claro ele pinta por
+ * cima. Ver `paletaDoGlobo`.
  */
 export function GlobePanel({ className }: { className?: string }) {
   const { banco } = useBanco();
+  const { claro } = useTema();
 
   const abertas = banco.conversas.filter((c) => c.status !== "resolvida");
 
@@ -35,9 +37,9 @@ export function GlobePanel({ className }: { className?: string }) {
   const conectado = banco.whatsappConectado;
 
   return (
-    <div className={cn("panel pele-escura relative overflow-hidden", className)}>
+    <div className={cn("panel relative overflow-hidden", className)}>
       <div className="absolute inset-0">
-        <GlobeMount pontos={pontos} />
+        <GlobeMount pontos={pontos} claro={claro} />
       </div>
 
       {/* Cabeçalho */}

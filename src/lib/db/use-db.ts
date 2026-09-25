@@ -320,13 +320,17 @@ export function removerCampanha(id: string) {
    ------------------------------------------------------------------ */
 
 export function criarConversa(cliente: string, telefone: string) {
+  const agora = Date.now();
   const conversa: Conversa = {
     id: novoId("cnv"),
     cliente,
     telefone,
     status: "aberta",
     mensagens: [],
-    atualizadaEm: Date.now(),
+    atualizadaEm: agora,
+    assumidaPor: "",
+    assumidaEm: 0,
+    criadaEm: agora,
   };
   alterarDados((d) => ({ ...d, conversas: [conversa, ...d.conversas] }));
   return conversa;
@@ -336,33 +340,94 @@ export function adicionarMensagem(
   conversaId: string,
   origem: Mensagem["origem"],
   texto: string,
+  autor = "",
 ) {
+  const agora = Date.now();
   const mensagem: Mensagem = {
     id: novoId("msg"),
     origem,
     texto,
-    em: Date.now(),
+    em: agora,
+    autor: origem === "atendente" ? autor : "",
   };
   alterarDados((d) => ({
     ...d,
+    conversas: d.conversas.map((c) => {
+      if (c.id !== conversaId) return c;
+
+      // Quem escreve, assume. Exigir o botão antes de poder responder só
+      // atrapalharia quem está com o cliente esperando do outro lado.
+      const assumindo = origem === "atendente" && !c.assumidaPor;
+
+      return {
+        ...c,
+        mensagens: [...c.mensagens, mensagem],
+        atualizadaEm: agora,
+        status: origem === "atendente" ? "com_atendente" : c.status,
+        assumidaPor: assumindo ? autor : c.assumidaPor,
+        assumidaEm: assumindo ? agora : c.assumidaEm,
+      };
+    }),
+  }));
+  return mensagem;
+}
+
+/**
+ * Alguém da loja passa a responder no lugar do agente.
+ *
+ * Para a equipe, isto é a fonte da verdade: a conversa sai da fila do agente
+ * e o nome de quem assumiu fica visível para todo mundo que abrir a tela.
+ *
+ * Para o WhatsApp, ainda não vale. O webhook roda no servidor e os cadastros
+ * vivem no navegador, então o agente não tem como saber que alguém assumiu e
+ * pode responder junto. A tela diz isso em vez de esconder. Some quando
+ * entrar o banco de dados.
+ */
+export function assumirConversa(id: string, atendente: string) {
+  const agora = Date.now();
+  alterarDados((d) => ({
+    ...d,
     conversas: d.conversas.map((c) =>
-      c.id === conversaId
+      c.id === id
         ? {
             ...c,
-            mensagens: [...c.mensagens, mensagem],
-            atualizadaEm: Date.now(),
-            status: origem === "atendente" ? "com_atendente" : c.status,
+            status: "com_atendente",
+            assumidaPor: atendente || "equipe da loja",
+            assumidaEm: agora,
           }
         : c,
     ),
   }));
-  return mensagem;
+}
+
+/** Devolve a conversa ao agente, que volta a responder sozinho. */
+export function devolverAoAgente(id: string) {
+  alterarDados((d) => ({
+    ...d,
+    conversas: d.conversas.map((c) =>
+      c.id === id
+        ? { ...c, status: "aberta", assumidaPor: "", assumidaEm: 0 }
+        : c,
+    ),
+  }));
 }
 
 export function mudarStatusConversa(id: string, status: Conversa["status"]) {
   alterarDados((d) => ({
     ...d,
-    conversas: d.conversas.map((c) => (c.id === id ? { ...c, status } : c)),
+    conversas: d.conversas.map((c) =>
+      c.id === id
+        ? {
+            ...c,
+            status,
+            // Reabrir devolve ao agente: se a loja quiser assumir de novo,
+            // assume de novo, e aí fica registrado que foi uma segunda vez.
+            assumidaPor: status === "aberta" ? "" : c.assumidaPor,
+            assumidaEm: status === "aberta" ? 0 : c.assumidaEm,
+            atualizadaEm: Date.now(),
+          }
+        : c,
+    ),
   }));
 }
 

@@ -136,6 +136,24 @@ valor das fichas, trocado pelo atributo `data-tema` no `<html>`.
   qualquer nó que saia cedo do laço de quadro renderiza no tamanho da
   geometria crua.
 
+## Conversas
+
+- **Conversa resolvida sai da fila.** Fila é o que ainda dá trabalho; se o
+  resolvido ficasse, a lista cresceria para sempre e esconderia o que
+  importa. O resolvido vive no histórico do cliente, na aba ao lado.
+- **O histórico é por pessoa, não por conversa.** `lib/conversas.ts` junta
+  pelo telefone sem pontuação, não pelo nome: nome a mesma pessoa digita
+  diferente a cada vez.
+- **Assumir a conversa grava quem assumiu**, pelo mesmo motivo do
+  `receitaConferidaPor` do pedido: quando der problema, a loja precisa saber
+  quem estava atendendo. Escrever uma resposta assume sozinho, porque exigir
+  o botão antes de poder responder atrapalha quem está com o cliente
+  esperando.
+- **Assumir ainda não cala o agente no WhatsApp.** O webhook roda no
+  servidor e a conversa vive no navegador, então ele não tem como saber.
+  A tela diz isso com todas as letras em vez de deixar a loja achar que o
+  agente parou. Não tire esse aviso antes do banco de dados existir.
+
 ## Regra de produto que não se negocia
 
 Pedido com item de tarja não anda sozinho: entra em `aguardando_receita` e

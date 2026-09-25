@@ -144,8 +144,17 @@ export type Mensagem = {
   origem: OrigemMensagem;
   texto: string;
   em: number;
+  /** Quem da loja escreveu, quando a origem é `atendente`. */
+  autor: string;
 };
 
+/**
+ * Em que pé está a conversa.
+ *
+ * `aberta` significa que o agente está no comando. `com_atendente` significa
+ * que alguém da loja assumiu e responde no lugar dele. `resolvida` sai da
+ * fila e passa a viver só no histórico do cliente.
+ */
 export type StatusConversa = "aberta" | "com_atendente" | "resolvida";
 
 export type Conversa = {
@@ -155,7 +164,38 @@ export type Conversa = {
   status: StatusConversa;
   mensagens: Mensagem[];
   atualizadaEm: number;
+  /**
+   * Quem da loja assumiu a conversa. Vazio significa que o agente responde.
+   *
+   * Guardar o nome, e não só um sim ou não, existe pelo mesmo motivo do
+   * `receitaConferidaPor` do pedido: quando der problema, a loja precisa
+   * saber quem estava atendendo.
+   */
+  assumidaPor: string;
+  assumidaEm: number;
+  criadaEm: number;
 };
+
+/** A conversa ainda está na fila de quem atende. */
+export function conversaAtiva(conversa: Conversa) {
+  return conversa.status !== "resolvida";
+}
+
+/**
+ * A chave que junta as conversas de uma mesma pessoa.
+ *
+ * É o telefone sem pontuação, e não o nome: nome a pessoa digita diferente a
+ * cada vez ("Ana Paula" e "ana paula ribeiro"), telefone não. Sem telefone,
+ * cai no nome normalizado para pelo menos não espalhar o histórico.
+ */
+export function chaveDoCliente(conversa: {
+  telefone: string;
+  cliente: string;
+}) {
+  const digitos = conversa.telefone.replace(/\D/g, "");
+  if (digitos.length >= 8) return digitos;
+  return `nome:${conversa.cliente.trim().toLowerCase()}`;
+}
 
 /* ------------------------------------------------------------------
    Pedidos
@@ -324,6 +364,16 @@ export function completarDados(salvo?: Partial<DadosLoja>): DadosLoja {
     ...base,
     ...salvo,
     pagamentos: { ...base.pagamentos, ...salvo.pagamentos },
+    // Conversa gravada por uma versão anterior não tem os campos de quem
+    // assumiu. Sem este preenchimento, a tela tentaria ler `undefined` e
+    // quebraria em cima de um dado que já existia e estava correto.
+    conversas: (salvo.conversas ?? []).map((c) => ({
+      ...c,
+      assumidaPor: c.assumidaPor ?? "",
+      assumidaEm: c.assumidaEm ?? 0,
+      criadaEm: c.criadaEm ?? c.mensagens?.[0]?.em ?? c.atualizadaEm ?? 0,
+      mensagens: (c.mensagens ?? []).map((m) => ({ ...m, autor: m.autor ?? "" })),
+    })),
   };
 }
 
