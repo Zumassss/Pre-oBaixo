@@ -173,7 +173,7 @@ export default function PedidosPage() {
                   "rounded-full border px-3 py-1.5 text-[11.5px] font-medium transition-colors",
                   filtro === f.valor
                     ? "border-brand-500/50 bg-brand-500/[0.14] text-fg"
-                    : "border-hairline bg-white/[0.03] text-fg-muted hover:bg-white/[0.06]",
+                    : "border-hairline bg-nivel-1 text-fg-muted hover:bg-nivel-3",
                 )}
               >
                 {f.rotulo}
@@ -255,12 +255,12 @@ function CartaoPedido({
   const avanco = rotuloDoAvanco(pedido);
 
   return (
-    <Reveal as="li" className="rounded-xl border border-hairline bg-white/[0.022] p-3.5">
+    <Reveal as="li" className="rounded-xl border border-hairline bg-nivel-1 p-3.5">
       <div className="flex flex-wrap items-start gap-3">
         <div
           className={cn(
             "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-hairline",
-            travadoNaReceita ? "bg-caution/[0.12]" : "bg-white/[0.04]",
+            travadoNaReceita ? "bg-caution/[0.12]" : "bg-nivel-2",
           )}
         >
           <IconeStatus
@@ -416,7 +416,7 @@ function CartaoPedido({
           <button
             onClick={() => removerPedido(pedido.id)}
             aria-label={`Remover pedido ${pedido.numero}`}
-            className="rounded-lg p-1.5 text-fg-ghost transition-colors hover:bg-white/[0.06] hover:text-negative"
+            className="rounded-lg p-1.5 text-fg-ghost transition-colors hover:bg-nivel-3 hover:text-negative"
           >
             <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
           </button>

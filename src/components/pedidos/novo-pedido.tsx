@@ -205,7 +205,7 @@ export function NovoPedido({
                     <button
                       type="button"
                       onClick={() => adicionar(produto.id)}
-                      className="flex w-full items-center gap-3 rounded-xl border border-hairline bg-white/[0.022] px-3 py-2 text-left transition-colors hover:border-hairline-strong hover:bg-white/[0.05]"
+                      className="flex w-full items-center gap-3 rounded-xl border border-hairline bg-nivel-1 px-3 py-2 text-left transition-colors hover:border-hairline-strong hover:bg-nivel-3"
                     >
                       <Plus
                         className="h-3.5 w-3.5 shrink-0 text-fg-faint"
@@ -242,7 +242,7 @@ export function NovoPedido({
 
         {/* Itens escolhidos */}
         {itens.length > 0 && (
-          <div className="rounded-xl border border-hairline bg-white/[0.022] p-2">
+          <div className="rounded-xl border border-hairline bg-nivel-1 p-2">
             <ul className="space-y-1">
               {itens.map((item) => {
                 const disponivel = estoqueDe(item.produtoId);
@@ -269,7 +269,7 @@ export function NovoPedido({
                         type="button"
                         aria-label={`Menos ${item.nome}`}
                         onClick={() => mudarQuantidade(item.produtoId, -1)}
-                        className="rounded-lg p-1 text-fg-faint transition-colors hover:bg-white/[0.07] hover:text-fg"
+                        className="rounded-lg p-1 text-fg-faint transition-colors hover:bg-nivel-4 hover:text-fg"
                       >
                         <Minus className="h-3.5 w-3.5" strokeWidth={2.4} />
                       </button>
@@ -280,7 +280,7 @@ export function NovoPedido({
                         type="button"
                         aria-label={`Mais ${item.nome}`}
                         onClick={() => mudarQuantidade(item.produtoId, 1)}
-                        className="rounded-lg p-1 text-fg-faint transition-colors hover:bg-white/[0.07] hover:text-fg"
+                        className="rounded-lg p-1 text-fg-faint transition-colors hover:bg-nivel-4 hover:text-fg"
                       >
                         <Plus className="h-3.5 w-3.5" strokeWidth={2.4} />
                       </button>
@@ -296,7 +296,7 @@ export function NovoPedido({
                       onClick={() =>
                         mudarQuantidade(item.produtoId, -item.quantidade)
                       }
-                      className="shrink-0 rounded-lg p-1 text-fg-ghost transition-colors hover:bg-white/[0.06] hover:text-negative"
+                      className="shrink-0 rounded-lg p-1 text-fg-ghost transition-colors hover:bg-nivel-3 hover:text-negative"
                     >
                       <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
                     </button>
@@ -363,7 +363,7 @@ export function NovoPedido({
                 "flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors",
                 entrega === "retirada"
                   ? "border-brand-500/50 bg-brand-500/[0.12] text-fg"
-                  : "border-hairline bg-white/[0.03] text-fg-muted hover:bg-white/[0.06]",
+                  : "border-hairline bg-nivel-1 text-fg-muted hover:bg-nivel-3",
               )}
             >
               <Store className="h-4 w-4 shrink-0" strokeWidth={2} />
@@ -388,8 +388,8 @@ export function NovoPedido({
                 "flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors",
                 entrega === "entrega"
                   ? "border-brand-500/50 bg-brand-500/[0.12] text-fg"
-                  : "border-hairline bg-white/[0.03] text-fg-muted hover:bg-white/[0.06]",
-                !temMotoboy && "cursor-not-allowed opacity-40 hover:bg-white/[0.03]",
+                  : "border-hairline bg-nivel-1 text-fg-muted hover:bg-nivel-3",
+                !temMotoboy && "cursor-not-allowed opacity-40 hover:bg-nivel-1",
               )}
             >
               <Bike className="h-4 w-4 shrink-0" strokeWidth={2} />
@@ -434,7 +434,7 @@ export function NovoPedido({
                     "rounded-xl border px-3 py-2 text-[12.5px] transition-colors",
                     origem === valor
                       ? "border-brand-500/50 bg-brand-500/[0.12] text-fg"
-                      : "border-hairline bg-white/[0.03] text-fg-muted hover:bg-white/[0.06]",
+                      : "border-hairline bg-nivel-1 text-fg-muted hover:bg-nivel-3",
                   )}
                 >
                   {rotulo}
@@ -462,7 +462,7 @@ export function NovoPedido({
                     "rounded-xl border px-3 py-2 text-[12.5px] transition-colors",
                     forma === valor
                       ? "border-brand-500/50 bg-brand-500/[0.12] text-fg"
-                      : "border-hairline bg-white/[0.03] text-fg-muted hover:bg-white/[0.06]",
+                      : "border-hairline bg-nivel-1 text-fg-muted hover:bg-nivel-3",
                   )}
                 >
                   {rotulo}

@@ -1,18 +1,48 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { ChevronRight, Search, X } from "lucide-react";
+import { ChevronRight, Moon, Search, Sun, X } from "lucide-react";
 import { pageMeta } from "@/config/nav";
 import { useClock } from "@/hooks/use-clock";
 import { formatClock } from "@/lib/utils";
 import { BrandCompact } from "@/components/shell/sidebar";
 import { NotificationBell } from "@/components/shell/notifications";
+import { useTema } from "@/components/providers/tema";
 import { Dropdown } from "@/components/ui/dropdown";
 import {
   useAppState,
   periodoLabel,
   type Periodo,
 } from "@/components/providers/app-state";
+
+/**
+ * Troca rápida de pele.
+ *
+ * Fica aqui, e não só em Configurações, porque a luz do balcão muda durante
+ * o dia: de manhã com sol na vitrine, o escuro vira espelho. Quem precisa
+ * trocar precisa trocar na hora, não depois de achar um menu.
+ *
+ * A escolha completa, com a opção de seguir o sistema, fica em Configurações.
+ */
+function BotaoTema() {
+  const { claro, alternarTema } = useTema();
+  const destino = claro ? "escuro" : "claro";
+
+  return (
+    <button
+      onClick={alternarTema}
+      aria-label={`Mudar para o tema ${destino}`}
+      title={`Mudar para o tema ${destino}`}
+      className="flex h-9 w-9 items-center justify-center rounded-full border border-hairline bg-nivel-2 text-fg-muted transition-colors hover:bg-nivel-4 hover:text-fg"
+    >
+      {claro ? (
+        <Moon className="h-[15px] w-[15px]" strokeWidth={1.9} />
+      ) : (
+        <Sun className="h-[15px] w-[15px]" strokeWidth={1.9} />
+      )}
+    </button>
+  );
+}
 
 function Breadcrumb({ parent, title }: { parent: string; title: string }) {
   return (
@@ -77,9 +107,11 @@ export function Topbar() {
             />
           </div>
 
+          <BotaoTema />
+
           <NotificationBell />
 
-          <div className="hidden items-center gap-2 rounded-full border border-hairline bg-white/[0.035] px-3 py-2 sm:flex">
+          <div className="hidden items-center gap-2 rounded-full border border-hairline bg-nivel-2 px-3 py-2 sm:flex">
             <span className="h-1.5 w-1.5 animate-blink rounded-full bg-positive" />
             <span className="tnum font-mono text-[12px] text-fg-muted">
               {now ? formatClock(now) : "--:--:--"}

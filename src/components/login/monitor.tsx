@@ -41,21 +41,22 @@ export function Monitor({ className }: { className?: string }) {
         d={CAMINHO}
         fill="none"
         stroke="currentColor"
-        strokeWidth="1.4"
+        strokeWidth="1.6"
         strokeLinecap="round"
         strokeLinejoin="round"
-        opacity="0.13"
+        style={{ opacity: "var(--traco-apagado)" }}
       />
-      {/* O trecho aceso que corre. */}
+      {/* O trecho aceso que corre. Largura e brilho vêm de ficha: no tema
+          claro o brilho não existe, porque luz sobre branco não aparece. */}
       <path
         d={CAMINHO}
         fill="none"
         stroke="currentColor"
-        strokeWidth="2"
+        strokeWidth="var(--traco-largura)"
         strokeLinecap="round"
         strokeLinejoin="round"
         className="traco-vivo"
-        style={{ filter: "drop-shadow(0 0 6px currentColor)" }}
+        style={{ filter: "var(--traco-brilho)" }}
       />
     </svg>
   );

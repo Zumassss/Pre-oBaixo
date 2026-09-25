@@ -84,7 +84,7 @@ export function ExportButton({
         aria-label={titulo ?? "Baixar Excel"}
         title={titulo ?? "Baixar Excel"}
         className={cn(
-          "rounded-lg p-1.5 transition-colors hover:bg-white/[0.06] hover:text-fg",
+          "rounded-lg p-1.5 transition-colors hover:bg-nivel-3 hover:text-fg",
           estado === "ok" ? "text-positive" : "text-fg-ghost",
         )}
       >

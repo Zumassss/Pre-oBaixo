@@ -66,7 +66,7 @@ export function SetupChecklist() {
                 "group flex h-full items-start gap-2.5 rounded-xl border p-3 transition-colors",
                 passo.pronto
                   ? "border-positive/25 bg-positive/[0.06]"
-                  : "border-hairline bg-white/[0.028] hover:border-brand-500/35 hover:bg-white/[0.05]",
+                  : "border-hairline bg-nivel-1 hover:border-brand-500/35 hover:bg-nivel-3",
               )}
             >
               <span className="mt-0.5 shrink-0">

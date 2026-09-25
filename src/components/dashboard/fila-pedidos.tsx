@@ -91,7 +91,7 @@ export function FilaPedidos({ banco }: { banco: VisaoLoja }) {
                     "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-hairline",
                     pedido.status === "aguardando_receita"
                       ? "bg-caution/[0.12]"
-                      : "bg-white/[0.04]",
+                      : "bg-nivel-2",
                   )}
                 >
                   <IconeStatus

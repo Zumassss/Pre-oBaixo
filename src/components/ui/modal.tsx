@@ -50,7 +50,7 @@ export function Modal({
       <button
         aria-label="Fechar"
         onClick={onFechar}
-        className="fixed inset-0 cursor-default bg-black/70 backdrop-blur-sm"
+        className="fixed inset-0 cursor-default bg-veu backdrop-blur-sm"
       />
       <div
         role="dialog"
@@ -58,7 +58,7 @@ export function Modal({
         aria-label={titulo}
         data-lenis-prevent
         className={cn(
-          "relative z-10 w-full rounded-2xl border border-hairline-strong bg-surface shadow-[0_30px_80px_-20px_rgba(0,0,0,0.95)]",
+          "relative z-10 w-full rounded-2xl border border-hairline-strong bg-surface sombra-flutuante",
           larguraMaxima,
         )}
         style={{ animation: "rise 0.25s cubic-bezier(0.16,1,0.3,1) both" }}
@@ -75,7 +75,7 @@ export function Modal({
           <button
             onClick={onFechar}
             aria-label="Fechar"
-            className="shrink-0 rounded-lg p-1.5 text-fg-faint transition-colors hover:bg-white/[0.07] hover:text-fg"
+            className="shrink-0 rounded-lg p-1.5 text-fg-faint transition-colors hover:bg-nivel-4 hover:text-fg"
           >
             <X className="h-4 w-4" strokeWidth={2} />
           </button>
@@ -116,7 +116,7 @@ export function Entrada(props: React.InputHTMLAttributes<HTMLInputElement>) {
     <input
       {...props}
       className={cn(
-        "w-full rounded-xl border border-hairline bg-white/[0.035] px-3 py-2.5 text-[13px] text-fg outline-none transition-colors placeholder:text-fg-ghost focus:border-brand-500/50 focus:bg-white/[0.055]",
+        "w-full rounded-xl border border-hairline bg-nivel-2 px-3 py-2.5 text-[13px] text-fg outline-none transition-colors placeholder:text-fg-ghost focus:border-brand-500/50 focus:bg-nivel-3",
         props.className,
       )}
     />
@@ -128,7 +128,7 @@ export function AreaTexto(props: React.TextareaHTMLAttributes<HTMLTextAreaElemen
     <textarea
       {...props}
       className={cn(
-        "w-full resize-y rounded-xl border border-hairline bg-white/[0.035] px-3 py-2.5 text-[13px] leading-relaxed text-fg outline-none transition-colors placeholder:text-fg-ghost focus:border-brand-500/50 focus:bg-white/[0.055]",
+        "w-full resize-y rounded-xl border border-hairline bg-nivel-2 px-3 py-2.5 text-[13px] leading-relaxed text-fg outline-none transition-colors placeholder:text-fg-ghost focus:border-brand-500/50 focus:bg-nivel-3",
         props.className,
       )}
     />

@@ -181,7 +181,7 @@ export function PerfilDaLoja({
 
       {/* Ativação */}
       {!criando && (
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-tile border border-hairline bg-white/[0.022] p-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-tile border border-hairline bg-nivel-1 p-3.5">
         <div className="min-w-0">
           <p className="text-[12.5px] font-medium text-fg">
             {loja.ativa ? "Loja em operação" : "Loja pausada"}

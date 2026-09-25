@@ -111,7 +111,7 @@ export default function AgentePage() {
                       "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold ring-1 ring-inset",
                       fonte.pronto
                         ? "bg-positive/12 text-positive ring-positive/25"
-                        : "bg-white/[0.05] text-fg-ghost ring-white/10",
+                        : "bg-nivel-3 text-fg-ghost ring-anel",
                     )}
                   >
                     {carregado ? fonte.itens : 0}
@@ -150,7 +150,11 @@ export default function AgentePage() {
                 className="flex items-start gap-3 rounded-xl px-2 py-2.5"
               >
                 <span className="mt-1 flex h-4 w-7 shrink-0 items-center rounded-full bg-positive/25 p-0.5 ring-1 ring-inset ring-positive/40">
-                  <span className="ml-auto h-3 w-3 rounded-full bg-positive shadow-[0_0_8px_1px_rgba(24,209,127,0.6)]" />
+                  <span className="ml-auto h-3 w-3 rounded-full bg-positive"
+                    style={{
+                      boxShadow:
+                        "0 0 8px 1px color-mix(in oklab, var(--color-positive) 60%, transparent)",
+                    }} />
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[12.5px] font-medium text-fg">{regra.titulo}</p>

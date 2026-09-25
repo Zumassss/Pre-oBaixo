@@ -84,7 +84,7 @@ export function Dropdown({
           role="listbox"
           data-lenis-prevent
           className={cn(
-            "glass-solid absolute top-[calc(100%+6px)] z-50 max-h-[320px] min-w-[190px] overflow-y-auto rounded-xl p-1 shadow-[0_24px_60px_-16px_rgba(0,0,0,0.95)]",
+            "glass-solid absolute top-[calc(100%+6px)] z-50 max-h-[320px] min-w-[190px] overflow-y-auto rounded-xl p-1 sombra-flutuante",
             align === "right" ? "right-0" : "left-0",
           )}
           style={{ animation: "rise 0.18s cubic-bezier(0.16,1,0.3,1) both" }}

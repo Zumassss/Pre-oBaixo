@@ -30,7 +30,7 @@ export function EmptyState({
     >
       <div className="relative mb-4">
         <div className="pointer-events-none absolute inset-0 aura-brand opacity-40" />
-        <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl border border-hairline bg-white/[0.03]">
+        <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl border border-hairline bg-nivel-1">
           <Icon className="h-5 w-5 text-fg-faint" strokeWidth={1.7} />
         </div>
       </div>

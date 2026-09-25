@@ -160,7 +160,7 @@ export default function CampanhasPage() {
                       <button
                         onClick={() => removerCampanha(campanha.id)}
                         aria-label={`Remover ${campanha.nome}`}
-                        className="rounded-lg p-1.5 text-fg-ghost transition-colors hover:bg-white/[0.06] hover:text-negative"
+                        className="rounded-lg p-1.5 text-fg-ghost transition-colors hover:bg-nivel-3 hover:text-negative"
                       >
                         <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
                       </button>

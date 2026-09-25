@@ -187,7 +187,7 @@ export default function RedePage() {
                         </div>
                         {/* A barra mostra o tamanho relativo da loja sem
                             precisar de eixo: a maior ocupa a linha toda. */}
-                        <div className="mt-1.5 h-1 w-full max-w-[220px] overflow-hidden rounded-full bg-white/[0.06]">
+                        <div className="mt-1.5 h-1 w-full max-w-[220px] overflow-hidden rounded-full bg-nivel-3">
                           <div
                             className="h-full rounded-full bg-gradient-to-r from-brand-700 to-brand-400 transition-[width] duration-500"
                             style={{
@@ -223,7 +223,7 @@ export default function RedePage() {
                           onClick={() => setEmEdicao(r.loja)}
                           aria-label={`Configurar ${r.loja.nome}`}
                           title="Configurar a loja"
-                          className="rounded-lg p-1.5 text-fg-ghost transition-colors hover:bg-white/[0.06] hover:text-fg"
+                          className="rounded-lg p-1.5 text-fg-ghost transition-colors hover:bg-nivel-3 hover:text-fg"
                         >
                           <Settings2 className="h-3.5 w-3.5" strokeWidth={2} />
                         </button>

@@ -62,7 +62,7 @@ export function Sidebar() {
           aria-label={barraRecolhida ? "Expandir menu" : "Recolher menu"}
           title={barraRecolhida ? "Expandir menu" : "Recolher menu"}
           className={cn(
-            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-fg-ghost transition-colors hover:bg-white/[0.06] hover:text-fg-muted",
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-fg-ghost transition-colors hover:bg-nivel-3 hover:text-fg-muted",
             !barraRecolhida && "ml-auto",
           )}
         >
@@ -179,7 +179,7 @@ export function Sidebar() {
                 onClick={sair}
                 aria-label="Sair do sistema"
                 title="Sair do sistema"
-                className="shrink-0 rounded-lg p-1.5 text-fg-ghost transition-colors hover:bg-white/[0.06] hover:text-negative"
+                className="shrink-0 rounded-lg p-1.5 text-fg-ghost transition-colors hover:bg-nivel-3 hover:text-negative"
               >
                 <LogOut className="h-4 w-4" strokeWidth={1.8} />
               </button>
@@ -191,7 +191,7 @@ export function Sidebar() {
             onClick={sair}
             aria-label="Sair do sistema"
             title="Sair do sistema"
-            className="mt-1 flex w-full justify-center rounded-lg p-1.5 text-fg-ghost transition-colors hover:bg-white/[0.06] hover:text-negative"
+            className="mt-1 flex w-full justify-center rounded-lg p-1.5 text-fg-ghost transition-colors hover:bg-nivel-3 hover:text-negative"
           >
             <LogOut className="h-4 w-4" strokeWidth={1.8} />
           </button>
@@ -208,7 +208,7 @@ function MarcaDaLoja({ configurada }: { configurada: boolean }) {
         "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
         configurada
           ? "bg-brand-500/12 text-brand-400 ring-1 ring-inset ring-brand-500/25"
-          : "bg-white/[0.05] text-fg-ghost ring-1 ring-inset ring-white/10",
+          : "bg-nivel-3 text-fg-ghost ring-1 ring-inset ring-anel",
       )}
     >
       <Store className="h-3.5 w-3.5" strokeWidth={2} />
@@ -255,7 +255,7 @@ function SeletorDeLoja({
         onClick={() => setAberto((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={aberto}
-        className="tile flex w-full items-center gap-2.5 p-2.5 text-left transition-colors hover:bg-white/[0.05]"
+        className="tile flex w-full items-center gap-2.5 p-2.5 text-left transition-colors hover:bg-nivel-3"
       >
         <MarcaDaLoja configurada={Boolean(atual?.configurada)} />
         <div className="min-w-0 flex-1">
@@ -280,7 +280,7 @@ function SeletorDeLoja({
           <div
             role="listbox"
             data-lenis-prevent
-            className="glass-solid absolute left-0 right-0 top-[calc(100%+6px)] z-50 max-h-[280px] overflow-y-auto rounded-xl p-1 shadow-[0_24px_60px_-16px_rgba(0,0,0,0.95)]"
+            className="glass-solid absolute left-0 right-0 top-[calc(100%+6px)] z-50 max-h-[280px] overflow-y-auto rounded-xl p-1 sombra-flutuante"
             style={{ animation: "rise 0.18s cubic-bezier(0.16,1,0.3,1) both" }}
           >
             {lojas.map((l) => (

@@ -5,6 +5,9 @@ import {
   Bike,
   Check,
   FlaskConical,
+  Monitor,
+  Moon,
+  Sun,
   QrCode,
   KeyRound,
   MessageSquareWarning,
@@ -26,6 +29,12 @@ import { limparBanco } from "@/lib/db/local-db";
 import { carregarExemplos } from "@/lib/db/exemplos";
 import { LOJA_VAZIA, type Loja } from "@/lib/db/types";
 import { pixConfigurado } from "@/lib/pix";
+import {
+  temaDescricao,
+  temaLabel,
+  useTema,
+  type Tema,
+} from "@/components/providers/tema";
 import { cn } from "@/lib/utils";
 
 export default function ConfiguracoesPage() {
@@ -354,6 +363,21 @@ function FormularioLoja({
             </div>
           </Panel>
 
+          {/* Aparência */}
+          <Panel>
+            <PanelHeader eyebrow="Aparência" title="Tema da interface" />
+            <div className="px-5 pb-5">
+              <p className="text-[12.5px] leading-relaxed text-fg-muted">
+                A escolha vale para este navegador. Vitrine com sol forte pede
+                o claro; loja à noite, o escuro. Em Sistema, a tela acompanha o
+                tema do aparelho sozinha.
+              </p>
+              <div className="mt-3">
+                <EscolhaDeTema />
+              </div>
+            </div>
+          </Panel>
+
           {/* Conformidade */}
           <Panel>
             <PanelHeader eyebrow="Conformidade" title="LGPD e responsabilidade" />
@@ -458,6 +482,60 @@ function FormularioLoja({
           </Panel>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * A escolha de tema, com as três opções.
+ *
+ * "Seguir o sistema" é o padrão e fica primeiro porque resolve o caso de
+ * quem já configurou o aparelho e não quer configurar de novo aqui.
+ */
+function EscolhaDeTema() {
+  const { tema, definirTema } = useTema();
+
+  const opcoes: { valor: Tema; icone: typeof Sun }[] = [
+    { valor: "sistema", icone: Monitor },
+    { valor: "claro", icone: Sun },
+    { valor: "escuro", icone: Moon },
+  ];
+
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Tema da interface"
+      className="grid grid-cols-1 gap-1.5 sm:grid-cols-3"
+    >
+      {opcoes.map(({ valor, icone: Icone }) => {
+        const ativo = tema === valor;
+        return (
+          <button
+            key={valor}
+            type="button"
+            role="radio"
+            aria-checked={ativo}
+            onClick={() => definirTema(valor)}
+            title={temaDescricao[valor]}
+            aria-label={temaDescricao[valor]}
+            className={cn(
+              "flex items-center gap-2 rounded-xl border px-3 py-2.5 text-[12.5px] transition-colors",
+              ativo
+                ? "border-brand-500/50 bg-brand-500/[0.12] text-fg"
+                : "border-hairline bg-nivel-1 text-fg-muted hover:bg-nivel-3",
+            )}
+          >
+            <Icone className="h-4 w-4 shrink-0" strokeWidth={2} />
+            <span className="truncate">{temaLabel[valor]}</span>
+            {ativo && (
+              <Check
+                className="ml-auto h-3.5 w-3.5 shrink-0 text-brand-400"
+                strokeWidth={2.5}
+              />
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }

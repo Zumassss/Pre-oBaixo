@@ -11,6 +11,18 @@
    compõe de graça.
    ============================================================ */
 
+/* ------------------------------------------------------------------
+   Duas peles, um sistema
+
+   Toda cor do sistema é uma ficha aqui. O tema claro não é outra folha
+   de estilo: é o mesmo conjunto de fichas com outros valores, trocado
+   pelo atributo `data-tema` no <html>. Componente nenhum sabe qual tema
+   está no ar, e é por isso que os dois não saem de sincronia.
+
+   Quem escrever cor solta no componente (bg-white/[0.05], text-white)
+   quebra isso: no claro, branco sobre branco some. Use as fichas.
+   ------------------------------------------------------------------ */
+
 @theme {
   /* Superfícies */
   --color-void: #030304;
@@ -19,6 +31,19 @@
   --color-surface: #101014;
   --color-surface-2: #16161c;
   --color-surface-3: #1e1e26;
+
+  /* Camadas de realce: o degrau entre uma superfície e a de cima dela.
+     No escuro é luz por cima; no claro, sombra. */
+  --color-nivel-1: rgba(255, 255, 255, 0.026);
+  --color-nivel-2: rgba(255, 255, 255, 0.038);
+  --color-nivel-3: rgba(255, 255, 255, 0.06);
+  --color-nivel-4: rgba(255, 255, 255, 0.085);
+
+  /* Anel interno fino, usado em ícone e avatar */
+  --color-anel: rgba(255, 255, 255, 0.1);
+
+  /* Véu por trás de janela flutuante */
+  --color-veu: rgba(0, 0, 0, 0.7);
 
   /* Vermelho da marca */
   --color-brand-50: #fff1f3;
@@ -32,11 +57,15 @@
   --color-brand-800: #8c041d;
   --color-brand-900: #560213;
 
-  /* Texto */
+  /* Texto
+     Quatro degraus, e os quatro têm que ser legíveis. Os dois últimos eram
+     cinza demais: 3,8:1 e 2:1 sobre o painel, ou seja, reprovavam no mínimo
+     da WCAG para texto pequeno. Hierarquia se faz com tamanho e peso
+     também, não só apagando a cor até o texto sumir. */
   --color-fg: #f7f7f9;
-  --color-fg-muted: #a0a0ad;
-  --color-fg-faint: #6a6a77;
-  --color-fg-ghost: #45454f;
+  --color-fg-muted: #b2b2bf;
+  --color-fg-faint: #9b9ba9;
+  --color-fg-ghost: #8a8a97;
 
   /* Semânticos */
   --color-positive: #18d17f;
@@ -47,6 +76,33 @@
   /* Bordas */
   --color-hairline: rgba(255, 255, 255, 0.07);
   --color-hairline-strong: rgba(255, 255, 255, 0.14);
+
+  /* Superfícies compostas: o painel, o vidro e as sombras. Ficam aqui
+     porque mudam de natureza entre os temas, não só de valor. */
+  --painel-fundo: linear-gradient(
+    180deg,
+    rgba(22, 22, 28, 0.9) 0%,
+    rgba(12, 12, 16, 0.9) 100%
+  );
+  --painel-sombra:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 10px 30px -18px rgba(0, 0, 0, 0.9);
+  --vidro-fundo: rgba(10, 10, 14, 0.72);
+  --vidro-solido-fundo: rgba(20, 20, 26, 0.97);
+  --sombra-flutuante: 0 24px 60px -16px rgba(0, 0, 0, 0.95);
+  --brilho-cursor: rgba(255, 255, 255, 0.07);
+
+  /* Atmosfera do fundo: a aura da marca e a vinheta que fecha as bordas.
+     No claro elas quase somem, senão a tela fica com cara de tingida. */
+  --aura-opacidade: 0.3;
+  --vinheta: rgba(0, 0, 0, 0.72);
+
+  /* O traço do monitor na tela de entrada. No escuro ele brilha; no claro,
+     brilho não existe (luz sobre branco é nada), então o traço engrossa e
+     escurece para continuar sendo visto. */
+  --traco-apagado: 0.13;
+  --traco-largura: 2;
+  --traco-brilho: drop-shadow(0 0 6px currentColor);
 
   /* Tipografia */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
@@ -62,6 +118,146 @@
   --animate-blink: blink 2s ease-in-out infinite;
   --animate-bar: bar 1.2s ease-in-out infinite;
   --animate-shimmer: shimmer 2.4s linear infinite;
+}
+
+/* ------------------------------------------------------------------
+   Tema claro
+
+   Não é o escuro com as cores invertidas. Duas coisas mudam de
+   natureza:
+
+   1. O realce deixa de ser luz e vira sombra. No escuro, o que está
+      "por cima" recebe branco; no claro, recebe preto, senão o degrau
+      entre as camadas some.
+   2. O vermelho escurece. O #ff1741 da marca sobre branco dá 3,6:1 de
+      contraste e reprova para texto. Os tons que carregam texto e
+      ícone descem na escala; o vermelho vivo fica só em preenchimento,
+      onde o texto por cima é branco.
+
+   O nome das fichas continua o mesmo (brand-400 segue sendo o tom de
+   ícone), então nenhum componente precisa saber em que tema está.
+   ------------------------------------------------------------------ */
+
+:root[data-tema="claro"] {
+  /* Superfícies: o fundo é cinza e o painel é branco, para o painel
+     subir do fundo em vez de se dissolver nele. */
+  --color-void: #f1f3f6;
+  --color-ink: #ffffff;
+  --color-ink-2: #f7f8fa;
+  --color-surface: #ffffff;
+  --color-surface-2: #f4f6f8;
+  --color-surface-3: #e8ebef;
+
+  --color-nivel-1: rgba(16, 22, 38, 0.028);
+  --color-nivel-2: rgba(16, 22, 38, 0.045);
+  --color-nivel-3: rgba(16, 22, 38, 0.07);
+  --color-nivel-4: rgba(16, 22, 38, 0.1);
+
+  --color-anel: rgba(16, 22, 38, 0.1);
+  --color-veu: rgba(18, 22, 32, 0.45);
+
+  /* Vermelho: o vivo vira preenchimento, o escuro carrega texto. */
+  --color-brand-300: #b8052a;
+  --color-brand-400: #c20629;
+  /* O 500 preenche botão com texto branco por cima, então ele desce até o
+     branco ter folga sobre ele: com o vermelho vivo da marca, o rótulo do
+     botão principal ficava em 3,9:1 e reprovava. */
+  --color-brand-500: #c90530;
+  --color-brand-600: #a80427;
+  --color-brand-700: #7d0319;
+
+  /* Texto */
+  --color-fg: #14171f;
+  --color-fg-muted: #474d5c;
+  --color-fg-faint: #5b6273;
+  --color-fg-ghost: #626979;
+
+  /* Semânticos escurecidos: os tons do escuro somem sobre branco. */
+  --color-positive: #067a47;
+  --color-negative: #c9102a;
+  --color-caution: #8a5a00;
+  --color-info: #0a5fc7;
+
+  --color-hairline: rgba(16, 22, 38, 0.1);
+  --color-hairline-strong: rgba(16, 22, 38, 0.18);
+
+  --painel-fundo: #ffffff;
+  --painel-sombra:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 1px 2px rgba(16, 22, 38, 0.04),
+    0 8px 24px -16px rgba(16, 22, 38, 0.16);
+  --vidro-fundo: rgba(255, 255, 255, 0.82);
+  --vidro-solido-fundo: rgba(255, 255, 255, 0.98);
+  --sombra-flutuante: 0 20px 50px -14px rgba(16, 22, 38, 0.24);
+  --brilho-cursor: rgba(16, 22, 38, 0.045);
+
+  --aura-opacidade: 0.1;
+  --vinheta: rgba(16, 22, 38, 0.05);
+
+  --traco-apagado: 0.26;
+  --traco-largura: 2.4;
+  --traco-brilho: none;
+
+  color-scheme: light;
+}
+
+/* ------------------------------------------------------------------
+   Ilha escura
+
+   O globo é WebGL: partícula vermelha somando luz sobre fundo preto. Sobre
+   branco ele vira um borrão rosa ilegível, e recolorir o shader daria um
+   globo pior nos dois temas.
+
+   Então esse painel continua escuro no tema claro, como um mapa, uma câmera
+   ou um radar dentro de uma tela clara. Não é inconsistência: é a mesma
+   razão pela qual player de vídeo não fica branco.
+
+   O primeiro seletor tem especificidade maior que `:root[data-tema="claro"]`,
+   que é o que faz as fichas escuras ganharem de volta aqui dentro.
+   ------------------------------------------------------------------ */
+
+:root[data-tema="claro"] .pele-escura,
+.pele-escura {
+  --color-surface: #101014;
+  --color-surface-2: #16161c;
+  --color-surface-3: #1e1e26;
+
+  --color-nivel-1: rgba(255, 255, 255, 0.026);
+  --color-nivel-2: rgba(255, 255, 255, 0.038);
+  --color-nivel-3: rgba(255, 255, 255, 0.06);
+  --color-nivel-4: rgba(255, 255, 255, 0.085);
+  --color-anel: rgba(255, 255, 255, 0.1);
+
+  --color-brand-300: #ff8b9b;
+  --color-brand-400: #ff4f6a;
+  --color-brand-500: #ff1741;
+
+  --color-fg: #f7f7f9;
+  --color-fg-muted: #b2b2bf;
+  --color-fg-faint: #9b9ba9;
+  --color-fg-ghost: #8a8a97;
+
+  --color-positive: #18d17f;
+  --color-caution: #ffb020;
+  --color-info: #4d9dff;
+
+  --color-hairline: rgba(255, 255, 255, 0.07);
+  --color-hairline-strong: rgba(255, 255, 255, 0.14);
+
+  /* O vidro entra aqui junto: sem isto, as pílulas de contagem sobre o
+     globo continuavam brancas no tema claro, com texto branco em cima. */
+  --vidro-fundo: rgba(10, 10, 14, 0.72);
+  --vidro-solido-fundo: rgba(20, 20, 26, 0.97);
+
+  /* Opaco de propósito: o globo não tem fundo próprio, e com o painel
+     translúcido o branco da página subia por baixo e lavava as partículas. */
+  --painel-fundo: linear-gradient(180deg, #131318 0%, #09090c 100%);
+  --painel-sombra:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 10px 30px -18px rgba(0, 0, 0, 0.5);
+  --brilho-cursor: rgba(255, 255, 255, 0.07);
+
+  color-scheme: dark;
 }
 
 @keyframes pulse-ring {
@@ -124,6 +320,17 @@
   html {
     background-color: var(--color-void);
     color-scheme: dark;
+    /* A troca de tema é uma transição, não um susto. Só cor, nunca
+       layout, e desligada para quem pediu menos movimento. */
+    transition:
+      background-color 220ms ease,
+      color 220ms ease;
+  }
+
+  body {
+    transition:
+      background-color 220ms ease,
+      color 220ms ease;
   }
 
   body {
@@ -147,7 +354,7 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.09);
+    background: var(--color-nivel-4);
     border-radius: 999px;
     border: 2px solid transparent;
     background-clip: content-box;
@@ -221,27 +428,21 @@
   .panel {
     position: relative;
     border-radius: var(--radius-panel);
-    background: linear-gradient(
-      180deg,
-      rgba(22, 22, 28, 0.9) 0%,
-      rgba(12, 12, 16, 0.9) 100%
-    );
+    background: var(--painel-fundo);
     border: 1px solid var(--color-hairline);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.05),
-      0 10px 30px -18px rgba(0, 0, 0, 0.9);
+    box-shadow: var(--painel-sombra);
   }
 
   /* ---------- Placa ---------- */
   .tile {
     border-radius: var(--radius-tile);
-    background: rgba(255, 255, 255, 0.028);
+    background: var(--color-nivel-1);
     border: 1px solid var(--color-hairline);
   }
 
   /* ---------- Vidro de verdade, só onde flutua ---------- */
   .glass {
-    background: rgba(10, 10, 14, 0.72);
+    background: var(--vidro-fundo);
     backdrop-filter: blur(18px) saturate(150%);
     -webkit-backdrop-filter: blur(18px) saturate(150%);
     border: 1px solid var(--color-hairline);
@@ -250,7 +451,7 @@
   /* Menu suspenso: quase opaco. Sobre uma tabela, o vidro translúcido
      deixava o texto de trás competir com as opções. */
   .glass-solid {
-    background: rgba(20, 20, 26, 0.97);
+    background: var(--vidro-solido-fundo);
     backdrop-filter: blur(20px) saturate(140%);
     -webkit-backdrop-filter: blur(20px) saturate(140%);
     border: 1px solid var(--color-hairline-strong);
@@ -309,7 +510,7 @@
     font-size: 13px;
     font-weight: 500;
     color: var(--color-fg-muted);
-    background: rgba(255, 255, 255, 0.035);
+    background: var(--color-nivel-2);
     border: 1px solid var(--color-hairline);
     transition:
       color 160ms ease,
@@ -319,7 +520,7 @@
 
   .btn-ghost:hover:not(:disabled) {
     color: var(--color-fg);
-    background: rgba(255, 255, 255, 0.075);
+    background: var(--color-nivel-4);
     border-color: var(--color-hairline-strong);
   }
 
@@ -340,7 +541,7 @@
     font-weight: 600;
     letter-spacing: 0.02em;
     border: 1px solid var(--color-hairline);
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--color-nivel-2);
     color: var(--color-fg-muted);
     white-space: nowrap;
   }
@@ -381,7 +582,7 @@
   .field {
     width: 100%;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.035);
+    background: var(--color-nivel-2);
     border: 1px solid var(--color-hairline);
     padding: 9px 15px;
     font-size: 13px;
@@ -398,7 +599,7 @@
 
   .field:focus {
     outline: none;
-    background: rgba(255, 255, 255, 0.055);
+    background: var(--color-nivel-3);
     border-color: color-mix(in oklab, var(--color-brand-500) 45%, transparent);
     box-shadow: 0 0 0 3px
       color-mix(in oklab, var(--color-brand-500) 13%, transparent);
@@ -436,8 +637,8 @@
     transition: opacity 260ms ease;
     background: radial-gradient(
       circle 220px at var(--mx, 50%) var(--my, 50%),
-      rgba(255, 255, 255, 0.07),
-      rgba(255, 23, 65, 0.05) 40%,
+      var(--brilho-cursor),
+      color-mix(in oklab, var(--color-brand-500) 6%, transparent) 40%,
       transparent 70%
     );
   }
@@ -485,7 +686,7 @@
   }
 
   .selectable:hover {
-    background-color: rgba(255, 255, 255, 0.045);
+    background-color: var(--color-nivel-2);
   }
 
   .selectable[data-selected="true"] {
@@ -521,15 +722,15 @@
 
 @utility grid-mesh {
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.026) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.026) 1px, transparent 1px);
+    linear-gradient(var(--color-nivel-1) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-nivel-1) 1px, transparent 1px);
   background-size: 54px 54px;
 }
 
 @utility text-brand-gradient {
   background: linear-gradient(
     100deg,
-    #fff 0%,
+    var(--color-fg) 0%,
     var(--color-brand-400) 60%,
     var(--color-brand-600) 100%
   );
@@ -537,6 +738,20 @@
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
+}
+
+/* A sombra de tudo que flutua acima do conteúdo: menu, janela, painel
+   suspenso. Fica numa ficha só para os dois temas não divergirem. */
+@utility sombra-flutuante {
+  box-shadow: var(--sombra-flutuante);
+}
+
+@utility vinheta {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 34%,
+    var(--vinheta) 100%
+  );
 }
 
 @utility no-scrollbar {
@@ -602,11 +817,11 @@
 @keyframes respiro {
   0%,
   100% {
-    opacity: 0.32;
+    opacity: calc(var(--aura-opacidade) * 1.07);
     transform: scale(1);
   }
   50% {
-    opacity: 0.6;
+    opacity: calc(var(--aura-opacidade) * 2);
     transform: scale(1.06);
   }
 }

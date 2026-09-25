@@ -148,7 +148,7 @@ export default function ClientesPage() {
                 <Tr key={cliente.id} index={i}>
                   <Td>
                     <div className="flex items-center gap-2.5">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-surface-3 to-surface text-[10px] font-semibold text-fg-muted ring-1 ring-inset ring-white/10">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-surface-3 to-surface text-[10px] font-semibold text-fg-muted ring-1 ring-inset ring-anel">
                         {cliente.nome
                           .split(" ")
                           .slice(0, 2)
@@ -182,7 +182,7 @@ export default function ClientesPage() {
                     <button
                       onClick={() => removerCliente(cliente.id)}
                       aria-label={`Remover ${cliente.nome}`}
-                      className="rounded-lg p-1.5 text-fg-ghost transition-colors hover:bg-white/[0.06] hover:text-negative"
+                      className="rounded-lg p-1.5 text-fg-ghost transition-colors hover:bg-nivel-3 hover:text-negative"
                     >
                       <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
                     </button>
@@ -240,7 +240,7 @@ export default function ClientesPage() {
             />
           </Campo>
 
-          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-hairline bg-white/[0.028] p-3">
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-hairline bg-nivel-1 p-3">
             <input
               type="checkbox"
               checked={form.consentimento}

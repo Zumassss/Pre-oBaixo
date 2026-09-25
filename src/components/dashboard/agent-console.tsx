@@ -66,7 +66,7 @@ export function AgentConsole({ className }: { className?: string }) {
         {messages.length > 0 && (
           <button
             onClick={clear}
-            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] text-fg-ghost transition-colors hover:bg-white/5 hover:text-fg-muted"
+            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] text-fg-ghost transition-colors hover:bg-nivel-2 hover:text-fg-muted"
           >
             <Eraser className="h-3 w-3" strokeWidth={2} />
             limpar
@@ -111,7 +111,7 @@ export function AgentConsole({ className }: { className?: string }) {
                   ? "rounded-br-md bg-gradient-to-br from-brand-600 to-brand-800 text-white"
                   : m.error
                     ? "rounded-bl-md bg-caution/10 text-caution ring-1 ring-inset ring-caution/25"
-                    : "rounded-bl-md bg-white/[0.055] text-fg ring-1 ring-inset ring-white/[0.07]",
+                    : "rounded-bl-md bg-nivel-3 text-fg ring-1 ring-inset ring-nivel-4",
               )}
             >
               {m.content}
@@ -121,7 +121,7 @@ export function AgentConsole({ className }: { className?: string }) {
 
         {loading && (
           <div className="flex justify-start">
-            <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md bg-white/[0.055] px-3 py-2.5 ring-1 ring-inset ring-white/[0.07]">
+            <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md bg-nivel-3 px-3 py-2.5 ring-1 ring-inset ring-nivel-4">
               {[0, 1, 2].map((i) => (
                 <span
                   key={i}
@@ -143,7 +143,7 @@ export function AgentConsole({ className }: { className?: string }) {
         }}
         className="border-t border-hairline p-3"
       >
-        <div className="flex items-center gap-2 rounded-full border border-hairline bg-white/[0.035] px-2 py-1.5 transition-colors focus-within:border-brand-500/45">
+        <div className="flex items-center gap-2 rounded-full border border-hairline bg-nivel-2 px-2 py-1.5 transition-colors focus-within:border-brand-500/45">
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}

@@ -80,7 +80,7 @@ function ItemConversa({
       )}
     >
       <div className="flex items-center gap-2.5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-surface-3 to-surface text-[11px] font-semibold text-fg-muted ring-1 ring-inset ring-white/10">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-surface-3 to-surface text-[11px] font-semibold text-fg-muted ring-1 ring-inset ring-anel">
           {iniciais(conversa.cliente)}
         </div>
         <div className="min-w-0 flex-1">
@@ -130,10 +130,10 @@ function Bolha({
           className={cn(
             "rounded-2xl px-3.5 py-2.5 text-[13px] leading-[1.5]",
             entrada
-              ? "rounded-tl-md bg-white/[0.055] text-fg ring-1 ring-inset ring-white/[0.07]"
+              ? "rounded-tl-md bg-nivel-3 text-fg ring-1 ring-inset ring-nivel-4"
               : origem === "agente"
                 ? "rounded-tr-md bg-gradient-to-br from-brand-600 to-brand-800 text-white"
-                : "rounded-tr-md bg-surface-3 text-fg ring-1 ring-inset ring-white/10",
+                : "rounded-tr-md bg-surface-3 text-fg ring-1 ring-inset ring-anel",
           )}
         >
           {texto}
@@ -317,7 +317,7 @@ export function ConversationsWorkspace() {
             {ativa ? (
               <>
                 <header className="flex flex-wrap items-center gap-3 border-b border-hairline p-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-surface-3 to-surface text-[12px] font-semibold text-fg-muted ring-1 ring-inset ring-white/10">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-surface-3 to-surface text-[12px] font-semibold text-fg-muted ring-1 ring-inset ring-anel">
                     {iniciais(ativa.cliente)}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -387,7 +387,7 @@ export function ConversationsWorkspace() {
                   </div>
                   <form
                     onSubmit={enviar}
-                    className="flex items-center gap-2 rounded-full border border-hairline bg-white/[0.035] px-2 py-1.5 transition-colors focus-within:border-brand-500/45"
+                    className="flex items-center gap-2 rounded-full border border-hairline bg-nivel-2 px-2 py-1.5 transition-colors focus-within:border-brand-500/45"
                   >
                     <input
                       value={rascunho}

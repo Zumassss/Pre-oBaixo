@@ -89,7 +89,7 @@ export function CobrancaPix({
         <div className="space-y-4">
           <div>
             <p className="eyebrow mb-2">Pix copia e cola</p>
-            <div className="rounded-xl border border-hairline bg-white/[0.028] p-3">
+            <div className="rounded-xl border border-hairline bg-nivel-1 p-3">
               <p className="break-all font-mono text-[11px] leading-relaxed text-fg-muted">
                 {codigo}
               </p>

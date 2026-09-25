@@ -185,7 +185,7 @@ export function NotificationBell() {
           "relative flex h-9 w-9 items-center justify-center rounded-full border transition-colors",
           aberto
             ? "border-brand-500/40 bg-brand-500/12 text-brand-300"
-            : "border-hairline bg-white/[0.035] text-fg-muted hover:bg-white/[0.08] hover:text-fg",
+            : "border-hairline bg-nivel-2 text-fg-muted hover:bg-nivel-4 hover:text-fg",
         )}
       >
         <Bell className="h-4 w-4" strokeWidth={1.9} />
@@ -206,7 +206,7 @@ export function NotificationBell() {
       {aberto && (
         <div
           data-lenis-prevent
-          className="glass-solid absolute right-0 top-[calc(100%+8px)] z-50 max-h-[400px] w-[320px] overflow-y-auto rounded-xl p-1.5 shadow-[0_24px_60px_-16px_rgba(0,0,0,0.95)]"
+          className="glass-solid absolute right-0 top-[calc(100%+8px)] z-50 max-h-[400px] w-[320px] overflow-y-auto rounded-xl p-1.5 sombra-flutuante"
           style={{ animation: "rise 0.18s cubic-bezier(0.16,1,0.3,1) both" }}
         >
           <div className="flex items-center justify-between px-2.5 py-2">

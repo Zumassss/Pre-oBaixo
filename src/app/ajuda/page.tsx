@@ -137,7 +137,7 @@ export default function AjudaPage() {
                   ? "A loja está configurada. Daqui em diante é operação."
                   : "Não precisa ser tudo hoje. O que falta continua marcado aqui."}
               </p>
-              <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+              <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-nivel-3">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-brand-700 to-brand-400 transition-[width] duration-700"
                   style={{
@@ -160,7 +160,7 @@ export default function AjudaPage() {
               <Reveal
                 as="li"
                 key={passo.id}
-                className="rounded-panel border border-hairline bg-white/[0.022] p-4"
+                className="rounded-panel border border-hairline bg-nivel-1 p-4"
                 style={{
                   animation: `rise 0.5s cubic-bezier(0.16,1,0.3,1) ${i * 50}ms both`,
                 }}
@@ -172,7 +172,7 @@ export default function AjudaPage() {
                       "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-[12.5px] font-semibold tabular-nums",
                       passo.feito
                         ? "border-positive/30 bg-positive/[0.12] text-positive"
-                        : "border-hairline bg-white/[0.04] text-fg-muted",
+                        : "border-hairline bg-nivel-2 text-fg-muted",
                     )}
                   >
                     {passo.feito ? (
@@ -336,6 +336,11 @@ const DUVIDAS = [
     pergunta: "Apaguei um pedido sem querer. Dá para voltar?",
     resposta:
       "Não. Remover é definitivo. Para um pedido que não vai acontecer, use Cancelar em vez de remover: ele sai da fila mas continua no histórico e nos relatórios.",
+  },
+  {
+    pergunta: "A tela está clara demais ou escura demais. Dá para trocar?",
+    resposta:
+      "Dá, no botão de sol ou lua na barra de cima, que troca na hora. Em Configurações existe a escolha completa, com a opção de seguir o tema do aparelho sozinho. A escolha vale para este navegador, então cada computador da loja pode ficar do jeito que funciona melhor naquela luz.",
   },
   {
     pergunta: "Como vejo o resultado de um período diferente?",

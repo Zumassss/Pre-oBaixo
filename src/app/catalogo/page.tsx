@@ -181,7 +181,7 @@ export default function CatalogoPage() {
                             atualizarEstoque(produto.id, Number(e.target.value) || 0)
                           }
                           className={cn(
-                            "tnum w-[72px] rounded-lg border border-hairline bg-white/[0.035] px-2 py-1 font-mono text-[12px] outline-none transition-colors focus:border-brand-500/50",
+                            "tnum w-[72px] rounded-lg border border-hairline bg-nivel-2 px-2 py-1 font-mono text-[12px] outline-none transition-colors focus:border-brand-500/50",
                             baixo ? "text-caution" : "text-fg-muted",
                           )}
                         />
@@ -196,7 +196,7 @@ export default function CatalogoPage() {
                         <button
                           onClick={() => removerProduto(produto.id)}
                           aria-label={`Remover ${produto.nome}`}
-                          className="rounded-lg p-1.5 text-fg-ghost transition-colors hover:bg-white/[0.06] hover:text-negative"
+                          className="rounded-lg p-1.5 text-fg-ghost transition-colors hover:bg-nivel-3 hover:text-negative"
                         >
                           <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
                         </button>
@@ -263,7 +263,7 @@ export default function CatalogoPage() {
               <select
                 value={form.categoria}
                 onChange={(e) => setForm({ ...form, categoria: e.target.value })}
-                className="w-full rounded-xl border border-hairline bg-white/[0.035] px-3 py-2.5 text-[13px] text-fg outline-none transition-colors focus:border-brand-500/50"
+                className="w-full rounded-xl border border-hairline bg-nivel-2 px-3 py-2.5 text-[13px] text-fg outline-none transition-colors focus:border-brand-500/50"
               >
                 {CATEGORIAS.map((c) => (
                   <option key={c} value={c} className="bg-surface">
@@ -306,7 +306,7 @@ export default function CatalogoPage() {
             </Campo>
           </div>
 
-          <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-hairline bg-white/[0.028] p-3">
+          <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-hairline bg-nivel-1 p-3">
             <input
               type="checkbox"
               checked={form.exigeReceita}

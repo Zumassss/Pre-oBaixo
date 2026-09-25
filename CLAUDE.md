@@ -47,6 +47,30 @@ separam os dois perfis na demonstração, nada mais. **Antes de existir dado rea
 de cliente aqui dentro, isto tem que virar verificação no servidor.** Não
 escreva texto de interface que sugira que o acesso é protegido.
 
+## Duas peles, um sistema
+
+O sistema tem tema claro e escuro, e os dois são o mesmo CSS: o que muda é o
+valor das fichas, trocado pelo atributo `data-tema` no `<html>`.
+
+- **Nunca escreva cor solta em componente.** `bg-white/[0.05]`, `text-white`,
+  `rgba(0,0,0,0.7)` e afins funcionam no escuro e somem no claro. Use as
+  fichas: `bg-nivel-1..4` (o degrau entre uma superfície e a de cima),
+  `ring-anel`, `bg-veu`, `sombra-flutuante`, `vinheta`, e os `fg-*` de sempre.
+  A exceção é `text-white` sobre preenchimento da marca, que é branco nos dois
+  temas de propósito.
+- **O tema é escrito por script embutido no `<head>`, antes do React existir**
+  (`SCRIPT_TEMA` em `providers/tema.tsx`). Sem isso a página nasce escura e
+  clareia depois que o React monta, e o usuário leva um flash branco a cada
+  carregamento. Por isso o `<html>` tem `suppressHydrationWarning`.
+- **O painel do globo fica escuro nos dois temas** (`pele-escura`). O globo é
+  partícula de luz somada sobre preto: sobre branco ele vira um borrão. É a
+  mesma escolha de um mapa ou de um player de vídeo dentro de uma tela clara.
+  Se criar outro bloco assim, lembre de sobrescrever também `--vidro-fundo`:
+  foi o que faltou da primeira vez e deixou pílula branca com texto branco.
+- **`npm run verificar:contraste` precisa passar.** Ele confere, sem abrir
+  navegador, se todo tom de texto tem pelo menos 4,5:1 sobre toda superfície,
+  nos dois temas. Escurecer um cinza "só um pouco" costuma ser o que quebra.
+
 ## Regras deste projeto
 
 - **Nenhuma tela inventa número.** Tudo sai da camada em `src/lib/db/`, que
@@ -128,9 +152,10 @@ LGPD.
 ## Antes de dar o trabalho por pronto
 
 ```bash
-npx eslint .     # precisa passar limpo
-npm run build    # precisa compilar sem erro
+npx eslint .                  # precisa passar limpo
+npm run verificar:contraste   # os dois temas precisam passar
+npm run build                 # precisa compilar sem erro
 ```
 
-Mudança visual só está verificada depois de aberta no navegador — a
-interface é o produto aqui.
+Mudança visual só está verificada depois de aberta no navegador, **nos dois
+temas** — a interface é o produto aqui.

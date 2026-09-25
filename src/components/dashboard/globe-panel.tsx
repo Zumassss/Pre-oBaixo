@@ -13,6 +13,10 @@ import { cn, formatNumber } from "@/lib/utils";
  *
  * Cada ponto aceso na esfera é uma conversa aberta de verdade. Sem conversa,
  * a esfera gira parada e o painel diz o que falta para começar a receber.
+ *
+ * Este painel fica escuro nos dois temas (`pele-escura`). O globo é partícula
+ * de luz somada sobre preto: sobre branco ele some. É a mesma escolha de um
+ * mapa ou de um player de vídeo dentro de uma interface clara.
  */
 export function GlobePanel({ className }: { className?: string }) {
   const { banco } = useBanco();
@@ -31,7 +35,7 @@ export function GlobePanel({ className }: { className?: string }) {
   const conectado = banco.whatsappConectado;
 
   return (
-    <div className={cn("panel relative overflow-hidden", className)}>
+    <div className={cn("panel pele-escura relative overflow-hidden", className)}>
       <div className="absolute inset-0">
         <GlobeMount pontos={pontos} />
       </div>

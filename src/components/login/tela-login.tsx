@@ -237,12 +237,12 @@ function CartaoPerfil({
       type="button"
       onClick={onEscolher}
       className={cn(
-        "group flex w-full items-center gap-3 rounded-tile border border-hairline bg-white/[0.028] p-3.5 text-left",
+        "group flex w-full items-center gap-3 rounded-tile border border-hairline bg-nivel-1 p-3.5 text-left",
         "transition-[transform,border-color,background-color] duration-200",
         "hover:-translate-y-px hover:border-brand-500/40 hover:bg-brand-500/[0.07]",
       )}
     >
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.05] text-fg-muted ring-1 ring-inset ring-white/10 transition-colors group-hover:bg-brand-500/12 group-hover:text-brand-400 group-hover:ring-brand-500/25">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-nivel-3 text-fg-muted ring-1 ring-inset ring-anel transition-colors group-hover:bg-brand-500/12 group-hover:text-brand-400 group-hover:ring-brand-500/25">
         <Icone className="h-[18px] w-[18px]" strokeWidth={2} />
       </span>
 
@@ -279,6 +279,7 @@ function Cenario() {
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0">
       <div className="aura-respira absolute -top-[300px] left-1/2 h-[700px] w-[980px] -translate-x-1/2 aura-brand" />
+
       <div
         className="absolute inset-0 grid-mesh opacity-50"
         style={{
@@ -300,7 +301,7 @@ function Cenario() {
         <Monitor />
       </div>
 
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.8)_100%)]" />
+      <div className="absolute inset-0 vinheta" />
     </div>
   );
 }
