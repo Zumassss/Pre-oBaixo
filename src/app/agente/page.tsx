@@ -26,6 +26,16 @@ const REGRAS = [
     detalhe: "Preço, estoque e horário saem do que você preencheu no sistema.",
   },
   {
+    id: "g-5",
+    titulo: "Nunca promove remédio",
+    detalhe: "Promoção e complemento só em item que não é medicamento.",
+  },
+  {
+    id: "g-6",
+    titulo: "Confirma nome escrito errado",
+    detalhe: "Pergunta \"você quis dizer...?\" e nunca troca o remédio.",
+  },
+  {
     id: "g-4",
     titulo: "Campanha exige consentimento",
     detalhe: "Cliente sem opt-in não recebe mensagem de marketing.",

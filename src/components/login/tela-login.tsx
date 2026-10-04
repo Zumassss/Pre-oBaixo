@@ -20,10 +20,9 @@ import { cn } from "@/lib/utils";
  * São dois acessos conhecidos, então pedir para digitar o nome de usuário
  * seria trabalho sem motivo: a pessoa escolhe o perfil e só digita a senha.
  *
- * O que esta tela confere NÃO é autenticação. A senha está no navegador e
- * qualquer pessoa a lê. Serve para separar os dois perfis na demonstração, e
- * tem que virar verificação no servidor antes de existir dado real de
- * cliente aqui dentro.
+ * A senha não é conferida aqui: vai para a função `entrar` no banco, que
+ * compara com o hash guardado lá. Esta tela nunca deve dizer qual é a senha,
+ * porque o sistema agora guarda conversa e telefone de cliente de verdade.
  */
 
 type Perfil = {
@@ -76,14 +75,14 @@ export function TelaLogin() {
     setErro("");
   }
 
-  function enviar(e: React.FormEvent) {
+  async function enviar(e: React.FormEvent) {
     e.preventDefault();
     if (!escolhido || entrando) return;
 
     setEntrando(true);
     setErro("");
 
-    const resultado = entrar(escolhido.usuario, senha);
+    const resultado = await entrar(escolhido.usuario, senha);
     if (!resultado.ok) {
       setEntrando(false);
       setErro(resultado.erro);
@@ -215,8 +214,8 @@ export function TelaLogin() {
           </div>
 
           <p className="mt-5 text-center text-[11px] leading-relaxed text-fg-faint">
-            Ambiente de demonstração. Os dois acessos usam a senha 1234 e ficam
-            salvos neste navegador, sem servidor no meio.
+            Acesso conferido no servidor. Cinco senhas erradas seguidas
+            bloqueiam o acesso por 15 minutos.
           </p>
         </div>
       </main>

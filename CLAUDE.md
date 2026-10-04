@@ -13,8 +13,10 @@ src/components/shell/   sidebar, topbar, camadas de fundo
 src/components/globe/   esfera 3D de partículas (Three.js / R3F)
 src/components/charts/  gráficos em SVG escritos à mão
 src/components/agent/   fluxo de atividade do agente ao vivo
-src/lib/mock/           dados simulados — o único ponto a trocar pela API real
+src/lib/db/             banco: tipos, motor de sincronização, chamadas à nuvem
 src/hooks/              fluxo do agente, relógio, contadores
+supabase/migrations/    esquema e funções do banco (o que está aplicado)
+bot/                    bot de WhatsApp de teste (Baileys), roda no Node
 docs/referencias/       imagens que definiram a direção visual
 ```
 
@@ -29,23 +31,34 @@ O sistema atende uma **rede** de farmácias, com dois perfis de acesso.
   rede, então nenhuma tela consegue mostrar dado de outra unidade, nem por
   engano.
 - Toda escrita passa por `alterarDados()` em `use-db.ts`, que descobre a loja
-  pela **sessão**, não por quem chamou. É por isso que nenhuma operação
-  consegue gravar na loja errada. Não crie caminho de escrita que receba
-  `lojaId` de fora sem checar o papel do usuário, como fazem
-  `salvarLojaDaRede` e `criarLojaNaRede`.
-- O armazenamento é a chave `preco-baixo:v2`. Quem usou a versão de loja única
-  tem cadastros em `preco-baixo:v1`, e `migrarDaVersaoAntiga()` os traz para a
-  primeira loja. Apagar a chave antiga seria jogar fora o trabalho de alguém.
-- **Os usuários vêm sempre do código, nunca do armazenamento.** Se viessem do
-  que está salvo, uma base gravada por uma versão antiga poderia deixar
-  alguém trancado fora do sistema, sem senha e sem conserto.
+  pela **sessão** na hora da chamada, não por quem chamou. Não crie caminho
+  de escrita que receba `lojaId` de fora sem checar o papel do usuário, como
+  fazem `salvarLojaDaRede` e `criarLojaNaRede`. O banco confere de novo do
+  lado dele: uma loja que tente gravar em outra recebe "Sem acesso".
 
-## O login não é autenticação
+## O banco na nuvem (Supabase)
 
-As senhas `1234` estão em texto puro no navegador e qualquer pessoa as lê. Elas
-separam os dois perfis na demonstração, nada mais. **Antes de existir dado real
-de cliente aqui dentro, isto tem que virar verificação no servidor.** Não
-escreva texto de interface que sugira que o acesso é protegido.
+Projeto `ztfgcpcwmzqlhnpaefup` (sa-east-1). O esquema inteiro está em
+`supabase/migrations/20261004_rede_na_nuvem.sql`.
+
+- **Ninguém lê tabela direto.** RLS ligada e sem política nenhuma: a chave
+  pública não abre tabela. Tudo passa por funções `SECURITY DEFINER`
+  (`entrar`, `ler_rede`, `versoes`, `gravar_dados`, `gravar_lojas`, `sair`,
+  `bot_ler`, `bot_gravar`), e cada uma confere o token de quem chama. Os
+  avisos do Supabase sobre "RLS sem política" e "função executável por anon"
+  são **intencionais**; não "conserte" abrindo política.
+- **Senha só existe como hash bcrypt no banco.** O navegador recebe um token
+  de sessão de 30 dias, guardado em `preco-baixo:token`. Cinco senhas erradas
+  travam o usuário por 15 minutos.
+- **Cada loja é um documento JSON com versão** (`dados_loja`). Gravar exige a
+  versão lida; se outra tela gravou antes, o banco recusa e `local-db.ts`
+  relê e **reaplica a mesma mudança** em cima do novo. Por isso toda mudança
+  passada a `alterarDados` precisa poder rodar duas vezes: id e horário
+  nascem **fora** dela. A tela consulta `versoes` a cada 4 segundos e baixa
+  só o que mudou.
+- **Não use `delete` em SQL pelo MCP do Supabase.** Ele pede confirmação de
+  comando destrutivo e a chamada trava até estourar o tempo. Para limpar
+  dado, regrave o documento sem o item.
 
 ## Duas peles, um sistema
 
@@ -74,7 +87,7 @@ valor das fichas, trocado pelo atributo `data-tema` no `<html>`.
 ## Regras deste projeto
 
 - **Nenhuma tela inventa número.** Tudo sai da camada em `src/lib/db/`, que
-  hoje grava no navegador e amanhã troca por Supabase sem as telas mudarem.
+  lê e grava no banco na nuvem.
   Dados de demonstração existem só em `src/lib/db/exemplos.ts` e só entram
   quando alguém clica no botão em Configurações.
 - **Nada de biblioteca de gráfico.** Os gráficos são SVG próprio em
@@ -103,13 +116,15 @@ valor das fichas, trocado pelo atributo `data-tema` no `<html>`.
 - **Loja sem motoboy não oferece entrega.** `Loja.temMotoboy` desliga a opção
   na tela e zera a taxa no pedido. Prometer entrega que a unidade não faz é
   pior que não oferecer.
-- **O agente só sabe o que mandarem para ele.** O catálogo e os dados da loja
-  vivem no navegador, então quem os envia é o cliente, em
-  `lib/agente-contexto.ts`. O servidor recorta o que chega antes de montar o
-  texto: sem esse corte, uma requisição grande vira uma conta grande na API.
-  No **WhatsApp o servidor não tem esses dados**, e por isso o contexto de lá
-  diz ao agente, com todas as letras, que ele não pode informar preço nem
-  disponibilidade. Enquanto não houver banco de dados, não tire essa frase.
+- **O agente só sabe o que mandarem para ele.** No painel, quem envia o
+  catálogo é o navegador, em `lib/agente-contexto.ts`, e o servidor recorta
+  antes de montar o texto: sem esse corte, uma requisição grande vira uma
+  conta grande na API. O bot do WhatsApp lê do banco e monta o contexto pela
+  mesma função.
+- **Remédio nunca entra em promoção nem em sugestão.** `ehMedicamento()` em
+  `types.ts` (categoria Genérico, Referência, Similar, ou exige receita). O
+  contexto marca cada item como `[remédio]` ou `[pode sugerir]`, e na dúvida
+  trata como remédio. A tela recusa promoção em item com receita.
 - **Pix é gerado de verdade, confirmação não.** `lib/pix.ts` monta o BR Code
   com a chave da loja e funciona no app do banco; `npm run verificar:pix`
   confere o CRC e lê o payload de volta. Saber que o cliente pagou depende de
@@ -149,10 +164,34 @@ valor das fichas, trocado pelo atributo `data-tema` no `<html>`.
   quem estava atendendo. Escrever uma resposta assume sozinho, porque exigir
   o botão antes de poder responder atrapalha quem está com o cliente
   esperando.
-- **Assumir ainda não cala o agente no WhatsApp.** O webhook roda no
-  servidor e a conversa vive no navegador, então ele não tem como saber.
-  A tela diz isso com todas as letras em vez de deixar a loja achar que o
-  agente parou. Não tire esse aviso antes do banco de dados existir.
+- **Assumir cala o agente no WhatsApp.** O bot lê o status antes de
+  responder; com `com_atendente`, ele só grava a mensagem do cliente. O que o
+  atendente escreve no painel o bot entrega no WhatsApp, mas **só em
+  conversa que o cliente começou** (id `cnv-wa-...`): escrever para quem
+  nunca mandou mensagem é o que faz o número ser banido.
+
+## Bot do WhatsApp (`bot/`)
+
+Teste com chip reserva, via Baileys (entra como WhatsApp Web, lendo QR). Não
+é a API oficial da Meta. Rodar: `cd bot && npm install && npm start`.
+
+- **Usa o mesmo cérebro do painel.** O Node importa direto
+  `src/lib/agent-config.ts`, `agente-contexto.ts` e `db/types.ts`. Por isso
+  esses arquivos só importam entre si com caminho relativo **e extensão**
+  (`./db/types.ts`): o Node não conhece o atalho `@/`. Import só de tipo pode
+  usar `@/`, porque some na remoção de tipos.
+- **O bot não tem usuário.** Tem uma chave em `bot/.chave-bot` que só abre a
+  loja dele; no banco fica só o hash. `bot/sessao/` é o login do WhatsApp.
+  Nenhum dos dois vai para o git, nem para a tela.
+- **O modelo escolhe itens, o banco decide preço.** A ferramenta
+  `registrar_pedido` confere nome, estoque e receita no catálogo; preço sai
+  de `precoAtual()`. Pedido pelo WhatsApp paga no balcão ou na entrega.
+- **Depois de um pedido fechado, o histórico recomeça.** Com a conversa
+  inteira, o Haiku juntava os itens do pedido anterior no novo, mesmo
+  instruído a não fazer. A mensagem que fecha pedido tem id `msg-ped-...` e
+  o histórico enviado ao modelo começa depois dela.
+- **"Vou passar para o farmacêutico" deixa alerta de verdade** no painel
+  (ferramenta `chamar_equipe`, evento do tipo `erro`).
 
 ## Regra de produto que não se negocia
 

@@ -1,0 +1,19 @@
+{
+  "name": "preco-baixo-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bot de WhatsApp da Preço Baixo (teste, via Baileys)",
+  "type": "module",
+  "engines": {
+    "node": ">=22.6"
+  },
+  "scripts": {
+    "start": "node --no-warnings bot.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
+    "pino": "^10.4.0",
+    "qrcode": "^1.5.4"
+  }
+}

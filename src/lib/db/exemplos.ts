@@ -1,6 +1,6 @@
 "use client";
 
-import { atualizarBanco, novoId } from "./local-db";
+import { atualizarBanco, lerBanco, novoId } from "./local-db";
 import {
   completarDados,
   type Conversa,
@@ -139,6 +139,7 @@ export function carregarExemplos(): VisaoLoja {
       preco: 8.9,
       estoque: 312,
       estoqueMinimo: 60,
+      promocao: 0,
       exigeReceita: false,
       criadoEm: agora - 30 * 24 * HORA,
     },
@@ -149,6 +150,7 @@ export function carregarExemplos(): VisaoLoja {
       preco: 12.9,
       estoque: 146,
       estoqueMinimo: 50,
+      promocao: 0,
       exigeReceita: true,
       criadoEm: agora - 30 * 24 * HORA,
     },
@@ -159,6 +161,7 @@ export function carregarExemplos(): VisaoLoja {
       preco: 24.5,
       estoque: 18,
       estoqueMinimo: 40,
+      promocao: 0,
       exigeReceita: true,
       criadoEm: agora - 28 * 24 * HORA,
     },
@@ -169,6 +172,7 @@ export function carregarExemplos(): VisaoLoja {
       preco: 14.2,
       estoque: 204,
       estoqueMinimo: 50,
+      promocao: 0,
       exigeReceita: false,
       criadoEm: agora - 25 * 24 * HORA,
     },
@@ -179,6 +183,7 @@ export function carregarExemplos(): VisaoLoja {
       preco: 11.4,
       estoque: 168,
       estoqueMinimo: 45,
+      promocao: 0,
       exigeReceita: true,
       criadoEm: agora - 20 * 24 * HORA,
     },
@@ -189,6 +194,7 @@ export function carregarExemplos(): VisaoLoja {
       preco: 62.9,
       estoque: 74,
       estoqueMinimo: 20,
+      promocao: 0,
       exigeReceita: false,
       criadoEm: agora - 18 * 24 * HORA,
     },
@@ -199,6 +205,7 @@ export function carregarExemplos(): VisaoLoja {
       preco: 39.9,
       estoque: 8,
       estoqueMinimo: 25,
+      promocao: 0,
       exigeReceita: false,
       criadoEm: agora - 12 * 24 * HORA,
     },
@@ -209,6 +216,7 @@ export function carregarExemplos(): VisaoLoja {
       preco: 34.9,
       estoque: 96,
       estoqueMinimo: 30,
+      promocao: 0,
       exigeReceita: false,
       criadoEm: agora - 10 * 24 * HORA,
     },
@@ -562,8 +570,12 @@ export function carregarExemplos(): VisaoLoja {
   // gravar, e devolver a visão vazia é mais honesto que gravar às cegas.
   let visao: VisaoLoja = visaoVazia();
 
+  // A loja é decidida no clique, não quando a gravação for reaplicada.
+  const lojaId = lojaAtiva(lerBanco())?.id;
+  if (!lojaId) return visao;
+
   atualizarBanco((banco) => {
-    const atual = lojaAtiva(banco);
+    const atual = banco.lojas.find((l) => l.id === lojaId);
     if (!atual) return banco;
 
     const loja = { ...atual, ...cadastroDaLoja };

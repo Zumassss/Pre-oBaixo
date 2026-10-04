@@ -332,12 +332,12 @@ const DUVIDAS = [
   {
     pergunta: "Onde ficam salvos os dados?",
     resposta:
-      "Neste navegador, nesta máquina. É o suficiente para usar e demonstrar, mas não vale entre computadores: o que você cadastrar aqui não aparece no caixa ao lado. Quando o banco de dados na nuvem entrar, os mesmos cadastros passam a valer para a equipe toda.",
+      "Na nuvem, num banco de dados só da rede. O que você cadastra num computador aparece no caixa ao lado em poucos segundos, sem recarregar a página. Cada loja só lê os próprios dados; o administrador vê todas.",
   },
   {
     pergunta: "O agente pode indicar remédio para o cliente?",
     resposta:
-      "Não, e isso não é configurável. Ele informa preço, estoque, horário e endereço. Qualquer pergunta sobre dose, uso ou interação ele encaminha para o farmacêutico responsável cadastrado na loja.",
+      "Não, e isso não é configurável. Ele informa preço, estoque, horário e endereço, e fecha pedido. Qualquer pergunta sobre dose, uso ou interação ele encaminha para o farmacêutico e deixa um alerta no painel. Promoção e sugestão de complemento ele só faz com o que não é remédio.",
   },
   {
     pergunta: "Apaguei um pedido sem querer. Dá para voltar?",

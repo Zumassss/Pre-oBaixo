@@ -20,12 +20,12 @@ import { PageHeader, Panel, PanelHeader } from "@/components/ui/panel";
 import { Campo, Entrada } from "@/components/ui/modal";
 import { Reveal } from "@/components/ui/reveal";
 import {
+  apagarDadosDaLoja,
   definirWhatsapp,
   salvarLoja,
   salvarPagamentos,
   useBanco,
 } from "@/lib/db/use-db";
-import { limparBanco } from "@/lib/db/local-db";
 import { carregarExemplos } from "@/lib/db/exemplos";
 import { LOJA_VAZIA, type Loja } from "@/lib/db/types";
 import { pixConfigurado } from "@/lib/pix";
@@ -412,9 +412,9 @@ function FormularioLoja({
                   strokeWidth={2}
                 />
                 <p className="text-[12.5px] leading-relaxed text-fg-muted">
-                  Enquanto não há servidor, tudo que você cadastra fica salvo neste
-                  navegador. Ao conectar o banco de dados, os mesmos cadastros
-                  passam a ficar na nuvem e a valer para toda a equipe da loja.
+                  Tudo que você cadastra fica no banco de dados na nuvem e vale
+                  para todos os computadores da loja. O que o WhatsApp recebe
+                  também cai aqui, e aparece na tela em poucos segundos.
                 </p>
               </div>
 
@@ -444,7 +444,7 @@ function FormularioLoja({
                       banco.conversas.length
                     ) {
                       const ok = window.confirm(
-                        "Isso substitui o que já está cadastrado por dados de exemplo. Continuar?",
+                        "Isso SUBSTITUI tudo o que esta loja tem, inclusive conversas e pedidos reais do WhatsApp, por dados fictícios. Não dá para desfazer. Continuar?",
                       );
                       if (!ok) return;
                     }
@@ -460,17 +460,16 @@ function FormularioLoja({
                   onClick={() => {
                     if (
                       window.confirm(
-                        "Isso apaga todos os cadastros salvos neste navegador. Continuar?",
+                        "Isso apaga todos os cadastros desta loja no servidor, para todo mundo que usa o sistema. Não dá para desfazer. Continuar?",
                       )
                     ) {
-                      limparBanco();
-                      setForm(LOJA_VAZIA);
+                      apagarDadosDaLoja();
                     }
                   }}
                   className="btn-ghost w-full !text-[12px] hover:!text-negative"
                 >
                   <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-                  Apagar todos os dados
+                  Apagar os dados desta loja
                 </button>
               </div>
 

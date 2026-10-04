@@ -1,10 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { atualizarBanco, inscrever, lerBanco, novoId } from "./local-db";
+import {
+  atualizarBanco,
+  atualizarSessao,
+  entrarNoServidor,
+  estaPronto,
+  iniciarSincronizacao,
+  inscrever,
+  lerBanco,
+  novoId,
+  sairDoServidor,
+  temFalhaDeGravacao,
+} from "./local-db";
 import {
   type Banco,
-  bancoInicial,
+  bancoVazio,
   type Campanha,
   type Cliente,
   type Conversa,
@@ -20,7 +31,6 @@ import {
   type Pedido,
   type Produto,
   type StatusPedido,
-  type Usuario,
   usuarioDaSessao,
   type VisaoLoja,
   visaoAtiva,
@@ -33,31 +43,38 @@ import {
    ------------------------------------------------------------------ */
 
 /**
- * O banco inteiro, com a rede toda.
+ * O banco inteiro, com tudo que esta sessão pode ver.
  *
- * A primeira renderização usa o banco inicial para bater com o HTML do
- * servidor. Depois da montagem, o conteúdo salvo entra e a tela atualiza.
- * Sem isso o React acusaria divergência de hidratação.
+ * A primeira renderização usa o banco vazio para bater com o HTML do
+ * servidor. A sincronização com a nuvem começa na montagem, e `carregado` só
+ * vira verdadeiro quando a primeira leitura terminou: antes disso a tela de
+ * entrada não sabe se a pessoa já está logada.
  *
  * Só telas de administrador usam isto. Tela de loja usa `useBanco`.
  */
 export function useRede() {
-  const [rede, setRede] = useState<Banco>(bancoInicial);
+  const [rede, setRede] = useState<Banco>(bancoVazio);
   const [carregado, setCarregado] = useState(false);
+  const [semConexao, setSemConexao] = useState(false);
 
   useEffect(() => {
+    const atualizar = (banco: Banco) => {
+      setRede(banco);
+      setCarregado(estaPronto());
+      setSemConexao(temFalhaDeGravacao());
+    };
+    const cancelar = inscrever(atualizar);
     const inicial = setTimeout(() => {
-      setRede(lerBanco());
-      setCarregado(true);
+      if (estaPronto()) atualizar(lerBanco());
+      void iniciarSincronizacao();
     }, 0);
-    const cancelar = inscrever(setRede);
     return () => {
       clearTimeout(inicial);
       cancelar();
     };
   }, []);
 
-  return { rede, carregado };
+  return { rede, carregado, semConexao };
 }
 
 /**
@@ -78,10 +95,10 @@ export function useBanco() {
 
 /** Quem está logado e em que loja. */
 export function useSessao() {
-  const { rede, carregado } = useRede();
+  const { rede, carregado, semConexao } = useRede();
   const usuario = useMemo(() => usuarioDaSessao(rede), [rede]);
   const loja = useMemo(() => lojaAtiva(rede), [rede]);
-  return { usuario, loja, rede, carregado };
+  return { usuario, loja, rede, carregado, semConexao };
 }
 
 /* ------------------------------------------------------------------
@@ -89,55 +106,33 @@ export function useSessao() {
    ------------------------------------------------------------------ */
 
 /**
- * Confere o acesso e abre a sessão.
+ * Confere o acesso no servidor e abre a sessão.
  *
- * Isto é conferência de demonstração, não autenticação: a senha está no
- * navegador e qualquer pessoa a lê. Antes de existir dado real de cliente,
- * tem que virar verificação no servidor.
+ * A senha não fica no navegador: vai para a função `entrar` no banco, que
+ * compara com o hash e devolve um token de sessão. Errar 5 vezes seguidas
+ * trava o acesso por 15 minutos.
  */
-export function entrar(
-  usuario: string,
-  senha: string,
-): { ok: true; usuario: Usuario } | { ok: false; erro: string } {
-  const banco = lerBanco();
-  const alvo = banco.usuarios.find(
-    (u) => u.usuario.toLowerCase() === usuario.trim().toLowerCase(),
-  );
-
-  if (!alvo) return { ok: false, erro: "Este acesso não existe." };
-  if (alvo.senha !== senha) return { ok: false, erro: "Senha incorreta." };
-
-  atualizarBanco((atual) => ({
-    ...atual,
-    sessao: {
-      usuarioId: alvo.id,
-      lojaSelecionada:
-        alvo.papel === "loja"
-          ? (alvo.lojaId ?? atual.lojas[0]?.id ?? "")
-          : (atual.sessao?.lojaSelecionada ?? atual.lojas[0]?.id ?? ""),
-      em: Date.now(),
-    },
-  }));
-
-  return { ok: true, usuario: alvo };
+export function entrar(usuario: string, senha: string) {
+  return entrarNoServidor(usuario, senha);
 }
 
 export function sair() {
-  atualizarBanco((banco) => ({ ...banco, sessao: null }));
+  sairDoServidor();
 }
 
 /**
  * Troca a loja que o administrador está olhando.
  *
  * Quem opera uma loja não passa por aqui: o acesso dele está preso à unidade
- * dele e a troca é simplesmente ignorada.
+ * dele e a troca é simplesmente ignorada. É uma escolha deste navegador, não
+ * vai para o servidor.
  */
 export function selecionarLoja(lojaId: string) {
-  atualizarBanco((banco) => {
+  atualizarSessao((atual, banco) => {
     const usuario = usuarioDaSessao(banco);
-    if (!usuario || usuario.papel !== "admin" || !banco.sessao) return banco;
-    if (!banco.lojas.some((l) => l.id === lojaId)) return banco;
-    return { ...banco, sessao: { ...banco.sessao, lojaSelecionada: lojaId } };
+    if (!usuario || usuario.papel !== "admin" || !atual) return atual;
+    if (!banco.lojas.some((l) => l.id === lojaId)) return atual;
+    return { ...atual, lojaSelecionada: lojaId };
   });
 }
 
@@ -163,15 +158,24 @@ function comStatusDeConfiguracao(loja: Loja): Loja {
  * chamou.
  */
 function alterarDados(mudanca: (dados: DadosLoja) => DadosLoja) {
+  // A loja é decidida AGORA, não quando a mudança for reaplicada. Se o
+  // administrador trocar de loja enquanto a gravação ainda está na fila, a
+  // mudança tem que cair na loja em que ele estava quando clicou.
+  const lojaId = lojaAtiva(lerBanco())?.id;
+  if (!lojaId) return;
   atualizarBanco((banco) => {
-    const loja = lojaAtiva(banco);
-    if (!loja) return banco;
-    const atuais = banco.dados[loja.id] ?? dadosVazios();
+    if (!banco.lojas.some((l) => l.id === lojaId)) return banco;
+    const atuais = banco.dados[lojaId] ?? dadosVazios();
     return {
       ...banco,
-      dados: { ...banco.dados, [loja.id]: mudanca(atuais) },
+      dados: { ...banco.dados, [lojaId]: mudanca(atuais) },
     };
   });
+}
+
+/** Zera os cadastros da loja aberta. Não mexe em nenhuma outra. */
+export function apagarDadosDaLoja() {
+  alterarDados(() => dadosVazios());
 }
 
 /* ------------------------------------------------------------------
@@ -180,18 +184,16 @@ function alterarDados(mudanca: (dados: DadosLoja) => DadosLoja) {
 
 /** Salva o cadastro da loja ativa. */
 export function salvarLoja(dados: Partial<Loja>) {
-  atualizarBanco((banco) => {
-    const atual = lojaAtiva(banco);
-    if (!atual) return banco;
-    return {
-      ...banco,
-      lojas: banco.lojas.map((l) =>
-        l.id === atual.id
-          ? comStatusDeConfiguracao({ ...l, ...dados, id: l.id })
-          : l,
-      ),
-    };
-  });
+  const lojaId = lojaAtiva(lerBanco())?.id;
+  if (!lojaId) return;
+  atualizarBanco((banco) => ({
+    ...banco,
+    lojas: banco.lojas.map((l) =>
+      l.id === lojaId
+        ? comStatusDeConfiguracao({ ...l, ...dados, id: l.id })
+        : l,
+    ),
+  }));
 }
 
 /** Salva o cadastro de qualquer loja. Só o administrador chega aqui. */
@@ -212,19 +214,21 @@ export function salvarLojaDaRede(lojaId: string, dados: Partial<Loja>) {
 
 /** Abre uma unidade nova na rede, já com o bloco de dados dela. */
 export function criarLojaNaRede(nome: string) {
-  let criada: Loja | null = null;
-  atualizarBanco((banco) => {
-    const usuario = usuarioDaSessao(banco);
-    if (usuario?.papel !== "admin") return banco;
+  if (usuarioDaSessao(lerBanco())?.papel !== "admin") return null;
 
-    criada = novaLoja(novoId("loja"), nome.trim() || "Nova loja");
+  // Criada fora da mudança: se a gravação precisar ser reaplicada, a loja
+  // continua com o mesmo id, e quem recebeu o retorno não fica com um id
+  // que nunca chegou ao servidor.
+  const criada = novaLoja(novoId("loja"), nome.trim() || "Nova loja");
+  atualizarBanco((banco) => {
+    if (banco.lojas.some((l) => l.id === criada.id)) return banco;
     return {
       ...banco,
       lojas: [...banco.lojas, criada],
       dados: { ...banco.dados, [criada.id]: dadosVazios() },
     };
   });
-  return criada as Loja | null;
+  return criada;
 }
 
 /**
@@ -271,6 +275,23 @@ export function criarProduto(dados: Omit<Produto, "id" | "criadoEm">) {
   const produto: Produto = { ...dados, id: novoId("sku"), criadoEm: Date.now() };
   alterarDados((d) => ({ ...d, produtos: [produto, ...d.produtos] }));
   return produto;
+}
+
+/**
+ * Põe ou tira um produto da promoção. Zero tira.
+ *
+ * Produto com receita é recusado aqui também, não só na tela: a regra não
+ * pode depender de alguém lembrar de desabilitar um campo.
+ */
+export function definirPromocao(id: string, promocao: number) {
+  alterarDados((d) => ({
+    ...d,
+    produtos: d.produtos.map((p) =>
+      p.id === id && !p.exigeReceita
+        ? { ...p, promocao: promocao > 0 && promocao < p.preco ? promocao : 0 }
+        : p,
+    ),
+  }));
 }
 
 export function atualizarEstoque(id: string, estoque: number) {
@@ -503,13 +524,18 @@ export function criarPedido(dados: {
   const taxaEntrega =
     dados.formaEntrega === "entrega" ? (dados.taxaEntrega ?? 0) : 0;
   const agora = Date.now();
+  // O id nasce fora da mudança pelo mesmo motivo da loja nova: se a
+  // gravação for reaplicada, o pedido que a tela recebeu continua sendo o
+  // pedido que foi para o servidor.
+  const id = novoId("ped");
 
   let criado: Pedido | null = null;
   alterarDados((d) => {
+    if (d.pedidos.some((p) => p.id === id)) return d;
     const numero =
       d.pedidos.reduce((maior, p) => Math.max(maior, p.numero), 0) + 1;
     criado = {
-      id: novoId("ped"),
+      id,
       numero,
       cliente: dados.cliente,
       telefone: dados.telefone,

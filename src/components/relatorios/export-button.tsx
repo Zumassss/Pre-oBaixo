@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 /**
  * Baixa a planilha de uma loja.
  *
- * Os cadastros vivem no navegador enquanto não há banco, então o conteúdo
+ * Os dados já estão na tela, carregados do banco, então o conteúdo
  * vai no corpo da requisição e o servidor só formata. O arquivo volta como
  * blob e é salvo por um link temporário, para a página não piscar.
  *

@@ -1,4 +1,6 @@
-import type { VisaoLoja } from "@/lib/db/types";
+// Caminho relativo com extensão: o bot do WhatsApp roda este arquivo direto
+// no Node, que não conhece o atalho "@/" nem completa a extensão sozinho.
+import { ehMedicamento, type VisaoLoja } from "./db/types.ts";
 
 /**
  * O que o agente precisa saber sobre a loja para responder.
@@ -7,17 +9,22 @@ import type { VisaoLoja } from "@/lib/db/types";
  * preço, estoque, horário e endereço, mas nada disso chegava até ele. Ele
  * respondia no escuro. Este arquivo é a ponte.
  *
- * Os cadastros vivem no navegador enquanto não há banco, então quem tem os
- * dados é o cliente, e é ele que os envia. Por isso o servidor nunca confia
- * no tamanho do que chega: ele recorta antes de montar o texto, senão uma
- * requisição grande viraria uma conta grande na API.
+ * No chat do painel, quem envia os dados é o navegador. Por isso o servidor
+ * nunca confia no tamanho do que chega: ele recorta antes de montar o texto,
+ * senão uma requisição grande viraria uma conta grande na API. O bot do
+ * WhatsApp lê do banco e passa pelo mesmo caminho, para os dois canais
+ * enxergarem o catálogo do mesmo jeito.
  */
 
 export type ProdutoDoContexto = {
   nome: string;
   preco: number;
+  /** Zero quando não há promoção. Remédio chega sempre com zero. */
+  promocao: number;
   estoque: number;
   exigeReceita: boolean;
+  /** Remédio nunca entra em sugestão, complemento nem promoção. */
+  remedio: boolean;
 };
 
 export type ContextoLoja = {
@@ -45,12 +52,17 @@ export function extrairContexto(visao: VisaoLoja): ContextoLoja {
     farmaceutico: [loja.farmaceutico, loja.crf].filter(Boolean).join(" "),
     temMotoboy: loja.temMotoboy,
     taxaEntrega: loja.taxaEntrega,
-    produtos: visao.produtos.slice(0, MAXIMO_PRODUTOS).map((p) => ({
-      nome: p.nome,
-      preco: p.preco,
-      estoque: p.estoque,
-      exigeReceita: p.exigeReceita,
-    })),
+    produtos: visao.produtos.slice(0, MAXIMO_PRODUTOS).map((p) => {
+      const remedio = ehMedicamento(p);
+      return {
+        nome: p.nome,
+        preco: p.preco,
+        promocao: remedio ? 0 : p.promocao,
+        estoque: p.estoque,
+        exigeReceita: p.exigeReceita,
+        remedio,
+      };
+    }),
   };
 }
 
@@ -60,6 +72,10 @@ function texto(valor: unknown): string {
 
 function numero(valor: unknown): number {
   return typeof valor === "number" && Number.isFinite(valor) ? valor : 0;
+}
+
+function reais(valor: number) {
+  return valor.toFixed(2).replace(".", ",");
 }
 
 /**
@@ -93,7 +109,7 @@ export function montarTextoDoContexto(bruto: unknown): string {
     const taxa = numero(dados.taxaEntrega);
     linhas.push(
       taxa > 0
-        ? `A loja entrega por motoboy, com taxa de R$ ${taxa.toFixed(2).replace(".", ",")}.`
+        ? `A loja entrega por motoboy, com taxa de R$ ${reais(taxa)}.`
         : "A loja entrega por motoboy, sem cobrar taxa.",
     );
   } else {
@@ -111,13 +127,27 @@ export function montarTextoDoContexto(bruto: unknown): string {
       const nomeProduto = texto(item.nome);
       if (!nomeProduto) return "";
 
-      const preco = numero(item.preco).toFixed(2).replace(".", ",");
+      const valorPreco = numero(item.preco);
+      const preco = reais(valorPreco);
       const estoque = numero(item.estoque);
       const disponibilidade =
         estoque > 0 ? `${estoque} em estoque` : "sem estoque agora";
       const receita = item.exigeReceita === true ? ", exige receita" : "";
 
-      return `- ${nomeProduto}: R$ ${preco}, ${disponibilidade}${receita}`;
+      // Na dúvida, é remédio: o navegador pode mandar um produto sem a
+      // marca, e tratar remédio como item comum é o erro que não pode
+      // acontecer. Sem a marca explícita de que não é, não se promove.
+      const remedio = item.remedio !== false || item.exigeReceita === true;
+      if (remedio) {
+        return `- ${nomeProduto}: R$ ${preco}, ${disponibilidade}${receita} [remédio: sem sugestão nem promoção]`;
+      }
+
+      const promocao = numero(item.promocao);
+      const valor =
+        promocao > 0 && promocao < valorPreco
+          ? `em promoção, de R$ ${preco} por R$ ${reais(promocao)}`
+          : `R$ ${preco}`;
+      return `- ${nomeProduto}: ${valor}, ${disponibilidade} [pode sugerir]`;
     })
     .filter(Boolean);
 

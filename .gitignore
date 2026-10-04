@@ -40,3 +40,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# bot do WhatsApp: sessão pareada, chave e registros nunca vão para o git
+/bot/node_modules
+/bot/sessao
+/bot/.chave-bot*
+/bot/*.log
+/bot/qr.png
+/bot/estado-*.json

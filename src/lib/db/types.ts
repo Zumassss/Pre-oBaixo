@@ -24,15 +24,11 @@ export type Usuario = {
   usuario: string;
   nome: string;
   papel: Papel;
-  /**
-   * Senha de demonstração, guardada em texto puro no navegador.
-   *
-   * Isto NÃO é autenticação de verdade e não protege nada: qualquer pessoa
-   * com o navegador aberto lê o valor. Serve para separar os perfis durante
-   * a demonstração. Antes de existir dado real de cliente, isto tem que
-   * virar autenticação de servidor (o Supabase do projeto já resolve).
+  /*
+   * Não existe senha aqui de propósito. Ela vive só no banco, como hash, e
+   * quem confere é a função `entrar` no servidor. O navegador recebe um
+   * token de sessão e nada mais.
    */
-  senha: string;
   /** Preenchido só quando o papel é `loja`. */
   lojaId?: string;
 };
@@ -116,11 +112,39 @@ export type Produto = {
   nome: string;
   categoria: string;
   preco: number;
+  /**
+   * Preço de promoção. Zero significa sem promoção.
+   *
+   * Produto que exige receita nunca tem promoção: a ANVISA proíbe anunciar
+   * medicamento de tarja ao público, e o agente fala de promoção para
+   * cliente no WhatsApp. A tela e o agente conferem isso.
+   */
+  promocao: number;
   estoque: number;
   estoqueMinimo: number;
   exigeReceita: boolean;
   criadoEm: number;
 };
+
+/** Categorias que são remédio. O agente nunca sugere nem promove estas. */
+export const CATEGORIAS_DE_MEDICAMENTO = ["Genérico", "Referência", "Similar"];
+
+/**
+ * Se o produto é remédio.
+ *
+ * Exigir receita basta para ser remédio, mas não o contrário: dipirona não
+ * exige receita e continua sendo remédio. Por isso a categoria também conta.
+ */
+export function ehMedicamento(produto: Pick<Produto, "categoria" | "exigeReceita">) {
+  return produto.exigeReceita || CATEGORIAS_DE_MEDICAMENTO.includes(produto.categoria);
+}
+
+/** O preço que vale agora, com a promoção quando ela é válida. */
+export function precoAtual(produto: Pick<Produto, "preco" | "promocao" | "exigeReceita">) {
+  return !produto.exigeReceita && produto.promocao > 0 && produto.promocao < produto.preco
+    ? produto.promocao
+    : produto.preco;
+}
 
 export type StatusCampanha = "rascunho" | "agendada" | "enviada";
 
@@ -364,6 +388,7 @@ export function completarDados(salvo?: Partial<DadosLoja>): DadosLoja {
     ...base,
     ...salvo,
     pagamentos: { ...base.pagamentos, ...salvo.pagamentos },
+    produtos: (salvo.produtos ?? []).map((p) => ({ ...p, promocao: p.promocao ?? 0 })),
     // Conversa gravada por uma versão anterior não tem os campos de quem
     // assumiu. Sem este preenchimento, a tela tentaria ler `undefined` e
     // quebraria em cima de um dado que já existia e estava correto.
@@ -388,35 +413,13 @@ export type Banco = {
 export const LOJA_TESTE_ID = "loja-teste-1";
 
 /**
- * O estado inicial do sistema.
+ * O banco antes de qualquer coisa chegar do servidor.
  *
- * Nasce com os dois acessos da demonstração e uma loja vazia. Os cadastros
- * ficam em branco de propósito: o sistema nunca inventa cliente, produto ou
- * número. O que aparecer na tela foi alguém que cadastrou.
+ * Vazio de verdade: usuários, lojas e cadastros vêm todos da nuvem depois
+ * do login. O navegador não carrega nenhum dado próprio.
  */
-export function bancoInicial(): Banco {
-  return {
-    usuarios: [
-      {
-        id: "u-admin",
-        usuario: "administrador",
-        nome: "Administrador",
-        papel: "admin",
-        senha: "1234",
-      },
-      {
-        id: "u-loja-teste-1",
-        usuario: "loja teste 1",
-        nome: "Loja Teste 1",
-        papel: "loja",
-        senha: "1234",
-        lojaId: LOJA_TESTE_ID,
-      },
-    ],
-    lojas: [novaLoja(LOJA_TESTE_ID, "Loja Teste 1")],
-    dados: { [LOJA_TESTE_ID]: dadosVazios() },
-    sessao: null,
-  };
+export function bancoVazio(): Banco {
+  return { usuarios: [], lojas: [], dados: {}, sessao: null };
 }
 
 /* ------------------------------------------------------------------

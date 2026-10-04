@@ -49,6 +49,16 @@ import { cn } from "@/lib/utils";
  * "Resolvidas" não está aqui de propósito: conversa resolvida sai da fila e
  * passa a viver no histórico do cliente. Fila é o que ainda dá trabalho.
  */
+
+/**
+ * Conversa que o cliente começou pelo WhatsApp. Só nessas o bot leva a
+ * resposta do atendente até o celular do cliente: escrever para quem nunca
+ * mandou mensagem é o que faz o número ser banido.
+ */
+function veioDoWhatsapp(conversa: Conversa) {
+  return conversa.id.startsWith("cnv-wa-");
+}
+
 const FILTROS: { id: "todas" | "aberta" | "com_atendente"; label: string }[] = [
   { id: "todas", label: "Na fila" },
   { id: "aberta", label: "Com o agente" },
@@ -752,11 +762,10 @@ function Atendimento({
               {conversa.assumidaPor || "Você"}
             </span>{" "}
             está atendendo. O agente não responde mais por aqui.
-            {whatsappLigado && (
-              <span className="text-caution">
+            {whatsappLigado && veioDoWhatsapp(conversa) && (
+              <span>
                 {" "}
-                No WhatsApp ele ainda não sabe disso e pode responder junto:
-                isso some quando o banco de dados entrar.
+                O que você escrever aqui chega no WhatsApp do cliente.
               </span>
             )}
           </p>

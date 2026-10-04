@@ -10,6 +10,7 @@ import { Reveal } from "@/components/ui/reveal";
 import { useAppState } from "@/components/providers/app-state";
 import {
   atualizarEstoque,
+  definirPromocao,
   criarProduto,
   removerProduto,
   useBanco,
@@ -22,6 +23,7 @@ const CATEGORIAS = [
   "Similar",
   "Dermocosmético",
   "Higiene",
+  "Conveniência",
   "Outro",
 ];
 
@@ -34,6 +36,7 @@ export default function CatalogoPage() {
     nome: "",
     categoria: CATEGORIAS[0],
     preco: "",
+    promocao: "",
     estoque: "",
     estoqueMinimo: "",
     exigeReceita: false,
@@ -56,10 +59,13 @@ export default function CatalogoPage() {
     const preco = Number(form.preco.replace(",", "."));
     if (!form.nome.trim() || Number.isNaN(preco)) return;
 
+    const promocao = Number(form.promocao.replace(",", ".")) || 0;
     criarProduto({
       nome: form.nome.trim(),
       categoria: form.categoria,
       preco,
+      // Promoção só vale se for menor que o preço e o produto não for de tarja.
+      promocao: !form.exigeReceita && promocao > 0 && promocao < preco ? promocao : 0,
       estoque: Number(form.estoque) || 0,
       estoqueMinimo: Number(form.estoqueMinimo) || 0,
       exigeReceita: form.exigeReceita,
@@ -68,6 +74,7 @@ export default function CatalogoPage() {
       nome: "",
       categoria: CATEGORIAS[0],
       preco: "",
+      promocao: "",
       estoque: "",
       estoqueMinimo: "",
       exigeReceita: false,
@@ -154,7 +161,7 @@ export default function CatalogoPage() {
           ) : (
             <Table>
               <Thead
-                columns={["Produto", "Categoria", "Estoque", "Preço", "Ação"]}
+                columns={["Produto", "Categoria", "Estoque", "Preço", "Promoção", "Ação"]}
               />
               <tbody>
                 {visiveis.map((produto, i) => {
@@ -190,7 +197,26 @@ export default function CatalogoPage() {
                         </span>
                       </Td>
                       <Td className="tnum font-mono font-medium text-fg">
-                        {formatBRLCents(produto.preco)}
+                        {produto.promocao > 0 ? (
+                          <span className="flex flex-col leading-tight">
+                            <span className="text-[11px] text-fg-ghost line-through">
+                              {formatBRLCents(produto.preco)}
+                            </span>
+                            <span className="text-positive">
+                              {formatBRLCents(produto.promocao)}
+                            </span>
+                          </span>
+                        ) : (
+                          formatBRLCents(produto.preco)
+                        )}
+                      </Td>
+                      <Td>
+                        <CampoPromocao
+                          key={`${produto.id}-${produto.promocao}`}
+                          produtoId={produto.id}
+                          promocao={produto.promocao}
+                          bloqueado={produto.exigeReceita}
+                        />
                       </Td>
                       <Td align="right">
                         <button
@@ -284,6 +310,23 @@ export default function CatalogoPage() {
             </Campo>
           </div>
 
+          <Campo
+            label="Preço promocional (opcional)"
+            hint={
+              form.exigeReceita
+                ? "Produto com receita não pode ter promoção anunciada."
+                : "O agente oferece no WhatsApp quando fizer sentido."
+            }
+          >
+            <Entrada
+              value={form.exigeReceita ? "" : form.promocao}
+              onChange={(e) => setForm({ ...form, promocao: e.target.value })}
+              placeholder="Ex: 9,90"
+              inputMode="decimal"
+              disabled={form.exigeReceita}
+            />
+          </Campo>
+
           <div className="grid grid-cols-2 gap-3">
             <Campo label="Estoque atual">
               <Entrada
@@ -331,5 +374,54 @@ export default function CatalogoPage() {
         </form>
       </Modal>
     </div>
+  );
+}
+
+/**
+ * O preço de promoção, editável na própria linha.
+ *
+ * Grava ao sair do campo ou no Enter, não a cada tecla: cada gravação vai
+ * para o servidor, e digitar "12,90" não pode virar quatro gravações.
+ */
+function CampoPromocao({
+  produtoId,
+  promocao,
+  bloqueado,
+}: {
+  produtoId: string;
+  promocao: number;
+  bloqueado: boolean;
+}) {
+  const [valor, setValor] = useState(promocao > 0 ? promocao.toFixed(2).replace(".", ",") : "");
+
+  if (bloqueado) {
+    return (
+      <span
+        className="text-[11px] text-fg-ghost"
+        title="A ANVISA não permite anunciar medicamento que exige receita."
+      >
+        não permitido
+      </span>
+    );
+  }
+
+  function gravar() {
+    const numero = Number(valor.replace(",", ".")) || 0;
+    if (numero !== promocao) definirPromocao(produtoId, numero);
+  }
+
+  return (
+    <input
+      value={valor}
+      onChange={(e) => setValor(e.target.value)}
+      onBlur={gravar}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+      }}
+      inputMode="decimal"
+      placeholder="sem"
+      aria-label="Preço promocional"
+      className="tnum w-[76px] rounded-lg border border-hairline bg-nivel-2 px-2 py-1 font-mono text-[12px] text-fg-muted outline-none transition-colors placeholder:text-fg-ghost focus:border-brand-500/50"
+    />
   );
 }
