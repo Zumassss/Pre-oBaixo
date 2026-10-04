@@ -399,6 +399,18 @@ function historico(conversa) {
   return falas;
 }
 
+function agoraEmBrasilia() {
+  return new Date().toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function pedidosDoCliente(visao, telefone) {
   const abertos = visao.pedidos
     .filter((p) => mesmoTelefone(p.telefone, telefone))
@@ -419,6 +431,9 @@ export function criarAtendente(apiKey) {
       AGENT_INSTRUCOES_PEDIDO,
       "## Contexto desta conversa",
       `Canal: WhatsApp. Cliente: ${conversa.cliente}, telefone ${telefone}.`,
+      // Sem isto ele dizia "estamos abertos" sem saber a hora, e perguntava
+      // ao cliente que dia era.
+      `Agora é ${agoraEmBrasilia()} (horário de Brasília). Use isso para dizer se a loja está aberta; nunca pergunte o dia ou a hora ao cliente.`,
       pedidosDoCliente(visao, telefone),
       montarTextoDoContexto(extrairContexto(visao)),
     ]
