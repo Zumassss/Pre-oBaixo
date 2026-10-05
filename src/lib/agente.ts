@@ -21,7 +21,7 @@ export type RespostaAgente =
 
 export async function responder(
   conversa: Fala[],
-  extras?: { contexto?: string },
+  extras?: { contexto?: string; sistema?: string },
 ): Promise<RespostaAgente> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -35,9 +35,10 @@ export async function responder(
     return { ok: false, erro: "Conversa vazia." };
   }
 
+  const base = extras?.sistema ?? AGENT_SYSTEM_PROMPT;
   const sistema = extras?.contexto
-    ? `${AGENT_SYSTEM_PROMPT}\n\n## Contexto desta conversa\n${extras.contexto}`
-    : AGENT_SYSTEM_PROMPT;
+    ? `${base}\n\n## Contexto desta conversa\n${extras.contexto}`
+    : base;
 
   try {
     const anthropic = new Anthropic({ apiKey });

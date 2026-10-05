@@ -11,7 +11,6 @@ import {
   QrCode,
   KeyRound,
   MessageSquareWarning,
-  PlugZap,
   ShieldCheck,
   Store,
   Trash2,
@@ -21,7 +20,6 @@ import { Campo, Entrada } from "@/components/ui/modal";
 import { Reveal } from "@/components/ui/reveal";
 import {
   apagarDadosDaLoja,
-  definirWhatsapp,
   salvarLoja,
   salvarPagamentos,
   useBanco,
@@ -287,18 +285,6 @@ function FormularioLoja({
                 </p>
               </div>
 
-              <button
-                onClick={() => definirWhatsapp(!banco.whatsappConectado)}
-                className={cn(
-                  "mt-4 w-full",
-                  banco.whatsappConectado ? "btn-ghost" : "btn-primary",
-                )}
-              >
-                <PlugZap className="h-4 w-4" strokeWidth={2} />
-                {banco.whatsappConectado
-                  ? "Marcar como desconectado"
-                  : "Marcar como conectado"}
-              </button>
             </div>
           </Panel>
 

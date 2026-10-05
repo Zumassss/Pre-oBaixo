@@ -44,6 +44,8 @@ export default function CampanhasPage() {
       mensagem: form.mensagem.trim(),
       status: form.agendadaPara ? "agendada" : "rascunho",
       agendadaPara: form.agendadaPara,
+      imagem: null,
+      publico: { modo: "todos", etiquetas: [], situacoes: [] },
     });
     setForm({ nome: "", mensagem: "", agendadaPara: "" });
     setAberto(false);

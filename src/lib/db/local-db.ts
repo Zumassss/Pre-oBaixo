@@ -1,32 +1,24 @@
 "use client";
 
 import { rpc } from "./nuvem";
-import {
-  type Banco,
-  bancoVazio,
-  completarDados,
-  type DadosLoja,
-  type Loja,
-  type Sessao,
-  type Usuario,
-} from "./types";
+import { type EstadoReplica, type Registro, Replica, type ResultadoGravacao } from "./sincronia";
+import { type Banco, bancoVazio, type Sessao, type Usuario } from "./types";
 
 /**
- * Sincronização com a nuvem.
+ * Sincronização do site com a nuvem.
  *
  * O nome do arquivo ficou da época em que tudo morava no navegador. Hoje o
- * dono dos dados é o banco na nuvem, e este módulo mantém uma cópia local
- * para a tela responder na hora.
+ * dono dos dados é o banco, e este módulo mantém uma réplica local (ver
+ * `sincronia.ts`) para a tela responder na hora.
  *
- * O modelo, em uma frase: a tela mostra o último estado confirmado pelo
- * servidor (`base`) com as mudanças ainda não confirmadas (`pendentes`)
- * aplicadas por cima.
+ * A tela mostra o último estado confirmado com as mudanças ainda não
+ * confirmadas (`pendentes`) aplicadas por cima. Cada mudança é uma função do
+ * banco para o banco: se outra tela ou o bot gravou no meio do caminho, a
+ * réplica relê só os itens em conflito e aplica a mesma função de novo.
+ * Ninguém apaga o trabalho de ninguém.
  *
- * Toda mudança é uma FUNÇÃO do banco para o banco, não um valor pronto. Isso
- * é o que resolve conflito: se o bot do WhatsApp gravou uma conversa no meio
- * do caminho, o servidor recusa a gravação pela versão, a gente relê o
- * estado novo e aplica a mesma função de novo. A conversa do bot fica, a
- * mudança da tela também, e ninguém apaga o trabalho de ninguém.
+ * A cada 2,5 segundos a tela pergunta "o que mudou depois do número X?" e
+ * recebe só os registros novos. Não baixa a loja inteira de novo.
  */
 
 type Mudanca = (banco: Banco) => Banco;
@@ -35,25 +27,30 @@ type Ouvinte = (banco: Banco) => void;
 const CHAVE_TOKEN = "preco-baixo:token";
 const CHAVE_LOJA = "preco-baixo:loja-selecionada";
 /** De quanto em quanto tempo a tela pergunta se algo mudou no servidor. */
-const INTERVALO_CONSULTA = 4000;
+const INTERVALO_CONSULTA = 2500;
 
 const ouvintes = new Set<Ouvinte>();
 
-/** Último estado confirmado pelo servidor, sem a sessão. */
-let base: Banco = bancoVazio();
-let versaoRede = 0;
-let versoesLojas: Record<string, number> = {};
-
+let token: string | null = null;
+let usuario: Usuario | null = null;
 /** A sessão é só deste navegador: qual loja o admin está olhando. */
 let sessao: Sessao | null = null;
-let token: string | null = null;
+/** Até quando a área de ajustes está aberta (milissegundos). */
+let ajustesAte = 0;
+
+const replica = new Replica({
+  carregar: () => rpc("carregar", { p_token: token }),
+  mudancas: (desde) => rpc("mudancas", { p_token: token, p_desde: desde }),
+  gravar: (ops) => rpc("gravar", { p_token: token, p_ops: ops }),
+});
 
 let pendentes: Mudanca[] = [];
 let cache: Banco = bancoVazio();
 
 let estado: "parado" | "iniciando" | "pronto" = "parado";
-let fila: Promise<void> = Promise.resolve();
+let fila: Promise<unknown> = Promise.resolve();
 let consulta: ReturnType<typeof setInterval> | null = null;
+let consultando = false;
 let falhaDeGravacao = false;
 
 function ehServidor() {
@@ -77,10 +74,37 @@ function gravarArmazenado(chave: string, valor: string | null) {
   }
 }
 
+/** O banco confirmado, no formato que as telas conhecem. */
+function confirmado(): Banco {
+  const { lojas, dados } = replica.ler();
+  return { usuarios: usuario ? [usuario] : [], lojas, dados, sessao };
+}
+
+/**
+ * Escolhe a loja aberta: quem opera uma loja fica na dele; o admin volta para
+ * a última que estava olhando neste navegador.
+ */
+function ajustarSessao() {
+  if (!usuario) {
+    sessao = null;
+    return;
+  }
+  const { lojas } = replica.ler();
+  const lembrada = lerArmazenado(CHAVE_LOJA);
+  const lojaSelecionada =
+    usuario.papel === "loja"
+      ? (usuario.lojaId ?? "")
+      : lojas.some((l) => l.id === sessao?.lojaSelecionada)
+        ? (sessao?.lojaSelecionada ?? "")
+        : lojas.some((l) => l.id === lembrada)
+          ? (lembrada ?? "")
+          : (lojas[0]?.id ?? "");
+  sessao = { usuarioId: usuario.id, lojaSelecionada, em: sessao?.em ?? Date.now() };
+}
+
 /** Recalcula o que a tela mostra e avisa quem estiver ouvindo. */
 function recompor() {
-  const comSessao: Banco = { ...base, sessao };
-  cache = pendentes.reduce((estadoAtual, mudanca) => mudanca(estadoAtual), comSessao);
+  cache = pendentes.reduce((atual, mudanca) => mudanca(atual), confirmado());
   ouvintes.forEach((ouvinte) => ouvinte(cache));
 }
 
@@ -101,6 +125,10 @@ export function temFalhaDeGravacao() {
   return falhaDeGravacao;
 }
 
+export function tokenAtual() {
+  return token;
+}
+
 export function inscrever(ouvinte: Ouvinte) {
   ouvintes.add(ouvinte);
   return () => {
@@ -108,113 +136,105 @@ export function inscrever(ouvinte: Ouvinte) {
   };
 }
 
-type RespostaRede = {
+/* ------------------------------------------------------------------
+   Avisos para a tela (gravação recusada, sem conexão)
+   ------------------------------------------------------------------ */
+
+export type Aviso = { id: number; tipo: "erro" | "info"; texto: string };
+type OuvinteAviso = (aviso: Aviso) => void;
+const ouvintesAviso = new Set<OuvinteAviso>();
+let proximoAviso = 1;
+
+export function avisar(tipo: Aviso["tipo"], texto: string) {
+  const aviso = { id: proximoAviso++, tipo, texto };
+  ouvintesAviso.forEach((o) => o(aviso));
+}
+
+export function ouvirAvisos(ouvinte: OuvinteAviso) {
+  ouvintesAviso.add(ouvinte);
+  return () => {
+    ouvintesAviso.delete(ouvinte);
+  };
+}
+
+/* ------------------------------------------------------------------
+   Carga e consulta periódica
+   ------------------------------------------------------------------ */
+
+type RespostaCarregar = {
   ok: boolean;
   erro?: string;
-  usuario: Usuario;
-  lojas: Loja[];
-  versaoRede: number;
-  dados: Record<string, { dados: DadosLoja; versao: number }>;
+  usuario?: Usuario;
+  seq?: number;
+  ajustesAte?: number;
+  registros?: Registro[];
 };
 
-/** Baixa tudo o que esta sessão pode ver e troca a base. */
-async function baixarRede(): Promise<"ok" | "sessao" | "rede"> {
+/** Baixa tudo o que esta sessão pode ver. */
+async function carregarTudo(): Promise<"ok" | "sessao" | "rede"> {
   if (!token) return "sessao";
-  const r = await rpc<RespostaRede & { ok: boolean }>("ler_rede", { p_token: token });
-
+  const r = await rpc<RespostaCarregar & { ok: boolean }>("carregar", { p_token: token });
   if (!r.ok) return r.erro === "sessao" ? "sessao" : "rede";
 
-  const dados: Record<string, DadosLoja> = {};
-  const versoes: Record<string, number> = {};
-  for (const [id, bloco] of Object.entries(r.dados ?? {})) {
-    dados[id] = completarDados(bloco.dados);
-    versoes[id] = bloco.versao;
-  }
-
-  base = { usuarios: [r.usuario], lojas: r.lojas ?? [], dados, sessao: null };
-  versaoRede = r.versaoRede ?? 0;
-  versoesLojas = versoes;
-
-  // A loja aberta: quem opera uma loja fica na dele; o admin volta para a
-  // última que estava olhando neste navegador.
-  const lembrada = lerArmazenado(CHAVE_LOJA);
-  const lojaSelecionada =
-    r.usuario.papel === "loja"
-      ? (r.usuario.lojaId ?? "")
-      : base.lojas.some((l) => l.id === sessao?.lojaSelecionada)
-        ? (sessao?.lojaSelecionada ?? "")
-        : base.lojas.some((l) => l.id === lembrada)
-          ? (lembrada ?? "")
-          : (base.lojas[0]?.id ?? "");
-
-  sessao = { usuarioId: r.usuario.id, lojaSelecionada, em: sessao?.em ?? Date.now() };
+  usuario = r.usuario ?? null;
+  ajustesAte = r.ajustesAte ?? 0;
+  replica.limpar();
+  replica.aplicar(r.registros ?? []);
+  replica.cursor = r.seq ?? 0;
+  ajustarSessao();
   return "ok";
 }
 
 function encerrarLocalmente() {
   token = null;
+  usuario = null;
   sessao = null;
-  base = bancoVazio();
+  ajustesAte = 0;
   pendentes = [];
-  versaoRede = 0;
-  versoesLojas = {};
+  replica.limpar();
   gravarArmazenado(CHAVE_TOKEN, null);
   pararConsulta();
   recompor();
 }
 
-/* ------------------------------------------------------------------
-   Consulta periódica
-   ------------------------------------------------------------------ */
-
 /**
- * Pergunta ao servidor se algo mudou.
- *
- * A pergunta é só pelos números de versão, que é barato. A rede inteira só
- * é baixada quando um número mudou: é assim que a conversa que o bot gravou
+ * Pergunta ao servidor o que mudou. É assim que a conversa que o bot gravou
  * aparece no painel sem ninguém apertar F5.
  */
 async function verificarMudancas() {
-  if (!token || pendentes.length > 0) return;
+  if (!token || consultando) return;
   if (!ehServidor() && document.visibilityState === "hidden") return;
-
-  const r = await rpc<{
-    ok: boolean;
-    erro?: string;
-    versaoRede: number;
-    lojas: Record<string, number>;
-  }>("versoes", { p_token: token });
-
-  if (!r.ok) {
-    if (r.erro === "sessao") encerrarLocalmente();
-    return;
-  }
-
-  const mudouRede = (r.versaoRede ?? 0) !== versaoRede;
-  const lojas = r.lojas ?? {};
-  const mudouLoja =
-    Object.keys(lojas).length !== Object.keys(versoesLojas).length ||
-    Object.entries(lojas).some(([id, v]) => versoesLojas[id] !== v);
-
-  // Se uma mudança local entrou enquanto a pergunta viajava, esperamos a
-  // próxima volta: baixar agora atropelaria o que acabou de ser feito.
-  if ((mudouRede || mudouLoja) && pendentes.length === 0) {
-    const resultado = await baixarRede();
+  consultando = true;
+  try {
+    const { resultado, mudou } = await replica.puxar();
     if (resultado === "sessao") encerrarLocalmente();
-    else if (pendentes.length === 0) recompor();
+    else if (mudou) {
+      ajustarSessao();
+      recompor();
+    }
+  } finally {
+    consultando = false;
   }
+}
+
+function aoVoltar() {
+  if (document.visibilityState === "visible") void verificarMudancas();
 }
 
 function iniciarConsulta() {
   if (ehServidor() || consulta) return;
   consulta = setInterval(verificarMudancas, INTERVALO_CONSULTA);
   window.addEventListener("focus", verificarMudancas);
+  document.addEventListener("visibilitychange", aoVoltar);
 }
 
 function pararConsulta() {
   if (consulta) clearInterval(consulta);
   consulta = null;
-  if (!ehServidor()) window.removeEventListener("focus", verificarMudancas);
+  if (!ehServidor()) {
+    window.removeEventListener("focus", verificarMudancas);
+    document.removeEventListener("visibilitychange", aoVoltar);
+  }
 }
 
 /**
@@ -227,7 +247,7 @@ export async function iniciarSincronizacao() {
 
   token = lerArmazenado(CHAVE_TOKEN);
   if (token) {
-    const resultado = await baixarRede();
+    const resultado = await carregarTudo();
     if (resultado === "sessao") encerrarLocalmente();
     else if (resultado === "ok") iniciarConsulta();
   }
@@ -241,12 +261,12 @@ export async function iniciarSincronizacao() {
    ------------------------------------------------------------------ */
 
 export async function entrarNoServidor(
-  usuario: string,
+  nomeDeUsuario: string,
   senha: string,
 ): Promise<{ ok: true; usuario: Usuario } | { ok: false; erro: string }> {
   const r = await rpc<{ ok: boolean; erro?: string; token?: string; usuario?: Usuario }>(
     "entrar",
-    { p_usuario: usuario, p_senha: senha },
+    { p_usuario: nomeDeUsuario, p_senha: senha },
   );
 
   if (!r.ok || !r.token || !r.usuario) {
@@ -263,7 +283,7 @@ export async function entrarNoServidor(
   gravarArmazenado(CHAVE_TOKEN, token);
   sessao = null;
 
-  const resultado = await baixarRede();
+  const resultado = await carregarTudo();
   if (resultado !== "ok") {
     encerrarLocalmente();
     return { ok: false, erro: "Entrou, mas não conseguiu carregar os dados. Tente de novo." };
@@ -288,86 +308,111 @@ export function atualizarSessao(mudanca: (atual: Sessao | null, banco: Banco) =>
 }
 
 /* ------------------------------------------------------------------
-   Gravação
+   Área protegida (dados da loja e do agente)
+   ------------------------------------------------------------------ */
+
+export function ajustesLiberadosAte() {
+  return ajustesAte;
+}
+
+/** Confere a senha de ajustes no servidor. Abre por 20 minutos. */
+export async function liberarAjustes(pin: string): Promise<{ ok: boolean; erro?: string }> {
+  if (!token) return { ok: false, erro: "Sessão encerrada. Entre de novo." };
+  const r = await rpc<{ ok: boolean; erro?: string; ate?: number }>("liberar_ajustes", {
+    p_token: token,
+    p_pin: pin,
+  });
+  if (!r.ok) {
+    return {
+      ok: false,
+      erro: r.erro === "rede" || r.erro?.startsWith("http") ? "Sem conexão com o servidor." : r.erro,
+    };
+  }
+  ajustesAte = r.ate ?? Date.now() + 20 * 60 * 1000;
+  recompor();
+  return { ok: true };
+}
+
+export async function encerrarAjustes() {
+  ajustesAte = 0;
+  recompor();
+  if (token) await rpc("encerrar_ajustes", { p_token: token });
+}
+
+export async function trocarPin(lojaId: string, novo: string) {
+  if (!token) return { ok: false, erro: "Sessão encerrada." };
+  return rpc<{ ok: boolean; erro?: string }>("trocar_pin", {
+    p_token: token,
+    p_loja: lojaId,
+    p_novo: novo,
+  });
+}
+
+/* ------------------------------------------------------------------
+   Histórico sob demanda
    ------------------------------------------------------------------ */
 
 /**
- * Tenta gravar uma mudança no servidor.
- *
- * Calcula a mudança em cima da base confirmada, manda só o que mudou (a
- * lista de lojas e/ou o bloco de cada loja tocada) e, se o servidor
- * recusar por versão velha, relê e tenta de novo.
+ * Busca no servidor registros antigos que a tela não carrega ao abrir:
+ * pedidos de meses atrás, conversas resolvidas há tempo.
  */
-async function sincronizar(mudanca: Mudanca): Promise<"ok" | "rede" | "sessao"> {
-  for (let tentativa = 0; tentativa < 4; tentativa++) {
-    if (!token) return "sessao";
-
-    const antes: Banco = { ...base, sessao };
-    const depois = mudanca(antes);
-    let conflito = false;
-
-    if (depois.lojas !== antes.lojas) {
-      const r = await rpc<{ ok: boolean; erro?: string; conflito?: boolean; versao?: number }>(
-        "gravar_lojas",
-        { p_token: token, p_lojas: depois.lojas, p_versao: versaoRede },
-      );
-      if (r.ok) {
-        versaoRede = r.versao ?? versaoRede + 1;
-        base = { ...base, lojas: depois.lojas };
-      } else if (r.conflito) {
-        conflito = true;
-      } else {
-        return r.erro === "sessao" ? "sessao" : "rede";
-      }
-    }
-
-    if (!conflito) {
-      for (const id of Object.keys(depois.dados)) {
-        if (depois.dados[id] === antes.dados[id]) continue;
-        const r = await rpc<{ ok: boolean; erro?: string; conflito?: boolean; versao?: number }>(
-          "gravar_dados",
-          {
-            p_token: token,
-            p_loja_id: id,
-            p_dados: depois.dados[id],
-            p_versao: versoesLojas[id] ?? 0,
-          },
-        );
-        if (r.ok) {
-          versoesLojas = { ...versoesLojas, [id]: r.versao ?? 1 };
-          base = { ...base, dados: { ...base.dados, [id]: depois.dados[id] } };
-        } else if (r.conflito) {
-          conflito = true;
-          break;
-        } else {
-          return r.erro === "sessao" ? "sessao" : "rede";
-        }
-      }
-    }
-
-    if (!conflito) return "ok";
-
-    // Alguém gravou antes. Relê e a próxima volta reaplica a mesma mudança
-    // em cima do estado novo.
-    const releitura = await baixarRede();
-    if (releitura !== "ok") return releitura;
-  }
-  return "rede";
+export async function buscarNoServidor(
+  lojaId: string,
+  colecao: "pedidos" | "conversas" | "eventos" | "envios",
+  de: number,
+  ate: number,
+  limite = 5000,
+): Promise<{ ok: boolean; registros: Registro[] }> {
+  if (!token) return { ok: false, registros: [] };
+  const r = await rpc<{ ok: boolean; registros?: Registro[] }>("buscar", {
+    p_token: token,
+    p_loja: lojaId,
+    p_colecao: colecao,
+    p_de: de,
+    p_ate: ate,
+    p_limite: limite,
+  });
+  return { ok: r.ok, registros: r.registros ?? [] };
 }
+
+/** Todas as conversas e pedidos de um telefone, de todos os tempos. */
+export async function historicoNoServidor(lojaId: string, telefone: string) {
+  if (!token) return { ok: false, registros: [] as Registro[] };
+  const r = await rpc<{ ok: boolean; registros?: Registro[] }>("historico_cliente", {
+    p_token: token,
+    p_loja: lojaId,
+    p_digitos: telefone,
+  });
+  return { ok: r.ok, registros: r.registros ?? [] };
+}
+
+/* ------------------------------------------------------------------
+   Gravação
+   ------------------------------------------------------------------ */
+
+const MENSAGENS: Partial<Record<ResultadoGravacao, string>> = {
+  protegido: "Essa alteração precisa da senha de ajustes. Abra a área protegida em Configurações.",
+  conflito: "Outra tela mexeu no mesmo item várias vezes seguidas. Confira e tente de novo.",
+};
 
 /**
  * Aplica uma mudança: na tela na hora, no servidor em seguida.
  *
  * As gravações entram numa fila e saem uma de cada vez, na ordem em que
- * foram feitas. Sem a fila, duas mudanças rápidas sairiam com a mesma
- * versão e a segunda seria sempre recusada.
+ * foram feitas. Devolve o resultado para quem quiser esperar (a área de
+ * ajustes espera; um clique em "avançar pedido" não precisa).
  */
-export function atualizarBanco(mudanca: Mudanca): Banco {
+export function atualizarBanco(mudanca: Mudanca): Promise<ResultadoGravacao> {
   pendentes = [...pendentes, mudanca];
   recompor();
 
-  fila = fila.then(async () => {
-    let resultado = await sincronizar(mudanca);
+  const paraReplica = (e: EstadoReplica): EstadoReplica => {
+    const depois = mudanca({ usuarios: usuario ? [usuario] : [], lojas: e.lojas, dados: e.dados, sessao });
+    return { lojas: depois.lojas, dados: depois.dados };
+  };
+
+  const vez = fila.then(async () => {
+    let resultado = await replica.gravar(paraReplica);
 
     // Sem conexão: espera e tenta de novo, sem perder a mudança. Ela continua
     // visível na tela enquanto isso.
@@ -375,17 +420,24 @@ export function atualizarBanco(mudanca: Mudanca): Banco {
       falhaDeGravacao = true;
       recompor();
       await new Promise((r) => setTimeout(r, espera));
-      resultado = await sincronizar(mudanca);
+      resultado = await replica.gravar(paraReplica);
     }
 
     falhaDeGravacao = resultado === "rede";
     pendentes = pendentes.filter((m) => m !== mudanca);
 
-    if (resultado === "sessao") encerrarLocalmente();
-    else recompor();
+    if (resultado === "sessao") {
+      encerrarLocalmente();
+    } else {
+      if (resultado === "rede") avisar("erro", "Sem conexão: a última alteração não foi salva.");
+      else if (resultado === "erro") avisar("erro", replica.ultimoErro);
+      else if (MENSAGENS[resultado]) avisar("erro", MENSAGENS[resultado]!);
+      recompor();
+    }
+    return resultado;
   });
-
-  return cache;
+  fila = vez.catch(() => undefined);
+  return vez;
 }
 
 export function novoId(prefixo: string) {

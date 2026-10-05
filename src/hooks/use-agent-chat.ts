@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { extrairContexto } from "@/lib/agente-contexto";
+import { extrairContexto, extrairResumoOperacao } from "@/lib/agente-contexto";
 import { useBanco } from "@/lib/db/use-db";
 
 export type ChatMessage = {
@@ -22,7 +22,7 @@ const CONTEXTO_MAXIMO = 8;
  * para o agente entender perguntas encadeadas. Só as últimas mensagens vão
  * junto, senão cada pergunta ficaria progressivamente mais cara.
  */
-export function useAgentChat() {
+export function useAgentChat(modo: "equipe" | "cliente" = "equipe") {
   const { banco } = useBanco();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -53,6 +53,10 @@ export function useAgentChat() {
               .map(({ role, content }) => ({ role, content })),
             // Sem isto o agente responde preço e horário no escuro.
             loja: extrairContexto(banco),
+            modo,
+            // O resumo já vai calculado: o servidor nunca recebe a lista de
+            // clientes nem as conversas.
+            resumo: modo === "equipe" ? extrairResumoOperacao(banco) : undefined,
           }),
         });
         const data = await res.json();
@@ -84,7 +88,7 @@ export function useAgentChat() {
         setLoading(false);
       }
     },
-    [messages, loading, banco],
+    [messages, loading, banco, modo],
   );
 
   const clear = useCallback(() => setMessages([]), []);

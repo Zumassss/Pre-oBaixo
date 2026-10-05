@@ -13,19 +13,25 @@ import {
   sairDoServidor,
   temFalhaDeGravacao,
 } from "./local-db";
+import type { ResultadoGravacao } from "./sincronia";
 import {
+  type AjustesAgente,
   type Banco,
   bancoVazio,
   type Campanha,
   type Cliente,
+  CLIENTE_PADRAO,
   type Conversa,
   dadosVazios,
   type DadosLoja,
+  type Envio,
   type EventoAgente,
   type ItemPedido,
   type Loja,
   lojaAtiva,
   type Mensagem,
+  MENSAGEM_PADRAO,
+  type Midia,
   novaLoja,
   type Pagamentos,
   type Pedido,
@@ -157,13 +163,13 @@ function comStatusDeConfiguracao(loja: Loja): Loja {
  * consegue escrever na loja errada: o destino vem da sessão, não de quem
  * chamou.
  */
-function alterarDados(mudanca: (dados: DadosLoja) => DadosLoja) {
+function alterarDados(mudanca: (dados: DadosLoja) => DadosLoja): Promise<ResultadoGravacao> {
   // A loja é decidida AGORA, não quando a mudança for reaplicada. Se o
   // administrador trocar de loja enquanto a gravação ainda está na fila, a
   // mudança tem que cair na loja em que ele estava quando clicou.
   const lojaId = lojaAtiva(lerBanco())?.id;
-  if (!lojaId) return;
-  atualizarBanco((banco) => {
+  if (!lojaId) return Promise.resolve("erro");
+  return atualizarBanco((banco) => {
     if (!banco.lojas.some((l) => l.id === lojaId)) return banco;
     const atuais = banco.dados[lojaId] ?? dadosVazios();
     return {
@@ -173,20 +179,36 @@ function alterarDados(mudanca: (dados: DadosLoja) => DadosLoja) {
   });
 }
 
-/** Zera os cadastros da loja aberta. Não mexe em nenhuma outra. */
+/**
+ * Zera os cadastros da loja aberta. Não mexe em nenhuma outra, nem nos
+ * ajustes da loja (horários, entrega, chave Pix): esses só mudam na área
+ * protegida.
+ */
 export function apagarDadosDaLoja() {
-  alterarDados(() => dadosVazios());
+  return alterarDados((d) => {
+    const vazio = dadosVazios();
+    return {
+      ...d,
+      clientes: vazio.clientes,
+      produtos: vazio.produtos,
+      campanhas: vazio.campanhas,
+      conversas: vazio.conversas,
+      pedidos: vazio.pedidos,
+      eventos: vazio.eventos,
+      envios: vazio.envios,
+    };
+  });
 }
 
 /* ------------------------------------------------------------------
    Lojas
    ------------------------------------------------------------------ */
 
-/** Salva o cadastro da loja ativa. */
+/** Salva o cadastro da loja ativa. Precisa da área de ajustes aberta. */
 export function salvarLoja(dados: Partial<Loja>) {
   const lojaId = lojaAtiva(lerBanco())?.id;
-  if (!lojaId) return;
-  atualizarBanco((banco) => ({
+  if (!lojaId) return Promise.resolve<ResultadoGravacao>("erro");
+  return atualizarBanco((banco) => ({
     ...banco,
     lojas: banco.lojas.map((l) =>
       l.id === lojaId
@@ -254,10 +276,24 @@ export function alternarLojaAtiva(lojaId: string) {
    Clientes
    ------------------------------------------------------------------ */
 
-export function criarCliente(dados: Omit<Cliente, "id" | "criadoEm">) {
-  const cliente: Cliente = { ...dados, id: novoId("cli"), criadoEm: Date.now() };
+export function criarCliente(
+  dados: Pick<Cliente, "nome" | "telefone"> & Partial<Omit<Cliente, "id" | "criadoEm">>,
+) {
+  const cliente: Cliente = {
+    ...CLIENTE_PADRAO,
+    ...dados,
+    id: novoId("cli"),
+    criadoEm: Date.now(),
+  };
   alterarDados((d) => ({ ...d, clientes: [cliente, ...d.clientes] }));
   return cliente;
+}
+
+export function atualizarCliente(id: string, dados: Partial<Omit<Cliente, "id" | "criadoEm">>) {
+  return alterarDados((d) => ({
+    ...d,
+    clientes: d.clientes.map((c) => (c.id === id ? { ...c, ...dados } : c)),
+  }));
 }
 
 export function removerCliente(id: string) {
@@ -312,6 +348,36 @@ export function removerProduto(id: string) {
    Campanhas
    ------------------------------------------------------------------ */
 
+export function atualizarCampanha(id: string, dados: Partial<Omit<Campanha, "id" | "criadoEm">>) {
+  return alterarDados((d) => ({
+    ...d,
+    campanhas: d.campanhas.map((c) => (c.id === id ? { ...c, ...dados } : c)),
+  }));
+}
+
+/**
+ * Pede ao bot para mandar a campanha a um número, para ver como ela chega.
+ *
+ * O bot só manda para quem já escreveu para a loja. Para qualquer outro
+ * número ele recusa e o motivo aparece na tela.
+ */
+export function enviarTesteDeCampanha(campanha: Campanha, telefone: string, texto: string) {
+  const envio: Envio = {
+    id: novoId("env"),
+    tipo: "teste_campanha",
+    telefone,
+    texto,
+    midia: campanha.imagem,
+    campanhaId: campanha.id,
+    status: "pendente",
+    motivo: "",
+    criadoEm: Date.now(),
+    enviadoEm: 0,
+  };
+  alterarDados((d) => ({ ...d, envios: [envio, ...d.envios] }));
+  return envio;
+}
+
 export function criarCampanha(dados: Omit<Campanha, "id" | "criadoEm">) {
   const campanha: Campanha = {
     ...dados,
@@ -340,13 +406,20 @@ export function removerCampanha(id: string) {
    Conversas
    ------------------------------------------------------------------ */
 
-export function criarConversa(cliente: string, telefone: string) {
+export function criarConversa(
+  cliente: string,
+  telefone: string,
+  canal: Conversa["canal"] = "interno",
+) {
   const agora = Date.now();
   const conversa: Conversa = {
-    id: novoId("cnv"),
+    id: novoId(canal === "whatsapp" ? "cnv-wa" : "cnv"),
     cliente,
     telefone,
-    status: "aberta",
+    status: canal === "whatsapp" ? "com_atendente" : "aberta",
+    canal,
+    alerta: null,
+    etapa: "conversa",
     mensagens: [],
     atualizadaEm: agora,
     assumidaPor: "",
@@ -357,24 +430,58 @@ export function criarConversa(cliente: string, telefone: string) {
   return conversa;
 }
 
+/**
+ * Abre (ou reaproveita) a conversa com um cliente.
+ *
+ * Pelo WhatsApp só quando a pessoa já escreveu para a loja alguma vez. Quem
+ * nunca escreveu ganha uma conversa interna, de registro: puxar conversa
+ * com quem não pediu é o caminho mais rápido para o número ser banido.
+ */
+export function abrirConversaComCliente(cliente: Cliente, atendente: string) {
+  const banco = lerBanco();
+  const lojaId = lojaAtiva(banco)?.id;
+  const dados = lojaId ? banco.dados[lojaId] : undefined;
+  const digitos = cliente.telefone.replace(/\D/g, "").slice(-8);
+  const aberta = dados?.conversas.find(
+    (c) => c.status !== "resolvida" && c.telefone.replace(/\D/g, "").endsWith(digitos),
+  );
+  if (aberta) return aberta;
+
+  const canal: Conversa["canal"] = cliente.primeiraMensagemEm > 0 ? "whatsapp" : "interno";
+  const conversa = criarConversa(cliente.nome, cliente.telefone, canal);
+  if (canal === "whatsapp") assumirConversa(conversa.id, atendente);
+  return conversa;
+}
+
 export function adicionarMensagem(
   conversaId: string,
   origem: Mensagem["origem"],
   texto: string,
   autor = "",
+  extras: { midia?: Midia | null; citada?: Mensagem["citada"] } = {},
 ) {
   const agora = Date.now();
-  const mensagem: Mensagem = {
-    id: novoId("msg"),
-    origem,
-    texto,
-    em: agora,
-    autor: origem === "atendente" ? autor : "",
-  };
+  const id = novoId("msg");
+  let criada: Mensagem | null = null;
   alterarDados((d) => ({
     ...d,
     conversas: d.conversas.map((c) => {
       if (c.id !== conversaId) return c;
+      if (c.mensagens.some((m) => m.id === id)) return c;
+
+      const mensagem: Mensagem = {
+        ...MENSAGEM_PADRAO,
+        id,
+        origem,
+        texto,
+        em: agora,
+        autor: origem === "atendente" ? autor : "",
+        midia: extras.midia ?? null,
+        citada: extras.citada ?? null,
+        // Mensagem da equipe em conversa de WhatsApp vai para a fila do bot.
+        envio: origem === "atendente" && c.canal === "whatsapp" ? "pendente" : null,
+      };
+      criada = mensagem;
 
       // Quem escreve, assume. Exigir o botão antes de poder responder só
       // atrapalharia quem está com o cliente esperando do outro lado.
@@ -387,22 +494,62 @@ export function adicionarMensagem(
         status: origem === "atendente" ? "com_atendente" : c.status,
         assumidaPor: assumindo ? autor : c.assumidaPor,
         assumidaEm: assumindo ? agora : c.assumidaEm,
+        // Alguém da loja respondeu: o alerta foi atendido.
+        alerta: origem === "atendente" ? null : c.alerta,
       };
     }),
   }));
-  return mensagem;
+  return criada as Mensagem | null;
+}
+
+/** Marca ou desmarca uma mensagem para achar depois. */
+export function alternarMarcacao(conversaId: string, mensagemId: string) {
+  alterarDados((d) => ({
+    ...d,
+    conversas: d.conversas.map((c) =>
+      c.id === conversaId
+        ? {
+            ...c,
+            mensagens: c.mensagens.map((m) =>
+              m.id === mensagemId ? { ...m, marcada: !m.marcada } : m,
+            ),
+          }
+        : c,
+    ),
+  }));
+}
+
+/** Tenta de novo uma mensagem que o bot não conseguiu entregar. */
+export function reenviarMensagem(conversaId: string, mensagemId: string) {
+  alterarDados((d) => ({
+    ...d,
+    conversas: d.conversas.map((c) =>
+      c.id === conversaId
+        ? {
+            ...c,
+            mensagens: c.mensagens.map((m) =>
+              m.id === mensagemId && m.envio === "falhou" ? { ...m, envio: "pendente" } : m,
+            ),
+          }
+        : c,
+    ),
+  }));
+}
+
+/** Tira o alerta sem responder (a dúvida foi resolvida por telefone, por exemplo). */
+export function resolverAlerta(conversaId: string) {
+  alterarDados((d) => ({
+    ...d,
+    conversas: d.conversas.map((c) => (c.id === conversaId ? { ...c, alerta: null } : c)),
+  }));
 }
 
 /**
  * Alguém da loja passa a responder no lugar do agente.
  *
- * Para a equipe, isto é a fonte da verdade: a conversa sai da fila do agente
- * e o nome de quem assumiu fica visível para todo mundo que abrir a tela.
- *
- * Para o WhatsApp, ainda não vale. O webhook roda no servidor e os cadastros
- * vivem no navegador, então o agente não tem como saber que alguém assumiu e
- * pode responder junto. A tela diz isso em vez de esconder. Some quando
- * entrar o banco de dados.
+ * A conversa sai da fila do agente e o nome de quem assumiu fica visível
+ * para todo mundo que abrir a tela. O bot do WhatsApp lê o status antes de
+ * responder: conversa assumida, o agente fica quieto.
  */
 export function assumirConversa(id: string, atendente: string) {
   const agora = Date.now();
@@ -532,8 +679,10 @@ export function criarPedido(dados: {
   let criado: Pedido | null = null;
   alterarDados((d) => {
     if (d.pedidos.some((p) => p.id === id)) return d;
+    // O contador vive no banco: a tela só carrega os pedidos recentes, e o
+    // maior número à vista nem sempre é o maior que existe.
     const numero =
-      d.pedidos.reduce((maior, p) => Math.max(maior, p.numero), 0) + 1;
+      Math.max(d.contadores.pedido, ...d.pedidos.map((p) => p.numero), 0) + 1;
     criado = {
       id,
       numero,
@@ -555,9 +704,43 @@ export function criarPedido(dados: {
       criadoEm: agora,
       atualizadoEm: agora,
     };
-    return { ...d, pedidos: [criado, ...d.pedidos] };
+    return {
+      ...d,
+      pedidos: [criado, ...d.pedidos],
+      contadores: { ...d.contadores, pedido: numero },
+      clientes: somarCompra(d.clientes, dados.telefone, subtotal + taxaEntrega, agora, 1),
+    };
   });
   return criado as Pedido | null;
+}
+
+/**
+ * Atualiza o resumo de compras do cliente daquele telefone. `sinal` -1
+ * desfaz (pedido cancelado).
+ */
+export function somarCompra(
+  clientes: Cliente[],
+  telefone: string,
+  valor: number,
+  em: number,
+  sinal: 1 | -1,
+): Cliente[] {
+  const fim = telefone.replace(/\D/g, "").slice(-8);
+  if (fim.length < 8) return clientes;
+  let tocou = false;
+  const novos = clientes.map((c) => {
+    if (tocou || !c.telefone.replace(/\D/g, "").endsWith(fim)) return c;
+    tocou = true;
+    return {
+      ...c,
+      compras: {
+        quantidade: Math.max(0, c.compras.quantidade + sinal),
+        total: Math.max(0, c.compras.total + sinal * valor),
+        ultimaEm: sinal > 0 ? em : c.compras.ultimaEm,
+      },
+    };
+  });
+  return tocou ? novos : clientes;
 }
 
 function alterarPedido(id: string, mudanca: (p: Pedido) => Pedido) {
@@ -646,7 +829,17 @@ export function avancarPedido(id: string) {
 }
 
 export function cancelarPedido(id: string) {
-  alterarPedido(id, (p) => ({ ...p, status: "cancelado" }));
+  alterarDados((d) => {
+    const pedido = d.pedidos.find((p) => p.id === id);
+    if (!pedido || pedido.status === "cancelado") return d;
+    return {
+      ...d,
+      pedidos: d.pedidos.map((p) =>
+        p.id === id ? { ...p, status: "cancelado", atualizadoEm: Date.now() } : p,
+      ),
+      clientes: somarCompra(d.clientes, pedido.telefone, pedido.total, pedido.criadoEm, -1),
+    };
+  });
 }
 
 export function removerPedido(id: string) {
@@ -657,18 +850,27 @@ export function removerPedido(id: string) {
    Pagamentos
    ------------------------------------------------------------------ */
 
+/** Chave Pix e recebedor. Área protegida. */
 export function salvarPagamentos(dados: Partial<Pagamentos>) {
-  alterarDados((d) => ({ ...d, pagamentos: { ...d.pagamentos, ...dados } }));
+  return alterarDados((d) => ({ ...d, pagamentos: { ...d.pagamentos, ...dados } }));
+}
+
+/** O que o agente sabe da loja. Área protegida. */
+export function salvarAjustesAgente(dados: AjustesAgente) {
+  return alterarDados((d) => ({ ...d, agente: dados }));
 }
 
 /* ------------------------------------------------------------------
    Eventos do agente
    ------------------------------------------------------------------ */
 
-/** Registra algo que realmente aconteceu. Guarda os 100 mais recentes. */
+/**
+ * Registra algo que realmente aconteceu. Todos ficam no banco; a tela
+ * carrega os 150 mais recentes.
+ */
 export function registrarEvento(dados: Omit<EventoAgente, "id" | "em">) {
   const evento: EventoAgente = { ...dados, id: novoId("evt"), em: Date.now() };
-  alterarDados((d) => ({ ...d, eventos: [evento, ...d.eventos].slice(0, 100) }));
+  alterarDados((d) => ({ ...d, eventos: [evento, ...d.eventos] }));
   return evento;
 }
 
@@ -676,8 +878,19 @@ export function registrarEvento(dados: Omit<EventoAgente, "id" | "em">) {
    Conexão do WhatsApp
    ------------------------------------------------------------------ */
 
-export function definirWhatsapp(conectado: boolean) {
-  alterarDados((d) => ({ ...d, whatsappConectado: conectado }));
+/**
+ * Liga ou desliga as respostas automáticas do agente no WhatsApp.
+ *
+ * Desligado, o WhatsApp continua funcionando: as mensagens chegam ao painel
+ * e a equipe responde por lá. É o botão de emergência, por isso não pede a
+ * senha de ajustes: se o agente disser algo errado, qualquer pessoa da loja
+ * precisa conseguir pará-lo na hora.
+ */
+export function definirAgenteLigado(ativo: boolean, quem: string) {
+  return alterarDados((d) => ({
+    ...d,
+    agenteLigado: { ativo, alteradoPor: quem, em: Date.now() },
+  }));
 }
 
 /** Ajuda telas que precisam recarregar algo manualmente. */

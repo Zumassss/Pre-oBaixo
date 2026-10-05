@@ -2,8 +2,10 @@
 
 import { atualizarBanco, lerBanco, novoId } from "./local-db";
 import {
+  CLIENTE_PADRAO,
   completarDados,
   type Conversa,
+  MENSAGEM_PADRAO,
   type ItemPedido,
   lojaAtiva,
   type Mensagem,
@@ -39,6 +41,7 @@ function mensagem(
   autor = "",
 ): Mensagem {
   return {
+    ...MENSAGEM_PADRAO,
     id: novoId("msg"),
     origem,
     texto,
@@ -61,6 +64,9 @@ function conversa(
     cliente,
     telefone,
     status,
+    canal: "interno",
+    alerta: null,
+    etapa: "conversa",
     mensagens,
     atualizadaEm: ultima,
     assumidaPor,
@@ -228,22 +234,6 @@ export function carregarExemplos(): VisaoLoja {
     return encontrado;
   };
 
-  const cadastroDaLoja = {
-    nome: "Preço Baixo Vila Velha",
-    endereco: "Rua Jair de Andrade, 120",
-    bairro: "Centro",
-    cidade: "Vila Velha",
-    uf: "ES",
-    cep: "29100-000",
-    telefone: "27 3000-0000",
-    cnpj: "00.000.000/0001-00",
-    farmaceutico: "Renata Lopes",
-    crf: "CRF-ES 00000",
-    horarios: "Segunda a sábado das 8h às 22h, domingo das 8h às 20h",
-    configurada: true,
-    temMotoboy: true,
-    taxaEntrega: TAXA_ENTREGA,
-  };
 
   const dados = completarDados({
 
@@ -313,7 +303,7 @@ export function carregarExemplos(): VisaoLoja {
         observacao: "Não compra desde julho",
         criadoEm: agora - 1 * 24 * HORA,
       },
-    ],
+    ].map((c) => ({ ...CLIENTE_PADRAO, ...c })),
 
     produtos,
 
@@ -402,41 +392,32 @@ export function carregarExemplos(): VisaoLoja {
       ], "Renata Lopes"),
     ],
 
+    // Campanha nunca anuncia remédio: só higiene, beleza e conveniência.
     campanhas: [
       {
         id: novoId("cmp"),
-        nome: "Genéricos com desconto",
+        nome: "Dermocosméticos de verão",
         mensagem:
-          "Oi! Esta semana os genéricos estão com preço especial aqui na Preço Baixo Vila Velha. Passa aqui ou responde esta mensagem que a gente separa.",
-        status: "enviada",
+          "Oi, {nome}! O protetor solar FPS 50 está com preço especial esta semana aqui na Preço Baixo. Quer que a gente separe um para você?",
+        status: "enviada" as const,
         agendadaPara: "",
         criadoEm: agora - 7 * 24 * HORA,
       },
       {
         id: novoId("cmp"),
-        nome: "Lembrete de recompra",
+        nome: "Fraldas geriátricas",
         mensagem:
-          "Oi! Notamos que seu medicamento de uso contínuo deve estar acabando. Quer que a gente separe uma caixa?",
-        status: "agendada",
-        agendadaPara: "amanhã, 09:00",
-        criadoEm: agora - 2 * 24 * HORA,
-      },
-      {
-        id: novoId("cmp"),
-        nome: "Dermocosméticos de verão",
-        mensagem:
-          "Protetor solar e hidratante com condição especial nesta semana.",
-        status: "rascunho",
+          "Oi, {nome}! Chegou fralda geriátrica com preço de atacado. Entregamos em casa, é só responder esta mensagem.",
+        status: "rascunho" as const,
         agendadaPara: "",
         criadoEm: agora - 6 * HORA,
       },
-    ],
+    ].map((c) => ({
+      ...c,
+      imagem: null,
+      publico: { modo: "todos" as const, etiquetas: [], situacoes: [] },
+    })),
 
-    pagamentos: {
-      chavePix: "00.000.000/0001-00",
-      beneficiario: "Preco Baixo Vila Velha",
-      cidade: "Vila Velha",
-    },
 
     pedidos: [
       pedido(
@@ -574,18 +555,36 @@ export function carregarExemplos(): VisaoLoja {
   const lojaId = lojaAtiva(lerBanco())?.id;
   if (!lojaId) return visao;
 
+  // Soma ao que já existe em vez de substituir: numa loja com cliente de
+  // verdade, trocar tudo apagaria conversas e pedidos reais. O cadastro da
+  // loja e a chave Pix ficam como estão; esses só mudam na área protegida.
   atualizarBanco((banco) => {
     const atual = banco.lojas.find((l) => l.id === lojaId);
     if (!atual) return banco;
+    const existentes = banco.dados[atual.id] ?? completarDados();
+    const jaTem = (lista: { id: string }[], id: string) => lista.some((x) => x.id === id);
 
-    const loja = { ...atual, ...cadastroDaLoja };
-    visao = { ...dados, loja };
-
-    return {
-      ...banco,
-      lojas: banco.lojas.map((l) => (l.id === atual.id ? loja : l)),
-      dados: { ...banco.dados, [atual.id]: dados },
+    const somado = {
+      ...existentes,
+      clientes: [...dados.clientes.filter((c) => !jaTem(existentes.clientes, c.id)), ...existentes.clientes],
+      produtos: [...dados.produtos.filter((p) => !jaTem(existentes.produtos, p.id)), ...existentes.produtos],
+      campanhas: [...dados.campanhas.filter((c) => !jaTem(existentes.campanhas, c.id)), ...existentes.campanhas],
+      conversas: [...dados.conversas.filter((c) => !jaTem(existentes.conversas, c.id)), ...existentes.conversas],
+      // Os números continuam de onde a loja parou: nunca repetem um pedido real.
+      pedidos: [
+        ...dados.pedidos
+          .filter((p) => !jaTem(existentes.pedidos, p.id))
+          .map((p) => ({ ...p, numero: p.numero + existentes.contadores.pedido })),
+        ...existentes.pedidos,
+      ],
+      eventos: [...dados.eventos.filter((e) => !jaTem(existentes.eventos, e.id)), ...existentes.eventos],
+      contadores: {
+        pedido: existentes.contadores.pedido + Math.max(0, ...dados.pedidos.map((p) => p.numero)),
+      },
     };
+    visao = { ...somado, loja: atual };
+
+    return { ...banco, dados: { ...banco.dados, [atual.id]: somado } };
   });
 
   return visao;

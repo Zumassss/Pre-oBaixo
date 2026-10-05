@@ -3,53 +3,69 @@
  *
  * Usa o Baileys, que entra no WhatsApp como se fosse o WhatsApp Web, lendo o
  * QR code com o celular. Serve para testar com um chip reserva sem custo; não
- * é a API oficial da Meta e o WhatsApp pode banir o número se for usado para
- * disparo em massa. Por isso este bot só responde quem escreveu primeiro.
+ * é a API oficial da Meta, e o WhatsApp pode banir o número se for usado para
+ * disparo em massa. Por isso este bot só fala com quem escreveu primeiro.
  *
- * Tudo que acontece aqui vai para o mesmo banco do painel: o cliente é
- * cadastrado com o número real, a conversa aparece em Conversas, o pedido
- * aparece em Pedidos. Quando alguém da loja assume a conversa no painel, o
- * bot para de responder e passa a entregar no WhatsApp o que a pessoa
- * escreveu lá.
+ * Duas coisas separadas aqui, de propósito:
  *
- * Rodar: `npm install` nesta pasta, depois `npm start`. O QR aparece em
- * `qr.png` na primeira vez; depois a sessão fica salva em `sessao/`.
+ *  1. O WhatsApp. Toda mensagem que chega vai para o painel na hora, com foto,
+ *     áudio e arquivo. Tudo que a equipe escreve no painel sai pelo WhatsApp.
+ *     Isso funciona sempre, mesmo sem agente.
+ *  2. O agente. Responde sozinho quando está ligado e ninguém da loja assumiu
+ *     a conversa. Se a IA falhar (sem crédito, fora do ar), a conversa ganha
+ *     um alerta no painel e a equipe assume; o WhatsApp não para por isso.
+ *
+ * Rodar: `npm install` nesta pasta, depois `npm start` (ou `./manter-ligado.sh`
+ * para reiniciar sozinho se cair). O QR aparece em `qr.png` na primeira vez;
+ * depois a sessão fica salva em `sessao/`.
  */
 import makeWASocket, {
   DisconnectReason,
+  downloadMediaMessage,
   fetchLatestBaileysVersion,
   useMultiFileAuthState,
 } from "@whiskeysockets/baileys";
 import QRCode from "qrcode";
 import pino from "pino";
-import { readFileSync, writeFileSync } from "node:fs";
-import { lerLoja } from "./banco.js";
+import { existsSync, readFileSync } from "node:fs";
+import { tipoDaMidia } from "../src/lib/db/types.ts";
+import { alterarLoja, iniciarBanco, lerLoja, ouvirMudancas, puxar } from "./banco.js";
 import {
-  PREFIXO_CONVERSA_WHATSAPP,
   criarAtendente,
+  descreverMidia,
+  mesmoTelefone,
   registrarEntrada,
   registrarResposta,
 } from "./atendimento.js";
+import { baixarMidia, guardarMidia, paraVoz } from "./midia.js";
 
 const pasta = (arquivo) => new URL(arquivo, import.meta.url).pathname;
+const logger = pino({ level: "silent" });
 
-// A chave da Anthropic vem do .env.local do projeto e nunca é impressa.
-const env = readFileSync(pasta("../.env.local"), "utf8");
-const chaveApi = env.match(/^ANTHROPIC_API_KEY=(.+)$/m)?.[1]?.trim();
-if (!chaveApi) throw new Error("ANTHROPIC_API_KEY ausente no .env.local");
-const responder = criarAtendente(chaveApi);
+// A chave da Anthropic vem do .env.local do projeto e nunca é impressa. Sem
+// ela o bot roda do mesmo jeito: só o agente fica sem responder.
+const arquivoEnv = pasta("../.env.local");
+const chaveApi = existsSync(arquivoEnv)
+  ? readFileSync(arquivoEnv, "utf8").match(/^ANTHROPIC_API_KEY=(.+)$/m)?.[1]?.trim()
+  : undefined;
+const responder = chaveApi ? criarAtendente(chaveApi) : null;
 
-/** Mensagens que o agente responde por contato por dia, para a conta não fugir. */
+/** Respostas automáticas por contato por dia, para a conta não fugir. */
 const LIMITE_POR_CONTATO = 60;
-/** Espera para juntar mensagens seguidas do cliente numa resposta só. */
+/** Espera depois da última mensagem do cliente antes de responder. */
 const JUNTAR_MS = 2500;
-/** De quanto em quanto tempo o bot olha se alguém da loja escreveu. */
-const CONSULTA_MS = 5000;
+/** De quanto em quanto tempo o bot pergunta ao banco o que mudou. */
+const CONSULTA_MS = 3000;
+/** De quanto em quanto tempo o bot avisa o painel que está vivo. */
+const SINAL_MS = 60000;
 
 let sock = null;
+let conectado = false;
 const usoDoDia = new Map();
-const pendentes = new Map(); // jid -> { textos, timer, digitos, nome }
+const esperando = new Map(); // jid -> timer da resposta
 const filas = new Map(); // jid -> promessa da vez
+const enviando = new Set(); // ids de mensagem/envio saindo agora
+const jidPorTelefone = new Map(); // 8 dígitos finais -> jid mais recente
 
 function log(...partes) {
   console.log(new Date().toISOString().slice(11, 19), ...partes);
@@ -57,7 +73,7 @@ function log(...partes) {
 
 /** Últimos 4 dígitos, para o log nunca guardar o número inteiro. */
 function mascara(digitos) {
-  return `***${digitos.slice(-4)}`;
+  return `***${String(digitos).slice(-4)}`;
 }
 
 function contarUso(digitos) {
@@ -66,6 +82,30 @@ function contarUso(digitos) {
   const total = (usoDoDia.get(chave) ?? 0) + 1;
   usoDoDia.set(chave, total);
   return total;
+}
+
+/** Uma coisa por vez por contato: a ordem das mensagens importa. */
+function naFila(jid, tarefa) {
+  const anterior = filas.get(jid) ?? Promise.resolve();
+  const vez = anterior.then(tarefa).catch((erro) => log("erro:", erro.message));
+  filas.set(jid, vez);
+  return vez;
+}
+
+/* ------------------------------------------------------------------
+   Estado da conexão, para o painel saber a verdade
+   ------------------------------------------------------------------ */
+
+async function avisarEstado() {
+  try {
+    const numero = sock?.user?.id ? sock.user.id.split(":")[0].split("@")[0] : "";
+    await alterarLoja((d) => ({
+      ...d,
+      whatsapp: { conectado, vistoEm: Date.now(), numero: numero ? `***${numero.slice(-4)}` : "" },
+    }));
+  } catch (erro) {
+    log("não avisou o estado:", erro.message);
+  }
 }
 
 /* ------------------------------------------------------------------
@@ -88,113 +128,256 @@ async function numeroReal(msg) {
   return pn ? pn.split("@")[0].split(":")[0] : null;
 }
 
-async function atender(jid, digitos, nome, texto) {
-  const { conversa, visao, telefone } = await registrarEntrada({
-    digitos,
-    nomeWhatsapp: nome,
-    texto,
-  });
-  if (!conversa) return;
+/** O conteúdo de verdade, tirando os envelopes (efêmera, visualização única). */
+function conteudo(msg) {
+  let m = msg.message ?? {};
+  for (let i = 0; i < 3; i++) {
+    const dentro = m.ephemeralMessage?.message ?? m.viewOnceMessage?.message ?? m.viewOnceMessageV2?.message ?? m.documentWithCaptionMessage?.message;
+    if (!dentro) break;
+    m = dentro;
+  }
+  return m;
+}
 
-  if (conversa.status === "com_atendente") {
-    log("conversa com atendente, agente quieto", mascara(digitos));
+const TIPOS_MIDIA = ["imageMessage", "audioMessage", "videoMessage", "documentMessage", "stickerMessage"];
+
+/** Texto, mídia e citação de uma mensagem que chegou. */
+async function lerMensagem(msg, lojaId) {
+  const m = conteudo(msg);
+  const tipo = TIPOS_MIDIA.find((t) => m[t]);
+  const corpo = tipo ? m[tipo] : m.extendedTextMessage;
+  const texto = (m.conversation || m.extendedTextMessage?.text || corpo?.caption || "").trim();
+  const citadaWaId = corpo?.contextInfo?.stanzaId ?? m.extendedTextMessage?.contextInfo?.stanzaId ?? "";
+
+  let midia = null;
+  if (tipo) {
+    try {
+      const buffer = await downloadMediaMessage(msg, "buffer", {}, { logger, reuploadRequest: sock.updateMediaMessage });
+      const mime = (corpo.mimetype || (tipo === "stickerMessage" ? "image/webp" : "application/octet-stream")).split(";")[0];
+      const caminho = await guardarMidia(lojaId, buffer, mime);
+      midia = {
+        caminho,
+        tipo: tipoDaMidia(mime),
+        mime,
+        nome: corpo.fileName || "",
+        tamanho: buffer.length,
+        ...(corpo.seconds ? { duracao: corpo.seconds } : {}),
+      };
+    } catch (erro) {
+      log("mídia não guardada:", erro.message);
+      return { texto: texto || "[mídia que não deu para abrir]", midia: null, citadaWaId };
+    }
+  }
+  return { texto, midia, citadaWaId };
+}
+
+async function chegou(msg) {
+  const jid = msg.key.remoteJid;
+  const digitos = await numeroReal(msg);
+  if (!digitos) {
+    log("mensagem sem número identificável, ignorada");
     return;
   }
+  jidPorTelefone.set(digitos.slice(-8), jid);
+  const { lojaId } = lerLoja();
+  const { texto, midia, citadaWaId } = await lerMensagem(msg, lojaId);
+  if (!texto && !midia) return;
+
+  const entrada = await registrarEntrada({
+    digitos,
+    nomeWhatsapp: msg.pushName,
+    texto: texto.slice(0, 2000),
+    midia,
+    wa: { id: msg.key.id, jid, deMim: false },
+    citadaWaId,
+  });
+  log("mensagem de", mascara(digitos), midia ? descreverMidia(midia) : "", entrada.responder ? "" : `(${entrada.motivoSilencio})`);
+
+  if (!entrada.responder) return;
+  // A resposta espera o cliente terminar de escrever: quem manda três
+  // mensagens seguidas recebe uma resposta só, sobre as três.
+  clearTimeout(esperando.get(jid));
+  esperando.set(
+    jid,
+    setTimeout(() => {
+      esperando.delete(jid);
+      naFila(jid, () => responderConversa(jid, entrada.conversa.id, digitos));
+    }, JUNTAR_MS),
+  );
+}
+
+async function responderConversa(jid, conversaId, digitos) {
+  const { dados, loja } = lerLoja();
+  const conversa = dados.conversas.find((c) => c.id === conversaId);
+  // Pode ter mudado enquanto esperava: alguém assumiu, ou desligou o agente.
+  if (!conversa || conversa.status !== "aberta" || !dados.agenteLigado.ativo) return;
 
   const uso = contarUso(digitos);
   if (uso > LIMITE_POR_CONTATO) {
-    if (uso === LIMITE_POR_CONTATO + 1) {
-      await enviar(jid, "Vou pedir para alguém da equipe continuar com você por aqui.");
-    }
-    log("limite do dia atingido", mascara(digitos));
+    if (uso === LIMITE_POR_CONTATO + 1) await pedirPessoa(jid, conversa, "Limite diário de respostas automáticas deste contato.");
+    return;
+  }
+  if (!responder) {
+    await pedirPessoa(jid, conversa, "O agente está sem chave da IA configurada.");
     return;
   }
 
   await sock.sendPresenceUpdate("composing", jid).catch(() => {});
   let resposta;
   try {
-    resposta = await responder({ conversa, visao, telefone });
+    resposta = await responder({ conversa, dados, loja, telefone: conversa.telefone });
   } catch (erro) {
-    log("erro no Claude:", erro.message);
-    resposta = { texto: "Tive um problema para responder agora. Já já alguém da equipe te atende.", pedido: "" };
+    log("o agente falhou:", erro.message);
+    await pedirPessoa(jid, conversa, `O agente não conseguiu responder (${erro.status ?? "erro"}).`);
+    return;
+  } finally {
+    await sock.sendPresenceUpdate("paused", jid).catch(() => {});
   }
   if (!resposta?.texto) return;
 
-  await enviar(jid, resposta.texto);
-  await registrarResposta(conversa.id, resposta.texto, { pedido: resposta.pedido });
+  const enviada = await sock.sendMessage(jid, { text: resposta.texto });
+  await registrarResposta(conversa.id, resposta.texto, {
+    pedido: resposta.pedido,
+    wa: enviada?.key ? { id: enviada.key.id, jid, deMim: true } : null,
+  });
   log("respondido", mascara(digitos), resposta.pedido ? `(${resposta.pedido.split(".")[0]})` : "");
 }
 
-async function enviar(jid, texto) {
-  await sock.sendMessage(jid, { text: texto });
-}
-
-/** Junta mensagens seguidas e garante uma resposta por vez por contato. */
-function receber(jid, digitos, nome, texto) {
-  const atual = pendentes.get(jid) ?? { textos: [], timer: null, digitos, nome };
-  atual.textos.push(texto);
-  clearTimeout(atual.timer);
-  atual.timer = setTimeout(() => {
-    pendentes.delete(jid);
-    const junto = atual.textos.join("\n");
-    const anterior = filas.get(jid) ?? Promise.resolve();
-    const vez = anterior
-      .then(() => atender(jid, atual.digitos, atual.nome, junto))
-      .catch((erro) => log("erro ao atender:", erro.message));
-    filas.set(jid, vez);
-  }, JUNTAR_MS);
-  pendentes.set(jid, atual);
+/**
+ * Quando o agente não pode responder, a pessoa do outro lado não fica no
+ * vácuo: recebe um aviso uma vez, e a conversa ganha um alerta no painel.
+ */
+async function pedirPessoa(jid, conversa, motivo) {
+  const jaAvisou = conversa.alerta?.tipo === "atendente";
+  await alterarLoja((d) => ({
+    ...d,
+    conversas: d.conversas.map((c) =>
+      c.id === conversa.id ? { ...c, alerta: { tipo: "atendente", resumo: motivo, em: Date.now() } } : c,
+    ),
+  }));
+  if (jaAvisou) return;
+  const texto = "Recebi sua mensagem! Já já alguém da nossa equipe te responde por aqui.";
+  const enviada = await sock.sendMessage(jid, { text: texto });
+  await registrarResposta(conversa.id, texto, {
+    wa: enviada?.key ? { id: enviada.key.id, jid, deMim: true } : null,
+  });
 }
 
 /* ------------------------------------------------------------------
-   Alguém da loja escreveu no painel
+   A equipe escreveu no painel
    ------------------------------------------------------------------ */
 
-const ARQUIVO_ENTREGUES = pasta("estado-entregues.json");
-let entregues = null;
+/** Para onde mandar: o jid da última mensagem da pessoa, ou o número. */
+function jidDoTelefone(telefone, conversa) {
+  const fim = telefone.replace(/\D/g, "").slice(-8);
+  const doCliente = conversa?.mensagens.findLast((m) => m.origem === "cliente" && m.wa?.jid)?.wa?.jid;
+  if (doCliente) return doCliente;
+  if (jidPorTelefone.has(fim)) return jidPorTelefone.get(fim);
+  const digitos = telefone.replace(/\D/g, "");
+  return `${digitos.length <= 11 ? `55${digitos}` : digitos}@s.whatsapp.net`;
+}
 
-function lerEntregues() {
-  try {
-    return new Set(JSON.parse(readFileSync(ARQUIVO_ENTREGUES, "utf8")));
-  } catch {
-    return null;
+/** Só fala com quem já escreveu para a loja. Regra contra banimento. */
+function jaEscreveu(dados, telefone) {
+  return dados.clientes.some((c) => mesmoTelefone(c.telefone, telefone) && c.primeiraMensagemEm > 0);
+}
+
+async function montarConteudo(texto, midia) {
+  if (!midia) return { text: texto };
+  const buffer = await baixarMidia(midia.caminho);
+  if (midia.tipo === "imagem") return { image: buffer, caption: texto || undefined };
+  if (midia.tipo === "video") return { video: buffer, caption: texto || undefined };
+  if (midia.tipo === "audio") {
+    return { audio: await paraVoz(buffer), mimetype: "audio/ogg; codecs=opus", ptt: true };
+  }
+  return { document: buffer, mimetype: midia.mime, fileName: midia.nome || "arquivo", caption: texto || undefined };
+}
+
+async function marcarEnvio(conversaId, mensagemId, envio, wa) {
+  await alterarLoja((d) => ({
+    ...d,
+    conversas: d.conversas.map((c) =>
+      c.id === conversaId
+        ? { ...c, mensagens: c.mensagens.map((m) => (m.id === mensagemId ? { ...m, envio, wa: wa ?? m.wa } : m)) }
+        : c,
+    ),
+  }));
+}
+
+/** Manda o que a equipe escreveu e ainda está pendente. */
+async function levarMensagensDaEquipe() {
+  if (!conectado) return;
+  const { dados } = lerLoja();
+  if (!dados) return;
+  for (const conversa of dados.conversas) {
+    if (conversa.canal !== "whatsapp") continue;
+    for (const m of conversa.mensagens) {
+      if (m.origem !== "atendente" || m.envio !== "pendente" || enviando.has(m.id)) continue;
+      enviando.add(m.id);
+      const jid = jidDoTelefone(conversa.telefone, conversa);
+      naFila(jid, async () => {
+        try {
+          if (!jaEscreveu(lerLoja().dados, conversa.telefone)) {
+            log("recusado: número que nunca escreveu", mascara(conversa.telefone));
+            await marcarEnvio(conversa.id, m.id, "falhou");
+            return;
+          }
+          const citada = m.citada ? conversa.mensagens.find((x) => x.id === m.citada.id) : null;
+          const opcoes = citada?.wa
+            ? {
+                quoted: {
+                  key: { remoteJid: citada.wa.jid || jid, id: citada.wa.id, fromMe: citada.wa.deMim },
+                  message: { conversation: citada.texto || descreverMidia(citada.midia) },
+                },
+              }
+            : {};
+          const enviada = await sock.sendMessage(jid, await montarConteudo(m.texto, m.midia), opcoes);
+          await marcarEnvio(conversa.id, m.id, "enviado", enviada?.key ? { id: enviada.key.id, jid, deMim: true } : null);
+          log("mensagem da equipe entregue", mascara(conversa.telefone));
+        } catch (erro) {
+          log("mensagem da equipe falhou:", erro.message);
+          await marcarEnvio(conversa.id, m.id, "falhou").catch(() => {});
+        } finally {
+          enviando.delete(m.id);
+        }
+      });
+    }
   }
 }
 
-/**
- * Leva para o WhatsApp o que o atendente escreveu na tela de Conversas.
- *
- * Só em conversa que o cliente começou pelo WhatsApp: conversa aberta no
- * painel para alguém que nunca escreveu não vira mensagem, porque mandar
- * mensagem para quem não pediu é o caminho mais rápido para o número ser
- * banido.
- */
-async function levarRespostasDoPainel() {
-  if (!sock?.user) return;
-  const { dados } = await lerLoja();
-  const daLoja = [];
-  for (const c of dados.conversas) {
-    if (!c.id.startsWith(PREFIXO_CONVERSA_WHATSAPP)) continue;
-    for (const m of c.mensagens) {
-      if (m.origem === "atendente") daLoja.push({ conversa: c, mensagem: m });
-    }
-  }
-
-  // Na primeira volta, o que já existe conta como entregue: o bot não
-  // reenvia o histórico inteiro toda vez que reinicia.
-  if (entregues === null) {
-    entregues = lerEntregues() ?? new Set(daLoja.map((x) => x.mensagem.id));
-    writeFileSync(ARQUIVO_ENTREGUES, JSON.stringify([...entregues]));
-  }
-
-  for (const { conversa, mensagem } of daLoja) {
-    if (entregues.has(mensagem.id)) continue;
-    const digitos = conversa.telefone.replace(/\D/g, "");
-    const jid = `${digitos.length <= 11 ? `55${digitos}` : digitos}@s.whatsapp.net`;
-    await enviar(jid, mensagem.texto);
-    entregues.add(mensagem.id);
-    writeFileSync(ARQUIVO_ENTREGUES, JSON.stringify([...entregues]));
-    log("mensagem do atendente entregue", mascara(digitos));
+/** Testes de campanha pedidos no painel. */
+async function levarEnvios() {
+  if (!conectado) return;
+  const { dados } = lerLoja();
+  if (!dados) return;
+  for (const envio of dados.envios) {
+    if (envio.status !== "pendente" || enviando.has(envio.id)) continue;
+    enviando.add(envio.id);
+    const marcar = (status, motivo = "") =>
+      alterarLoja((d) => ({
+        ...d,
+        envios: d.envios.map((e) =>
+          e.id === envio.id ? { ...e, status, motivo, enviadoEm: status === "enviado" ? Date.now() : 0 } : e,
+        ),
+      }));
+    const jid = jidDoTelefone(envio.telefone, null);
+    naFila(jid, async () => {
+      try {
+        const cliente = lerLoja().dados.clientes.find((c) => mesmoTelefone(c.telefone, envio.telefone));
+        if (!cliente || cliente.primeiraMensagemEm <= 0) {
+          await marcar("recusado", "Esse número nunca escreveu para a loja. O teste só vai para quem já mandou mensagem.");
+          return;
+        }
+        const texto = envio.texto.replaceAll("{nome}", cliente.nome.split(" ")[0]);
+        await sock.sendMessage(jid, await montarConteudo(texto, envio.midia));
+        await marcar("enviado");
+        log("teste de campanha enviado", mascara(envio.telefone));
+      } catch (erro) {
+        await marcar("falhou", erro.message.slice(0, 120)).catch(() => {});
+      } finally {
+        enviando.delete(envio.id);
+      }
+    });
   }
 }
 
@@ -202,10 +385,10 @@ async function levarRespostasDoPainel() {
    Conexão
    ------------------------------------------------------------------ */
 
-async function iniciar() {
+async function conectar() {
   const { state, saveCreds } = await useMultiFileAuthState(pasta("sessao"));
   const { version } = await fetchLatestBaileysVersion();
-  sock = makeWASocket({ version, auth: state, logger: pino({ level: "silent" }) });
+  sock = makeWASocket({ version, auth: state, logger });
 
   sock.ev.on("creds.update", saveCreds);
 
@@ -214,11 +397,19 @@ async function iniciar() {
       await QRCode.toFile(pasta("qr.png"), qr, { scale: 8, margin: 2 });
       log("QR_PRONTO: abra qr.png e leia com o WhatsApp do chip do bot");
     }
-    if (connection === "open") log("CONECTADO");
+    if (connection === "open") {
+      conectado = true;
+      log("CONECTADO");
+      await avisarEstado();
+      void levarMensagensDaEquipe();
+      void levarEnvios();
+    }
     if (connection === "close") {
+      conectado = false;
       const codigo = lastDisconnect?.error?.output?.statusCode;
       log("FECHOU", codigo, lastDisconnect?.error?.message ?? "");
-      if (codigo !== DisconnectReason.loggedOut) setTimeout(iniciar, 3000);
+      await avisarEstado();
+      if (codigo !== DisconnectReason.loggedOut) setTimeout(conectar, 3000);
       else log("DESLOGADO: apague a pasta sessao e leia o QR de novo");
     }
   });
@@ -229,20 +420,32 @@ async function iniciar() {
       const jid = msg.key.remoteJid;
       if (msg.key.fromMe || !jid) continue;
       if (jid.endsWith("@g.us") || jid.endsWith("@broadcast") || jid.endsWith("@newsletter")) continue;
-      const texto = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || "").trim();
-      if (!texto) continue;
-      const digitos = await numeroReal(msg);
-      if (!digitos) {
-        log("mensagem sem número identificável, ignorada");
-        continue;
-      }
-      log("mensagem de", mascara(digitos));
-      receber(jid, digitos, msg.pushName, texto.slice(0, 1000));
+      naFila(jid, () => chegou(msg));
     }
   });
 }
 
-iniciar();
-setInterval(() => {
-  levarRespostasDoPainel().catch((erro) => log("erro ao levar respostas:", erro.message));
-}, CONSULTA_MS);
+async function iniciar() {
+  await iniciarBanco();
+  log("BANCO CARREGADO");
+  ouvirMudancas(() => {
+    void levarMensagensDaEquipe();
+    void levarEnvios();
+  });
+  setInterval(() => void puxar().catch((e) => log("consulta falhou:", e.message)), CONSULTA_MS);
+  setInterval(() => void avisarEstado(), SINAL_MS);
+  await conectar();
+}
+
+async function encerrar() {
+  conectado = false;
+  await avisarEstado();
+  process.exit(0);
+}
+process.on("SIGTERM", encerrar);
+process.on("SIGINT", encerrar);
+
+iniciar().catch((erro) => {
+  log("não iniciou:", erro.message);
+  process.exit(1);
+});

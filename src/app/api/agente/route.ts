@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { responder } from "@/lib/agente";
-import { montarTextoDoContexto } from "@/lib/agente-contexto";
+import { montarTextoDoContexto, montarTextoOperacao } from "@/lib/agente-contexto";
+import { AGENT_PROMPT_EQUIPE } from "@/lib/agent-config";
 
 export const runtime = "nodejs";
 
@@ -97,14 +98,19 @@ export async function POST(request: Request) {
   // O catálogo e os dados da loja viajam junto porque só o navegador os tem.
   // O servidor recorta o que chega antes de usar: sem isso, uma requisição
   // grande viraria uma conta grande na API.
-  const dadosDaLoja =
-    typeof corpo === "object" && corpo !== null
-      ? (corpo as Record<string, unknown>).loja
-      : undefined;
+  const pedido = typeof corpo === "object" && corpo !== null ? (corpo as Record<string, unknown>) : {};
 
-  const resultado = await responder(contexto, {
-    contexto: montarTextoDoContexto(dadosDaLoja),
-  });
+  // Dois públicos: a equipe (assistente interno, com o resumo da operação)
+  // ou o teste do atendente de clientes.
+  const resultado =
+    pedido.modo === "equipe"
+      ? await responder(contexto, {
+          sistema: AGENT_PROMPT_EQUIPE,
+          contexto: [montarTextoOperacao(pedido.resumo), montarTextoDoContexto(pedido.loja)]
+            .filter(Boolean)
+            .join("\n\n"),
+        })
+      : await responder(contexto, { contexto: montarTextoDoContexto(pedido.loja) });
   if (!resultado.ok) {
     return NextResponse.json({ error: resultado.erro }, { status: 502 });
   }
