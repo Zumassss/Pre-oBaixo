@@ -38,27 +38,49 @@ O sistema atende uma **rede** de farmácias, com dois perfis de acesso.
 
 ## O banco na nuvem (Supabase)
 
-Projeto `ztfgcpcwmzqlhnpaefup` (sa-east-1). O esquema inteiro está em
-`supabase/migrations/20261004_rede_na_nuvem.sql`.
+Projeto `ztfgcpcwmzqlhnpaefup` (sa-east-1). O modelo atual está em
+`supabase/migrations/20261005_registros.sql`; o de 2026-10-04
+(`dados_loja`, `rede`) continua no banco, sem uso, até ser revogado.
 
-- **Ninguém lê tabela direto.** RLS ligada e sem política nenhuma: a chave
-  pública não abre tabela. Tudo passa por funções `SECURITY DEFINER`
-  (`entrar`, `ler_rede`, `versoes`, `gravar_dados`, `gravar_lojas`, `sair`,
-  `bot_ler`, `bot_gravar`), e cada uma confere o token de quem chama. Os
-  avisos do Supabase sobre "RLS sem política" e "função executável por anon"
-  são **intencionais**; não "conserte" abrindo política.
-- **Senha só existe como hash bcrypt no banco.** O navegador recebe um token
-  de sessão de 30 dias, guardado em `preco-baixo:token`. Cinco senhas erradas
-  travam o usuário por 15 minutos.
-- **Cada loja é um documento JSON com versão** (`dados_loja`). Gravar exige a
-  versão lida; se outra tela gravou antes, o banco recusa e `local-db.ts`
-  relê e **reaplica a mesma mudança** em cima do novo. Por isso toda mudança
-  passada a `alterarDados` precisa poder rodar duas vezes: id e horário
-  nascem **fora** dela. A tela consulta `versoes` a cada 4 segundos e baixa
-  só o que mudou.
-- **Não use `delete` em SQL pelo MCP do Supabase.** Ele pede confirmação de
-  comando destrutivo e a chamada trava até estourar o tempo. Para limpar
-  dado, regrave o documento sem o item.
+- **Um registro por item, não um documento por loja.** Tabela `registros
+  (loja_id, colecao, id, dados, versao, seq, momento, apagado)`. Cada
+  cliente, conversa, pedido, campanha é uma linha. Apagar é `apagado =
+  true`, nunca `delete`.
+- **`seq` é uma sequência global** e toda escrita roda sob o mesmo
+  `pg_advisory_xact_lock`, então quem pede `mudancas(desde)` nunca pula um
+  registro. A tela consulta a cada 2,5 s (e ao voltar o foco) e baixa só o
+  que mudou; acima de 1.500 mudanças ela recarrega tudo.
+- **A tela só carrega o que está quente** (`_quentes`): cadastros inteiros,
+  conversas abertas ou dos últimos 90 dias, pedidos abertos ou dos últimos
+  60, envios de 7 dias, os 150 eventos mais recentes. O resto vem sob
+  demanda por `buscar(loja, colecao, de, ate)` (histórico de pedidos) e
+  `historico_cliente(loja, digitos)` (ficha do cliente). É isso que mantém
+  o plano gratuito de pé com anos de dado.
+- **`gravar(ops)` é tudo ou nada.** Cada operação leva a versão lida; se
+  outra tela gravou antes, volta `conflito` com os registros atuais e
+  `sincronia.ts` reaplica a mudança em cima deles. Toda mudança passada a
+  `alterarDados` precisa poder rodar duas vezes: id e horário nascem fora.
+- **`sincronia.ts` é usado pelo site e pelo bot.** A classe `Replica` monta o
+  `DadosLoja` a partir dos registros e devolve o que mudou. Mexeu nela, os
+  dois lados mudam juntos.
+- **Ninguém lê tabela direto.** RLS ligada e sem política: tudo passa por
+  funções `SECURITY DEFINER` que conferem o token (`carregar`, `mudancas`,
+  `gravar`, `buscar`, `historico_cliente`; o bot usa `bot_carregar`,
+  `bot_mudancas`, `bot_gravar_ops`, que só abrem as coleções dele). Os
+  avisos de "RLS sem política" são **intencionais**.
+- **`loja` e `ajustes` são protegidos.** Gravar neles exige administrador ou
+  sessão liberada pela senha de ajustes (`liberar_ajustes(pin)`, vale 20
+  minutos; cinco erros travam 15). Sem isso o banco devolve `protegido` e a
+  tela pede a senha de novo. Os PINs ficam em `pins_loja`, em bcrypt.
+- **Senha só existe como hash bcrypt.** O navegador guarda um token de
+  sessão de 30 dias em `preco-baixo:token`.
+- **Mídia vai para o bucket privado `midia`** pela função `midia`
+  (`supabase/functions/midia`): POST envia, GET `?c=caminho` baixa. Ela
+  confere `x-sessao` (tela) ou `x-bot` (bot), limita a 16 MB e a tipos
+  conhecidos. A mensagem guarda só o caminho; ninguém tem link público.
+- **Não use `delete` em SQL pelo MCP do Supabase.** A chamada trava pedindo
+  confirmação de comando destrutivo. Para limpar dado, apague pela própria
+  tela (vira `apagado = true`).
 
 ## Duas peles, um sistema
 
@@ -166,9 +188,10 @@ valor das fichas, trocado pelo atributo `data-tema` no `<html>`.
   esperando.
 - **Assumir cala o agente no WhatsApp.** O bot lê o status antes de
   responder; com `com_atendente`, ele só grava a mensagem do cliente. O que o
-  atendente escreve no painel o bot entrega no WhatsApp, mas **só em
-  conversa que o cliente começou** (id `cnv-wa-...`): escrever para quem
-  nunca mandou mensagem é o que faz o número ser banido.
+  atendente escreve no painel o bot entrega no WhatsApp, mas **só para quem já
+  escreveu para a loja** (`primeiraMensagemEm` preenchido): escrever para
+  quem nunca mandou mensagem é o que faz o número ser banido. Conversa com
+  quem nunca escreveu nasce no canal `interno` e não sai do painel.
 
 ## Bot do WhatsApp (`bot/`)
 
@@ -191,7 +214,42 @@ Teste com chip reserva, via Baileys (entra como WhatsApp Web, lendo QR). Não
   instruído a não fazer. A mensagem que fecha pedido tem id `msg-ped-...` e
   o histórico enviado ao modelo começa depois dela.
 - **"Vou passar para o farmacêutico" deixa alerta de verdade** no painel
-  (ferramenta `chamar_equipe`, evento do tipo `erro`).
+  (ferramenta `chamar_equipe` grava `conversa.alerta`; o card fica laranja e
+  toca o som de chamado). Se o modelo prometer uma pessoa sem chamar a
+  ferramenta, `garantirAlerta` cria o alerta do mesmo jeito.
+- **O WhatsApp não depende do agente.** Toda mensagem que chega é gravada na
+  hora, com foto, áudio ou arquivo, mesmo com o agente desligado ou caindo.
+  O agente responde 2,5 s depois da última mensagem (junta as picadas). O
+  bot grava `estado/whatsapp` a cada minuto; o painel considera no ar quem
+  deu sinal nos últimos 3 minutos.
+- **Para ficar ligado 24 horas** precisa de um servidor próprio (VPS) rodando
+  `bot/manter-ligado.sh`. O ambiente de trabalho do Claude é temporário.
+
+## Configurações da loja (área com senha)
+
+`/configuracoes?aba=loja` abre só com a senha de ajustes. Ali ficam os dados
+da loja e tudo o que o agente sabe: horários por dia, entrega (taxa fixa,
+por bairro ou por distância, com simulador), pagamento e Pix, serviços,
+perguntas frequentes, nome e tom da atendente. O que é salvo vira texto em
+`agente-contexto.ts` e entra no prompt do agente na conversa seguinte. A
+taxa por distância usa `loja-regras.ts` (Nominatim + fator de rua 1,3); o
+bot recalcula a taxa no servidor, nunca aceita a do modelo.
+
+## Campanhas
+
+- **Toda campanha leva a linha de saída** (`RODAPE_SAIR` em
+  `lib/campanhas.ts`). Não tem opção de tirar: é LGPD e é o que evita
+  denúncia contra o número.
+- **Remédio fica fora duas vezes.** A tela avisa e bloqueia o salvar quando
+  o texto cita um remédio do catálogo; a rota `/api/campanhas/sugerir` só
+  manda para a IA os produtos que podem ser anunciados e descarta qualquer
+  versão que cite remédio.
+- **O teste vai, o disparo não.** "Enviar teste" grava um `envio` que o bot
+  entrega, e só para quem já escreveu para a loja. O disparo para a lista
+  fica travado até o número oficial da Meta: pelo número de teste, envio em
+  massa bane o chip.
+- **Agendamento nunca no passado.** `SeletorDataHora` esconde dia e hora que
+  já passaram e `agendamentoNoPassado` confere de novo ao salvar.
 
 ## Regra de produto que não se negocia
 
