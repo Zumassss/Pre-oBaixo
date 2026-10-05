@@ -27,7 +27,7 @@ import makeWASocket, {
 } from "@whiskeysockets/baileys";
 import QRCode from "qrcode";
 import pino from "pino";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { tipoDaMidia } from "../src/lib/db/types.ts";
 import { alterarLoja, iniciarBanco, lerLoja, ouvirMudancas, puxar } from "./banco.js";
 import {
@@ -65,7 +65,41 @@ const usoDoDia = new Map();
 const esperando = new Map(); // jid -> timer da resposta
 const filas = new Map(); // jid -> promessa da vez
 const enviando = new Set(); // ids de mensagem/envio saindo agora
-const jidPorTelefone = new Map(); // 8 dígitos finais -> jid mais recente
+
+/**
+ * Quem escreveu para este WhatsApp, visto pelo próprio WhatsApp.
+ *
+ * É a única fonte que decide se o bot pode mandar mensagem para um número.
+ * O banco não serve para isso: o painel grava cliente e conversa, então um
+ * cadastro forjado (telefone trocado, "já escreveu" marcado à mão) faria o
+ * bot escrever para quem nunca pediu, que é o que bane o número. Este
+ * arquivo só cresce com mensagem que chegou de verdade, e fica fora do git.
+ */
+const ARQUIVO_CONTATOS = pasta("contatos.json");
+const jidPorTelefone = new Map(); // 8 dígitos finais -> jid de quem escreveu
+let contatosSemArquivo = !existsSync(ARQUIVO_CONTATOS);
+try {
+  if (!contatosSemArquivo) {
+    for (const [fim, jid] of Object.entries(JSON.parse(readFileSync(ARQUIVO_CONTATOS, "utf8")))) {
+      if (/^\d{8}$/.test(fim) && typeof jid === "string") jidPorTelefone.set(fim, jid);
+    }
+  }
+} catch {
+  contatosSemArquivo = true;
+}
+let gravarContatos = null;
+function lembrarContato(fim, jid) {
+  if (jidPorTelefone.get(fim) === jid) return;
+  jidPorTelefone.set(fim, jid);
+  clearTimeout(gravarContatos);
+  gravarContatos = setTimeout(() => {
+    try {
+      writeFileSync(ARQUIVO_CONTATOS, JSON.stringify(Object.fromEntries(jidPorTelefone)), { mode: 0o600 });
+    } catch (erro) {
+      log("lista de contatos não gravada:", erro.message);
+    }
+  }, 500);
+}
 
 function log(...partes) {
   console.log(new Date().toISOString().slice(11, 19), ...partes);
@@ -178,7 +212,7 @@ async function chegou(msg) {
     log("mensagem sem número identificável, ignorada");
     return;
   }
-  jidPorTelefone.set(digitos.slice(-8), jid);
+  lembrarContato(digitos.slice(-8), jid);
   const { lojaId } = lerLoja();
   const { texto, midia, citadaWaId } = await lerMensagem(msg, lojaId);
   if (!texto && !midia) return;
@@ -268,18 +302,14 @@ async function pedirPessoa(jid, conversa, motivo) {
    ------------------------------------------------------------------ */
 
 /** Para onde mandar: o jid da última mensagem da pessoa, ou o número. */
-function jidDoTelefone(telefone, conversa) {
-  const fim = telefone.replace(/\D/g, "").slice(-8);
-  const doCliente = conversa?.mensagens.findLast((m) => m.origem === "cliente" && m.wa?.jid)?.wa?.jid;
-  if (doCliente) return doCliente;
-  if (jidPorTelefone.has(fim)) return jidPorTelefone.get(fim);
-  const digitos = telefone.replace(/\D/g, "");
-  return `${digitos.length <= 11 ? `55${digitos}` : digitos}@s.whatsapp.net`;
-}
-
-/** Só fala com quem já escreveu para a loja. Regra contra banimento. */
-function jaEscreveu(dados, telefone) {
-  return dados.clientes.some((c) => mesmoTelefone(c.telefone, telefone) && c.primeiraMensagemEm > 0);
+/**
+ * Para onde mandar: só o endereço de quem escreveu para este WhatsApp.
+ * Número que nunca escreveu não tem endereço, e o envio é recusado. Nunca
+ * monta o endereço a partir do telefone do cadastro.
+ */
+function jidDoTelefone(telefone) {
+  const fim = String(telefone ?? "").replace(/\D/g, "").slice(-8);
+  return fim.length === 8 ? (jidPorTelefone.get(fim) ?? null) : null;
 }
 
 async function montarConteudo(texto, midia) {
@@ -314,19 +344,21 @@ async function levarMensagensDaEquipe() {
     for (const m of conversa.mensagens) {
       if (m.origem !== "atendente" || m.envio !== "pendente" || enviando.has(m.id)) continue;
       enviando.add(m.id);
-      const jid = jidDoTelefone(conversa.telefone, conversa);
+      const jid = jidDoTelefone(conversa.telefone);
+      if (!jid) {
+        log("recusado: número que nunca escreveu", mascara(conversa.telefone));
+        void marcarEnvio(conversa.id, m.id, "falhou")
+          .catch(() => {})
+          .finally(() => enviando.delete(m.id));
+        continue;
+      }
       naFila(jid, async () => {
         try {
-          if (!jaEscreveu(lerLoja().dados, conversa.telefone)) {
-            log("recusado: número que nunca escreveu", mascara(conversa.telefone));
-            await marcarEnvio(conversa.id, m.id, "falhou");
-            return;
-          }
           const citada = m.citada ? conversa.mensagens.find((x) => x.id === m.citada.id) : null;
           const opcoes = citada?.wa
             ? {
                 quoted: {
-                  key: { remoteJid: citada.wa.jid || jid, id: citada.wa.id, fromMe: citada.wa.deMim },
+                  key: { remoteJid: jid, id: citada.wa.id, fromMe: Boolean(citada.wa.deMim) },
                   message: { conversation: citada.texto || descreverMidia(citada.midia) },
                 },
               }
@@ -360,15 +392,17 @@ async function levarEnvios() {
           e.id === envio.id ? { ...e, status, motivo, enviadoEm: status === "enviado" ? Date.now() : 0 } : e,
         ),
       }));
-    const jid = jidDoTelefone(envio.telefone, null);
+    const jid = jidDoTelefone(envio.telefone);
+    if (!jid) {
+      void marcar("recusado", "Esse número nunca escreveu para este WhatsApp. O teste só vai para quem já mandou mensagem.")
+        .catch(() => {})
+        .finally(() => enviando.delete(envio.id));
+      continue;
+    }
     naFila(jid, async () => {
       try {
         const cliente = lerLoja().dados.clientes.find((c) => mesmoTelefone(c.telefone, envio.telefone));
-        if (!cliente || cliente.primeiraMensagemEm <= 0) {
-          await marcar("recusado", "Esse número nunca escreveu para a loja. O teste só vai para quem já mandou mensagem.");
-          return;
-        }
-        const texto = envio.texto.replaceAll("{nome}", cliente.nome.split(" ")[0]);
+        const texto = envio.texto.replaceAll("{nome}", cliente?.nome.split(" ")[0] || "tudo bem");
         await sock.sendMessage(jid, await montarConteudo(texto, envio.midia));
         await marcar("enviado");
         log("teste de campanha enviado", mascara(envio.telefone));
@@ -428,6 +462,18 @@ async function conectar() {
 async function iniciar() {
   await iniciarBanco();
   log("BANCO CARREGADO");
+  // Primeira vez com a lista de contatos: aproveita quem o próprio bot já
+  // registrou como "escreveu" até aqui. Depois disso, só o WhatsApp alimenta.
+  if (contatosSemArquivo) {
+    for (const c of lerLoja().dados?.clientes ?? []) {
+      const digitos = String(c.telefone ?? "").replace(/\D/g, "");
+      if (c.primeiraMensagemEm > 0 && digitos.length >= 10) {
+        lembrarContato(digitos.slice(-8), `${digitos.length <= 11 ? `55${digitos}` : digitos}@s.whatsapp.net`);
+      }
+    }
+    contatosSemArquivo = false;
+    log("lista de contatos criada:", jidPorTelefone.size);
+  }
   ouvirMudancas(() => {
     void levarMensagensDaEquipe();
     void levarEnvios();

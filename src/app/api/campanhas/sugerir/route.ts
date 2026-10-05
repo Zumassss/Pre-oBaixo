@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import { dentroDoLimite, exigirSessao } from "@/lib/servidor/sessao";
 import { AGENT_MODEL } from "@/lib/agent-config";
 import { ehMedicamento, palavrasDeRemedio, remediosNoTexto, RODAPE_SAIR, semAcento } from "@/lib/campanhas";
 
@@ -80,6 +81,11 @@ const FERRAMENTA: Anthropic.Tool = {
  * versão que cite um remédio do catálogo.
  */
 export async function POST(request: Request) {
+  const sessao = await exigirSessao(request);
+  if (sessao instanceof NextResponse) return sessao;
+  if (!dentroDoLimite(`sugerir:${sessao.usuario}`, 40)) {
+    return NextResponse.json({ error: "Limite de uso de hoje atingido para este acesso. Amanhã libera de novo." }, { status: 429 });
+  }
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "A IA não está configurada neste servidor." }, { status: 503 });
 

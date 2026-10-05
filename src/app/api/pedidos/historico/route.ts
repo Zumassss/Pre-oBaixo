@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { exigirSessao } from "@/lib/servidor/sessao";
 import ExcelJS from "exceljs";
 import { STATUS_PEDIDO_LABEL, type Pedido, type StatusPedido } from "@/lib/db/types";
 import { cabecalhoDaAba, montarTabela, VERMELHO } from "@/lib/planilha";
@@ -31,6 +32,8 @@ function hora(em: number) {
  * do mês com a do ano.
  */
 export async function POST(request: Request) {
+  const sessao = await exigirSessao(request);
+  if (sessao instanceof NextResponse) return sessao;
   let corpo: Record<string, unknown>;
   try {
     corpo = (await request.json()) as Record<string, unknown>;

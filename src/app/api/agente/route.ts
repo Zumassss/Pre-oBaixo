@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dentroDoLimite, exigirSessao } from "@/lib/servidor/sessao";
 import { responder } from "@/lib/agente";
 import { montarTextoDoContexto, montarTextoOperacao } from "@/lib/agente-contexto";
 import { AGENT_PROMPT_EQUIPE } from "@/lib/agent-config";
@@ -56,6 +57,11 @@ function normalizar(body: unknown): Entrada[] | null {
 }
 
 export async function POST(request: Request) {
+  const sessao = await exigirSessao(request);
+  if (sessao instanceof NextResponse) return sessao;
+  if (!dentroDoLimite(`agente:${sessao.usuario}`, 200)) {
+    return NextResponse.json({ error: "Limite de uso de hoje atingido para este acesso. Amanhã libera de novo." }, { status: 429 });
+  }
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json(

@@ -39,8 +39,9 @@ O sistema atende uma **rede** de farmácias, com dois perfis de acesso.
 ## O banco na nuvem (Supabase)
 
 Projeto `ztfgcpcwmzqlhnpaefup` (sa-east-1). O modelo atual está em
-`supabase/migrations/20261005_registros.sql`; o de 2026-10-04
-(`dados_loja`, `rede`) continua no banco, sem uso, até ser revogado.
+`supabase/migrations/20261005_registros.sql` (mais os ajustes de
+`20261006_seguranca.sql`); o de 2026-10-04
+(`dados_loja`, `rede`) continua no banco sem uso, com as funções fechadas.
 
 - **Um registro por item, não um documento por loja.** Tabela `registros
   (loja_id, colecao, id, dados, versao, seq, momento, apagado)`. Cada
@@ -250,6 +251,32 @@ bot recalcula a taxa no servidor, nunca aceita a do modelo.
   massa bane o chip.
 - **Agendamento nunca no passado.** `SeletorDataHora` esconde dia e hora que
   já passaram e `agendamentoNoPassado` confere de novo ao salvar.
+
+## Segurança (revisão de 2026-10-06)
+
+- **Toda rota de `/api` que gasta dinheiro ou mexe com dado exige sessão.**
+  O navegador manda `x-sessao` (via `cabecalhoDaSessao()`); a rota chama
+  `exigirSessao()` de `lib/servidor/sessao.ts`, que pergunta ao banco
+  (`conferir_sessao`). Rota nova sem isso deixa a chave da Anthropic aberta
+  para a internet. A exceção é `/api/whatsapp`, que confere a assinatura da
+  Meta em vez de sessão.
+- **Quem o bot pode chamar é decidido pelo próprio bot**, pela lista
+  `bot/contatos.json` (fora do git), que só cresce com mensagem que chegou
+  de verdade pelo WhatsApp. Nunca monte endereço de envio a partir de
+  telefone do banco: o painel escreve no banco.
+- **`primeiraMensagemEm`, `ultimaMensagemEm` e o telefone de quem já
+  escreveu só o bot muda.** A função `gravar` reescreve esses campos com o
+  valor do banco (`_proteger_clientes`).
+- **Senha de acesso tem regra mínima** (8+ caracteres, letra e número, sem o
+  nome do acesso) e se troca em Configurações > Geral (`trocar_senha`, que
+  derruba as outras sessões). Entrar com senha fraca marca `senha_fraca` e
+  a tela mostra a faixa de aviso até trocar.
+- **Cabeçalhos de segurança em `next.config.ts`** (política de conteúdo,
+  sem iframe, nosniff). Serviço externo novo no navegador precisa entrar em
+  `connect-src`, senão o navegador bloqueia.
+- **A função `midia` só aceita os tipos da lista** e entrega com `nosniff`
+  e `sandbox`: arquivo nunca roda como página.
+- **Login responde igual** para usuário que não existe e senha errada.
 
 ## Regra de produto que não se negocia
 

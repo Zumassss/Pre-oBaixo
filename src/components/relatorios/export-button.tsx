@@ -5,6 +5,7 @@ import { Check, Download, Loader2 } from "lucide-react";
 import { useBanco } from "@/lib/db/use-db";
 import type { VisaoLoja } from "@/lib/db/types";
 import { cn } from "@/lib/utils";
+import { cabecalhoDaSessao } from "@/lib/db/local-db";
 
 /**
  * Baixa a planilha de uma loja.
@@ -39,7 +40,7 @@ export function ExportButton({
     try {
       const res = await fetch("/api/relatorios/exportar", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...cabecalhoDaSessao() },
         body: JSON.stringify(banco),
       });
       if (!res.ok) throw new Error("falha ao gerar");

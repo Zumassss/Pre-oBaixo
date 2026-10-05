@@ -8,6 +8,9 @@ import {
   AppStateProvider,
   useAppState,
 } from "@/components/providers/app-state";
+import Link from "next/link";
+import { ShieldAlert } from "lucide-react";
+import { useSessao } from "@/lib/db/use-db";
 import { cn } from "@/lib/utils";
 
 /**
@@ -44,6 +47,27 @@ function Backdrop() {
   );
 }
 
+/**
+ * Faixa enquanto a senha do acesso for fácil de adivinhar. O endereço do
+ * sistema é público: senha curta é a porta mais fácil para os dados dos
+ * clientes da farmácia.
+ */
+function AvisoSenha() {
+  const { usuario } = useSessao();
+  if (!usuario?.senhaFraca) return null;
+  return (
+    <div role="alert" className="mx-4 mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-caution/40 bg-caution/10 px-3.5 py-2.5 sm:mx-6">
+      <ShieldAlert className="h-4 w-4 shrink-0 text-caution" strokeWidth={2} />
+      <p className="min-w-0 flex-1 text-[12.5px] leading-snug text-fg">
+        A senha deste acesso é fácil de adivinhar. Troque antes de usar com cliente de verdade.
+      </p>
+      <Link href="/configuracoes?aba=geral#senha" className="btn-ghost !px-3 !py-1 !text-[12px]">
+        Trocar senha
+      </Link>
+    </div>
+  );
+}
+
 /** O conteúdo acompanha a largura da barra lateral. */
 function Conteudo({ children }: { children: React.ReactNode }) {
   const { barraRecolhida } = useAppState();
@@ -56,6 +80,7 @@ function Conteudo({ children }: { children: React.ReactNode }) {
       )}
     >
       <Topbar />
+      <AvisoSenha />
       <main className="px-4 pb-24 pt-5 sm:px-6 lg:pb-10">{children}</main>
     </div>
   );

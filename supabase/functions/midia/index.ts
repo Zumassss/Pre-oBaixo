@@ -89,6 +89,10 @@ Deno.serve(async (req) => {
     const extensao = TIPOS[tipo];
     if (!extensao) return json({ ok: false, erro: "Tipo de arquivo não aceito." }, 415);
 
+    // Recusa antes de ler: arquivo enorme não chega a ocupar a memória.
+    if (Number(req.headers.get("content-length") ?? 0) > LIMITE) {
+      return json({ ok: false, erro: "Arquivo maior que 16 MB." }, 413);
+    }
     const corpo = new Uint8Array(await req.arrayBuffer());
     if (corpo.byteLength === 0) return json({ ok: false, erro: "Arquivo vazio." }, 400);
     if (corpo.byteLength > LIMITE) {
@@ -98,7 +102,8 @@ Deno.serve(async (req) => {
     const mes = new Date().toISOString().slice(0, 7);
     const caminho = `${loja}/${mes}/${crypto.randomUUID()}${extensao}`;
     const { error } = await banco.storage.from(BALDE).upload(caminho, corpo, {
-      contentType: req.headers.get("content-type") ?? tipo,
+      // Só o tipo conferido na lista, nunca o cabeçalho cru de quem mandou.
+      contentType: tipo,
       upsert: false,
     });
     if (error) return json({ ok: false, erro: "Não foi possível guardar o arquivo." }, 500);
@@ -120,7 +125,11 @@ Deno.serve(async (req) => {
     return new Response(data, {
       headers: {
         ...CORS,
-        "Content-Type": data.type || "application/octet-stream",
+        "Content-Type": TIPOS[tipoBase(data.type)] ? tipoBase(data.type) : "application/octet-stream",
+        // Arquivo é arquivo: o navegador não adivinha tipo nem executa nada
+        // dele, mesmo que alguém tenha mandado algo disfarçado.
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'; sandbox",
         // O caminho nunca muda de conteúdo: a tela pode guardar à vontade,
         // mas só no navegador de quem tem acesso.
         "Cache-Control": "private, max-age=86400, immutable",

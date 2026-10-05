@@ -23,6 +23,7 @@ import { buscarNoServidor } from "@/lib/db/local-db";
 import { type Pedido, STATUS_PEDIDO_LABEL, type StatusPedido } from "@/lib/db/types";
 import { useBanco } from "@/lib/db/use-db";
 import { cn, formatBRLCents } from "@/lib/utils";
+import { cabecalhoDaSessao } from "@/lib/db/local-db";
 
 type Visao = "lista" | "dia" | "mes";
 type Ordem = "recentes" | "antigos" | "maior" | "menor" | "cliente";
@@ -247,7 +248,7 @@ export default function HistoricoPedidosPage() {
     try {
       const res = await fetch("/api/pedidos/historico", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...cabecalhoDaSessao() },
         body: JSON.stringify({ loja: banco.loja.nome, filtros: descricaoFiltros(), pedidos: filtrados }),
       });
       if (!res.ok) throw new Error();

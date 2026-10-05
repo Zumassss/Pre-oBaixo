@@ -50,6 +50,7 @@ import {
 } from "@/lib/campanhas";
 import { enviarArquivo, useMidiaUrl } from "@/lib/midia";
 import { cn, formatBRLCents } from "@/lib/utils";
+import { cabecalhoDaSessao } from "@/lib/db/local-db";
 
 type Rascunho = {
   nome: string;
@@ -229,7 +230,7 @@ export function EditorCampanha({
       const loja = banco.loja;
       const resposta = await fetch("/api/campanhas/sugerir", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...cabecalhoDaSessao() },
         body: JSON.stringify({
           contexto: ideia,
           tom,

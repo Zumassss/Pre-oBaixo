@@ -20,6 +20,7 @@ import { PageHeader, Panel, PanelHeader } from "@/components/ui/panel";
 import { Reveal } from "@/components/ui/reveal";
 import { AreaProtegida } from "@/components/configuracoes/area-protegida";
 import { Interruptor } from "@/components/configuracoes/controles";
+import { TrocarSenha } from "@/components/configuracoes/trocar-senha";
 import { apagarDadosDaLoja, useBanco } from "@/lib/db/use-db";
 import { carregarExemplos } from "@/lib/db/exemplos";
 import { definirSom, somLigado, testarSom } from "@/lib/sons";
@@ -95,6 +96,7 @@ function Geral() {
 
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <TrocarSenha />
       <Panel>
         <PanelHeader eyebrow="Aparência" title="Tema da interface" />
         <div className="px-5 pb-5">

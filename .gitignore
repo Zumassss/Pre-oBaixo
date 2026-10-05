@@ -48,3 +48,4 @@ next-env.d.ts
 /bot/*.log
 /bot/qr.png
 /bot/estado-*.json
+/bot/contatos.json

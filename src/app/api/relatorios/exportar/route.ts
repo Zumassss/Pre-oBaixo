@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { exigirSessao } from "@/lib/servidor/sessao";
 import ExcelJS from "exceljs";
 import { cabecalhoDaAba, montarTabela, VERMELHO } from "@/lib/planilha";
 import { STATUS_PEDIDO_LABEL, type VisaoLoja } from "@/lib/db/types";
@@ -16,6 +17,8 @@ function data(em: number) {
  * quer na planilha; o servidor só formata.
  */
 export async function POST(request: Request) {
+  const sessao = await exigirSessao(request);
+  if (sessao instanceof NextResponse) return sessao;
   let banco: VisaoLoja;
   try {
     banco = (await request.json()) as VisaoLoja;

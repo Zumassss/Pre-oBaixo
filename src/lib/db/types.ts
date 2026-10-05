@@ -31,6 +31,8 @@ export type Usuario = {
    */
   /** Preenchido só quando o papel é `loja`. */
   lojaId?: string;
+  /** O servidor achou a senha fácil de adivinhar na última entrada. */
+  senhaFraca?: boolean;
 };
 
 export type Sessao = {

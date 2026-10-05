@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { extrairContexto, extrairResumoOperacao } from "@/lib/agente-contexto";
 import { useBanco } from "@/lib/db/use-db";
+import { cabecalhoDaSessao } from "@/lib/db/local-db";
 
 export type ChatMessage = {
   id: string;
@@ -46,7 +47,7 @@ export function useAgentChat(modo: "equipe" | "cliente" = "equipe") {
       try {
         const res = await fetch("/api/agente", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...cabecalhoDaSessao() },
           body: JSON.stringify({
             messages: historico
               .slice(-CONTEXTO_MAXIMO)

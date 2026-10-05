@@ -132,6 +132,11 @@ export function tokenAtual() {
 }
 
 /** Como está a ligação com o servidor, para o indicador do topo. */
+/** Cabeçalho que as rotas de /api exigem para saber quem está chamando. */
+export function cabecalhoDaSessao(): Record<string, string> {
+  return token ? { "x-sessao": token } : {};
+}
+
 export function estadoConexao() {
   return { logado: Boolean(token), ultimoContato, falhaDeGravacao };
 }
@@ -366,6 +371,25 @@ export async function trocarPin(lojaId: string, novo: string) {
     p_loja: lojaId,
     p_novo: novo,
   });
+}
+
+/**
+ * Troca a senha de quem está logado. O servidor pede a atual, aplica a regra
+ * mínima e derruba as outras sessões desse acesso.
+ */
+export async function trocarSenha(atual: string, nova: string): Promise<{ ok: boolean; erro?: string }> {
+  if (!token) return { ok: false, erro: "Sessão encerrada. Entre de novo." };
+  const r = await rpc<{ ok: boolean; erro?: string }>("trocar_senha", {
+    p_token: token,
+    p_atual: atual,
+    p_nova: nova,
+  }).catch(() => ({ ok: false, erro: "Sem conexão com o servidor." }));
+  if (r.ok && usuario) {
+    usuario = { ...usuario, senhaFraca: false };
+    recompor();
+  }
+  if (!r.ok && r.erro === "sessao") return { ok: false, erro: "Sessão encerrada. Entre de novo." };
+  return r;
 }
 
 /* ------------------------------------------------------------------
