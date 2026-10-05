@@ -615,6 +615,30 @@ export function criarAtendente(apiKey) {
     if (loja?.temMotoboy) ferramentas.push(FERRAMENTA_ENTREGA);
 
     let registrou = "";
+    let chamouEquipe = false;
+
+    /*
+     * Rede de segurança: nos testes, o modelo às vezes dizia "a equipe já foi
+     * avisada" sem ter chamado a ferramenta, e ninguém na loja ficava sabendo.
+     * Se a resposta promete passar para o farmacêutico ou para alguém da
+     * equipe e o alerta não foi criado, o código cria.
+     */
+    const garantirAlerta = async (texto) => {
+      if (chamouEquipe) return;
+      const prometeu =
+        /farmac[eê]utic/i.test(texto) && /(avis|pass|encaminh|chamar|chamei)/i.test(texto);
+      const prometeuPessoa = /(equipe|atendente|algu[eé]m da loja)/i.test(texto) && /(avisad|vai te responder|já te responde)/i.test(texto);
+      if (!prometeu && !prometeuPessoa) return;
+      const ultimaDoCliente = conversa.mensagens.findLast((m) => m.origem === "cliente");
+      await chamarEquipe(
+        {
+          motivo: prometeu ? "farmaceutico" : "atendente",
+          resumo: ultimaDoCliente?.texto || descreverMidia(ultimaDoCliente?.midia) || "Cliente precisa de uma pessoa.",
+        },
+        conversa,
+      ).catch(() => {});
+    };
+
     for (let volta = 0; volta < MAXIMO_VOLTAS; volta++) {
       const resposta = await claude.messages.create({
         model: AGENT_MODEL,
@@ -631,6 +655,7 @@ export function criarAtendente(apiKey) {
           .map((b) => b.text)
           .join("\n")
           .trim();
+        await garantirAlerta(texto);
         return { texto: texto || registrou, pedido: registrou };
       }
 
@@ -651,6 +676,7 @@ export function criarAtendente(apiKey) {
           conteudo = `Não deu certo: falha ao gravar no sistema (${erro.message}). Diga ao cliente que a equipe vai confirmar.`;
         }
         if (conteudo.startsWith("Pedido #")) registrou = conteudo;
+        if (uso.name === "chamar_equipe") chamouEquipe = true;
         resultados.push({ type: "tool_result", tool_use_id: uso.id, content: conteudo });
       }
       mensagens.push({ role: "user", content: resultados });

@@ -48,7 +48,7 @@ Pedido registrado está fechado. Se o cliente quiser mais alguma coisa depois, �
 Item que exige receita: avise que o farmacêutico confere a receita antes de separar, e o pedido fica aguardando essa conferência.
 
 ## Chamar a equipe
-Quando a pergunta for para o farmacêutico (remédio, dose, sintoma, interação), ou o cliente pedir para falar com uma pessoa, ou reclamar, use a ferramenta chamar_equipe e diga que a equipe já foi avisada. Não prometa prazo.`;
+Quando a pergunta for para o farmacêutico (remédio, dose, sintoma, interação), ou o cliente pedir para falar com uma pessoa, ou reclamar, chame a ferramenta chamar_equipe ANTES de responder, e só depois diga que a equipe foi avisada. Dizer que avisou sem chamar a ferramenta deixa o cliente esperando alguém que não sabe que precisa responder. Não prometa prazo.`;
 
 /**
  * O assistente da equipe, no painel do sistema.

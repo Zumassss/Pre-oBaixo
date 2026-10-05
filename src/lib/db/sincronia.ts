@@ -151,7 +151,12 @@ export class Replica {
   /** Mensagem do último erro de gravação que não foi de rede nem de sessão. */
   ultimoErro = "";
 
-  constructor(private io: IO) {}
+  // Sem "private io" no construtor: o Node roda este arquivo só removendo
+  // os tipos, e essa forma curta do TypeScript não é só tipo.
+  private io: IO;
+  constructor(io: IO) {
+    this.io = io;
+  }
 
   /** Esquece tudo (saída do sistema). */
   limpar() {
