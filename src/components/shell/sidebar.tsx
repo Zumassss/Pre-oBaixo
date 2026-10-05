@@ -117,7 +117,7 @@ export function Sidebar() {
             {!barraRecolhida && <p className="eyebrow px-3 pb-2">{group.label}</p>}
             <ul className="space-y-0.5">
               {group.items.map((item) => {
-                const active = pathname === item.href;
+                const active = pathname === item.href || (item.href !== "/" && pathname.startsWith(`${item.href}/`));
                 const Icon = item.icon;
                 return (
                   <li key={item.href}>
@@ -340,7 +340,7 @@ export function MobileNav() {
     <nav className="glass fixed inset-x-0 bottom-0 z-40 border-x-0 border-b-0 lg:hidden">
       <ul className="flex items-stretch justify-around px-2 py-1.5">
         {items.map((item) => {
-          const active = pathname === item.href;
+          const active = pathname === item.href || (item.href !== "/" && pathname.startsWith(`${item.href}/`));
           const Icon = item.icon;
           return (
             <li key={item.href} className="flex-1">

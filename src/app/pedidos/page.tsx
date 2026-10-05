@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import {
   ArrowRight,
   Bike,
   ClipboardList,
+  History,
   MapPin,
   MessageCircle,
   Plus,
@@ -117,10 +119,16 @@ export default function PedidosPage() {
         title="Pedidos"
         description="O que os clientes pediram e em que pé está cada um."
         action={
-          <button onClick={() => setNovo(true)} className="btn-primary">
-            <Plus className="h-4 w-4" strokeWidth={2.4} />
-            Novo pedido
-          </button>
+          <div className="flex items-center gap-2">
+            <Link href="/pedidos/historico" className="btn-ghost">
+              <History className="h-4 w-4" />
+              Histórico
+            </Link>
+            <button onClick={() => setNovo(true)} className="btn-primary">
+              <Plus className="h-4 w-4" strokeWidth={2.4} />
+              Novo pedido
+            </button>
+          </div>
         }
       />
 

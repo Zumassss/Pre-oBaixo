@@ -125,6 +125,7 @@ export const pageMeta: Record<string, { title: string; parent: string }> = {
   "/ajuda": { title: "Como usar", parent: "Sistema" },
   "/conversas": { title: "Conversas", parent: "Operação" },
   "/pedidos": { title: "Pedidos", parent: "Operação" },
+  "/pedidos/historico": { title: "Histórico de pedidos", parent: "Pedidos" },
   "/campanhas": { title: "Campanhas", parent: "Operação" },
   "/clientes": { title: "Clientes", parent: "Cadastros" },
   "/catalogo": { title: "Catálogo", parent: "Cadastros" },
