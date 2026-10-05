@@ -57,7 +57,7 @@ function calcularAvisos(
       icon: MessageSquareWarning,
       titulo: "WhatsApp desconectado",
       detalhe: "O bot não dá sinal há alguns minutos. Sem ele, nenhuma conversa chega ao sistema.",
-      href: "/configuracoes",
+      href: "/agente",
       tom: "alerta",
     });
   }
