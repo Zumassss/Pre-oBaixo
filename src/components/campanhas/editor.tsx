@@ -418,7 +418,7 @@ export function EditorCampanha({
                   />
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {IDEIAS.map((i) => (
-                      <button key={i} type="button" onClick={() => setIdeia(i)} className="chip transition-colors hover:border-brand-500/40 hover:text-fg">
+                      <button key={i} type="button" onClick={() => setIdeia(i)} className="chip !h-auto max-w-full whitespace-normal py-1 text-left transition-colors hover:border-brand-500/40 hover:text-fg">
                         {i}
                       </button>
                     ))}

@@ -365,9 +365,8 @@ export function MobileNav() {
 /** Marca compacta usada na barra superior em telas estreitas. */
 export function BrandCompact() {
   return (
-    <div className="flex items-center gap-2 text-brand-500 lg:hidden">
-      <LogoMark className="h-6" />
-      <LogoFull className="w-[104px]" />
+    <div className="flex items-center text-brand-500 lg:hidden">
+      <LogoFull className="w-[118px]" />
     </div>
   );
 }
