@@ -33,8 +33,8 @@ export function SetupChecklist() {
       id: "whatsapp",
       titulo: "Conectar o WhatsApp",
       detalhe: "É por onde as conversas chegam",
-      pronto: banco.whatsappConectado,
-      href: "/configuracoes",
+      pronto: banco.whatsapp.vistoEm > 0,
+      href: "/agente",
     },
   ];
 

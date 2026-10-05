@@ -1,11 +1,21 @@
 "use client";
 
-import { Activity, ShieldCheck, Sparkles, TriangleAlert } from "lucide-react";
+import {
+  Activity,
+  Bot,
+  MessageCircle,
+  PauseCircle,
+  PlayCircle,
+  ShieldCheck,
+  Sparkles,
+  TriangleAlert,
+} from "lucide-react";
+import { AgentConsole } from "@/components/dashboard/agent-console";
 import Link from "next/link";
 import { PageHeader, Panel, PanelHeader } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Reveal } from "@/components/ui/reveal";
-import { useBanco } from "@/lib/db/use-db";
+import { definirAgenteLigado, useBanco, useSessao, useWhatsappNoAr } from "@/lib/db/use-db";
 import { cn } from "@/lib/utils";
 
 /** Regras que o agente cumpre. Estão no código, não são configuráveis por acidente. */
@@ -51,8 +61,19 @@ function horario(em: number) {
   });
 }
 
+function ha(em: number) {
+  if (!em) return "nunca";
+  const minutos = Math.round((Date.now() - em) / 60000);
+  if (minutos < 1) return "agora há pouco";
+  if (minutos < 60) return `há ${minutos} min`;
+  return horario(em);
+}
+
 export default function AgentePage() {
   const { banco, carregado } = useBanco();
+  const { usuario } = useSessao();
+  const noAr = useWhatsappNoAr(banco.whatsapp);
+  const ligado = banco.agenteLigado.ativo;
 
   const fontes = [
     {
@@ -77,6 +98,18 @@ export default function AgentePage() {
       href: "/catalogo",
     },
     {
+      id: "ajustes",
+      nome: "Horários, entrega e perguntas frequentes",
+      itens: banco.agente.perguntas.length,
+      pronto: Boolean(
+        banco.agente.nomeAtendente || banco.agente.perguntas.length || banco.agente.observacoes,
+      ),
+      detalhe: banco.agente.perguntas.length
+        ? `${banco.agente.perguntas.length} perguntas frequentes cadastradas`
+        : "Ensine o agente na área protegida das Configurações",
+      href: "/configuracoes?aba=loja",
+    },
+    {
       id: "clientes",
       nome: "Base de clientes",
       itens: banco.clientes.length,
@@ -99,6 +132,67 @@ export default function AgentePage() {
       />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        {/* Controle: o WhatsApp e o agente são coisas separadas. O WhatsApp
+            continua chegando no painel mesmo com o agente desligado. */}
+        <Panel className="xl:col-span-6">
+          <div className="flex items-center gap-4 p-5">
+            <span
+              className={cn(
+                "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ring-1 ring-inset",
+                noAr ? "bg-positive/12 text-positive ring-positive/30" : "bg-caution/12 text-caution ring-caution/30",
+              )}
+            >
+              <MessageCircle className="h-5 w-5" strokeWidth={2} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="eyebrow">WhatsApp</p>
+              <p className="mt-0.5 text-[15px] font-semibold text-fg">
+                {carregado ? (noAr ? "Conectado" : "Desconectado") : "..."}
+              </p>
+              <p className="mt-0.5 text-[12px] text-fg-faint">
+                {banco.whatsapp.vistoEm
+                  ? `Último sinal do bot ${ha(banco.whatsapp.vistoEm)}${banco.whatsapp.numero ? ` · número ${banco.whatsapp.numero}` : ""}`
+                  : "O bot ainda não se conectou a esta loja"}
+              </p>
+            </div>
+          </div>
+        </Panel>
+
+        <Panel className="xl:col-span-6">
+          <div className="flex flex-wrap items-center gap-4 p-5">
+            <span
+              className={cn(
+                "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ring-1 ring-inset",
+                ligado ? "bg-brand-500/12 text-brand-400 ring-brand-500/30" : "bg-nivel-3 text-fg-ghost ring-anel",
+              )}
+            >
+              <Bot className="h-5 w-5" strokeWidth={2} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="eyebrow">Respostas automáticas</p>
+              <p className="mt-0.5 text-[15px] font-semibold text-fg">
+                {ligado ? "Agente respondendo" : "Agente desligado"}
+              </p>
+              <p className="mt-0.5 text-[12px] text-fg-faint">
+                {ligado
+                  ? "Responde sozinho quando ninguém da loja assumiu a conversa."
+                  : `Desligado por ${banco.agenteLigado.alteradoPor || "alguém da loja"} ${ha(banco.agenteLigado.em)}. As mensagens chegam em Conversas para a equipe responder.`}
+              </p>
+            </div>
+            <button
+              onClick={() => definirAgenteLigado(!ligado, usuario?.nome ?? "")}
+              className={ligado ? "btn-ghost" : "btn-primary"}
+            >
+              {ligado ? (
+                <PauseCircle className="h-4 w-4" strokeWidth={2} />
+              ) : (
+                <PlayCircle className="h-4 w-4" strokeWidth={2} />
+              )}
+              {ligado ? "Desligar agente" : "Ligar agente"}
+            </button>
+          </div>
+        </Panel>
+
         <Panel className="xl:col-span-7">
           <PanelHeader
             eyebrow="Conhecimento"
@@ -195,10 +289,12 @@ export default function AgentePage() {
           </Panel>
         )}
 
-        <Panel className="xl:col-span-12">
+        <AgentConsole modo="cliente" className="h-[480px] xl:col-span-7" />
+
+        <Panel className="flex flex-col xl:col-span-5 xl:h-[480px]">
           <PanelHeader
             eyebrow="Auditoria"
-            title="Registro de conversas com o agente"
+            title="Atividade no WhatsApp"
             action={
               banco.eventos.length > 0 ? (
                 <span className="chip">{banco.eventos.length}</span>
@@ -209,15 +305,10 @@ export default function AgentePage() {
             <EmptyState
               icon={Sparkles}
               title="Nenhuma interação registrada"
-              description="Converse com o agente no painel para ver o registro aqui. Tudo que aparece nesta lista aconteceu de verdade."
-              action={
-                <Link href="/" className="btn-primary">
-                  Ir para o painel
-                </Link>
-              }
+              description="Cada mensagem do WhatsApp e cada resposta do agente aparecem aqui. Tudo nesta lista aconteceu de verdade."
             />
           ) : (
-            <ul data-lenis-prevent className="max-h-[380px] overflow-y-auto px-2 pb-2">
+            <ul data-lenis-prevent className="max-h-[380px] min-h-0 flex-1 overflow-y-auto px-2 pb-2 xl:max-h-none">
               {banco.eventos.map((evento) => (
                 <Reveal
                   as="li"

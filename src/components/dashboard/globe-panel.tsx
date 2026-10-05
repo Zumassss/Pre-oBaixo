@@ -6,7 +6,7 @@ import { PlugZap } from "lucide-react";
 import { GlobeMount } from "@/components/globe/globe-mount";
 import { useTema } from "@/components/providers/tema";
 import type { PontoOperacao } from "@/components/globe/operations-globe";
-import { useBanco } from "@/lib/db/use-db";
+import { useBanco, useWhatsappNoAr } from "@/lib/db/use-db";
 import { cn, formatNumber } from "@/lib/utils";
 
 /**
@@ -34,7 +34,7 @@ export function GlobePanel({ className }: { className?: string }) {
     [abertas],
   );
 
-  const conectado = banco.whatsappConectado;
+  const conectado = useWhatsappNoAr(banco.whatsapp);
 
   return (
     <div className={cn("panel relative overflow-hidden", className)}>
@@ -69,7 +69,9 @@ export function GlobePanel({ className }: { className?: string }) {
           <p className="mt-1 text-[12.5px] text-fg-muted">
             {conectado
               ? `${abertas.length} ${abertas.length === 1 ? "conversa em andamento" : "conversas em andamento"}`
-              : "WhatsApp ainda não conectado"}
+              : banco.whatsapp.vistoEm
+                ? "WhatsApp desconectado: o bot parou de dar sinal"
+                : "WhatsApp ainda não conectado"}
           </p>
         </div>
 
@@ -97,12 +99,12 @@ export function GlobePanel({ className }: { className?: string }) {
       {!conectado && (
         <div className="absolute inset-x-0 bottom-0 flex justify-center p-5">
           <Link
-            href="/configuracoes"
+            href="/agente"
             className="glass flex items-center gap-2.5 rounded-full px-4 py-2.5 transition-colors hover:border-brand-500/40"
           >
             <PlugZap className="h-4 w-4 shrink-0 text-brand-400" strokeWidth={2} />
             <span className="text-[12.5px] text-fg-muted">
-              Conectar o WhatsApp para receber conversas
+              Ver o estado do WhatsApp
             </span>
           </Link>
         </div>

@@ -52,6 +52,8 @@ let fila: Promise<unknown> = Promise.resolve();
 let consulta: ReturnType<typeof setInterval> | null = null;
 let consultando = false;
 let falhaDeGravacao = false;
+/** Última vez que o servidor respondeu. É o que o "Ao vivo" do topo mostra. */
+let ultimoContato = 0;
 
 function ehServidor() {
   return typeof window === "undefined";
@@ -129,6 +131,11 @@ export function tokenAtual() {
   return token;
 }
 
+/** Como está a ligação com o servidor, para o indicador do topo. */
+export function estadoConexao() {
+  return { logado: Boolean(token), ultimoContato, falhaDeGravacao };
+}
+
 export function inscrever(ouvinte: Ouvinte) {
   ouvintes.add(ouvinte);
   return () => {
@@ -140,13 +147,24 @@ export function inscrever(ouvinte: Ouvinte) {
    Avisos para a tela (gravação recusada, sem conexão)
    ------------------------------------------------------------------ */
 
-export type Aviso = { id: number; tipo: "erro" | "info"; texto: string };
+export type Aviso = {
+  id: number;
+  tipo: "erro" | "info" | "alerta" | "pedido" | "mensagem";
+  texto: string;
+  detalhe?: string;
+  /** Para onde o aviso leva quando clicado. */
+  href?: string;
+};
 type OuvinteAviso = (aviso: Aviso) => void;
 const ouvintesAviso = new Set<OuvinteAviso>();
 let proximoAviso = 1;
 
-export function avisar(tipo: Aviso["tipo"], texto: string) {
-  const aviso = { id: proximoAviso++, tipo, texto };
+export function avisar(
+  tipo: Aviso["tipo"],
+  texto: string,
+  extras: { detalhe?: string; href?: string } = {},
+) {
+  const aviso: Aviso = { id: proximoAviso++, tipo, texto, ...extras };
   ouvintesAviso.forEach((o) => o(aviso));
 }
 
@@ -178,6 +196,7 @@ async function carregarTudo(): Promise<"ok" | "sessao" | "rede"> {
 
   usuario = r.usuario ?? null;
   ajustesAte = r.ajustesAte ?? 0;
+  ultimoContato = Date.now();
   replica.limpar();
   replica.aplicar(r.registros ?? []);
   replica.cursor = r.seq ?? 0;
@@ -207,6 +226,7 @@ async function verificarMudancas() {
   consultando = true;
   try {
     const { resultado, mudou } = await replica.puxar();
+    if (resultado === "ok") ultimoContato = Date.now();
     if (resultado === "sessao") encerrarLocalmente();
     else if (mudou) {
       ajustarSessao();

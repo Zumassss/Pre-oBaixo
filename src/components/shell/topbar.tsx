@@ -3,10 +3,9 @@
 import { usePathname } from "next/navigation";
 import { ChevronRight, Moon, Search, Sun, X } from "lucide-react";
 import { pageMeta } from "@/config/nav";
-import { useClock } from "@/hooks/use-clock";
-import { formatClock } from "@/lib/utils";
 import { BrandCompact } from "@/components/shell/sidebar";
 import { NotificationBell } from "@/components/shell/notifications";
+import { AoVivo, BotaoSom } from "@/components/shell/vigia";
 import { useTema } from "@/components/providers/tema";
 import { Dropdown } from "@/components/ui/dropdown";
 import {
@@ -57,7 +56,6 @@ function Breadcrumb({ parent, title }: { parent: string; title: string }) {
 export function Topbar() {
   const pathname = usePathname();
   const meta = pageMeta[pathname] ?? { title: "Painel", parent: "Operação" };
-  const now = useClock();
   const { periodo, setPeriodo, busca, setBusca } = useAppState();
 
   const periodos = (Object.keys(periodoLabel) as Periodo[]).map((p) => ({
@@ -109,14 +107,11 @@ export function Topbar() {
 
           <BotaoTema />
 
+          <BotaoSom />
+
           <NotificationBell />
 
-          <div className="hidden items-center gap-2 rounded-full border border-hairline bg-nivel-2 px-3 py-2 sm:flex">
-            <span className="h-1.5 w-1.5 animate-blink rounded-full bg-positive" />
-            <span className="tnum font-mono text-[12px] text-fg-muted">
-              {now ? formatClock(now) : "--:--:--"}
-            </span>
-          </div>
+          <AoVivo />
         </div>
       </div>
     </header>

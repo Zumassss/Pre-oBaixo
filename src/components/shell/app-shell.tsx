@@ -3,6 +3,7 @@
 import { MobileNav, Sidebar } from "@/components/shell/sidebar";
 import { Topbar } from "@/components/shell/topbar";
 import { SmoothScroll } from "@/components/shell/smooth-scroll";
+import { Avisos, Vigia } from "@/components/shell/vigia";
 import {
   AppStateProvider,
   useAppState,
@@ -68,6 +69,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Sidebar />
       <Conteudo>{children}</Conteudo>
       <MobileNav />
+      <Vigia />
+      <Avisos />
     </AppStateProvider>
   );
 }

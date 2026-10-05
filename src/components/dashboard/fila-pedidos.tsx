@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import {
   ArrowUpRight,
   Bike,
@@ -19,10 +20,24 @@ import { cn, formatBRLCents } from "@/lib/utils";
  * Fila de pedidos no painel.
  *
  * É a lista que a pessoa do balcão olha durante o expediente: quem pediu, o
- * que falta fazer e quanto ainda não entrou. O detalhe e as ações ficam na
- * tela de Pedidos; aqui é só o retrato de agora.
+ * que falta fazer e quanto ainda não entrou. Fica ao lado da operação ao
+ * vivo, na altura da tela, para quem deixa o sistema aberto saber se chegou
+ * pedido sem rolar a página. O detalhe e as ações ficam na tela de Pedidos.
  */
-export function FilaPedidos({ banco }: { banco: VisaoLoja }) {
+const NOVO_MS = 10 * 60 * 1000;
+
+export function FilaPedidos({ banco, className }: { banco: VisaoLoja; className?: string }) {
+  const [agora, setAgora] = useState(0);
+  useEffect(() => {
+    const tick = () => setAgora(Date.now());
+    const primeira = setTimeout(tick, 0);
+    const id = setInterval(tick, 30000);
+    return () => {
+      clearTimeout(primeira);
+      clearInterval(id);
+    };
+  }, []);
+
   const abertos = banco.pedidos.filter(pedidoEmAberto);
   const aReceber = abertos
     .filter((p) => !p.pago)
@@ -32,9 +47,9 @@ export function FilaPedidos({ banco }: { banco: VisaoLoja }) {
   ).length;
 
   return (
-    <Panel>
+    <Panel className={cn("flex flex-col overflow-hidden", className)}>
       <PanelHeader
-        eyebrow="Operação"
+        eyebrow="Ao vivo"
         title="Pedidos em andamento"
         live={abertos.length > 0}
         action={
@@ -78,13 +93,18 @@ export function FilaPedidos({ banco }: { banco: VisaoLoja }) {
 
           <ul
             data-lenis-prevent
-            className="max-h-[300px] space-y-1 overflow-y-auto px-2 pb-3"
+            className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 pb-3"
           >
-            {abertos.map((pedido) => (
+            {abertos.map((pedido) => {
+              const novo = agora > 0 && agora - pedido.criadoEm < NOVO_MS;
+              return (
               <Reveal
                 as="li"
                 key={pedido.id}
-                className="flex items-center gap-3 rounded-xl px-3 py-2.5"
+                className={cn(
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5",
+                  novo && "bg-positive/[0.07] ring-1 ring-inset ring-positive/25",
+                )}
               >
                 <div
                   className={cn(
@@ -110,6 +130,11 @@ export function FilaPedidos({ banco }: { banco: VisaoLoja }) {
                     <span className="tnum font-mono text-[11px] text-fg-ghost">
                       #{pedido.numero}
                     </span>
+                    {novo && (
+                      <span className="rounded-full bg-positive/15 px-1.5 py-px text-[9.5px] font-semibold uppercase tracking-wider text-positive">
+                        novo
+                      </span>
+                    )}
                     <p className="truncate text-[12.5px] font-medium text-fg">
                       {pedido.cliente}
                     </p>
@@ -146,7 +171,8 @@ export function FilaPedidos({ banco }: { banco: VisaoLoja }) {
                   />
                 </div>
               </Reveal>
-            ))}
+              );
+            })}
           </ul>
         </>
       )}

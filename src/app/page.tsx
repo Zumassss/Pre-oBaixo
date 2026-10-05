@@ -83,17 +83,16 @@ export default function Painel() {
 
       <SetupChecklist />
 
-      {/* Operação e agente */}
+      {/* Operação ao vivo e pedidos lado a lado: quem deixa o sistema aberto
+          vê se chegou pedido sem precisar rolar nem trocar de tela. */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
         <GlobePanel className="h-[420px] sm:h-[500px] xl:col-span-8 xl:h-[540px]" />
-        <AgentConsole className="h-[460px] xl:col-span-4 xl:h-[540px]" />
+        <FilaPedidos banco={banco} className="max-h-[540px] xl:col-span-4 xl:h-[540px]" />
       </div>
 
-      {/* Pedidos e histórico */}
+      {/* Assistente da equipe e atividade do agente */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-        <div className="xl:col-span-7">
-          <FilaPedidos banco={banco} />
-        </div>
+        <AgentConsole className="h-[460px] xl:col-span-7" />
         <div className="xl:col-span-5">
           <HistoricoAgente eventos={eventos} />
         </div>

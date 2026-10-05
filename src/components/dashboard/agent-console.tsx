@@ -3,49 +3,53 @@
 import { useEffect, useRef, useState } from "react";
 import { Eraser, SendHorizonal, Sparkles } from "lucide-react";
 import { useAgentChat } from "@/hooks/use-agent-chat";
-import { registrarEvento } from "@/lib/db/use-db";
 import { cn } from "@/lib/utils";
 
-const SUGESTOES = [
-  "Como você atende um cliente?",
-  "O que você não pode responder?",
-  "Como funciona a transferência?",
-];
+const TEXTOS = {
+  equipe: {
+    titulo: "Assistente da loja",
+    subtitulo: "Pergunte sobre conversas, pedidos e estoque",
+    explicacao:
+      "Ele lê os números de agora: conversas do WhatsApp, pedidos, estoque e vendas. Também explica como usar o sistema.",
+    sugestoes: [
+      "Quantas conversas tivemos hoje?",
+      "Quais pedidos estão em aberto?",
+      "O que está com estoque baixo?",
+      "Quanto vendemos nos últimos 7 dias?",
+    ],
+  },
+  cliente: {
+    titulo: "Testar o atendente",
+    subtitulo: "Fale como se fosse um cliente no WhatsApp",
+    explicacao:
+      "É o mesmo agente do WhatsApp, com o catálogo e os ajustes da loja. Aqui ele não cria pedido nem avisa a equipe.",
+    sugestoes: ["Tem loratadíssima?", "Vocês entregam na Praia da Costa?", "Que horas vocês fecham hoje?"],
+  },
+};
 
 /**
- * Conversa com o agente.
+ * O assistente da equipe.
  *
- * Esta é a única parte do sistema que já fala com um modelo de verdade. Cada
- * troca fica registrada no histórico da loja, então o que aparece no painel
- * de atividade aconteceu mesmo.
+ * Responde quem trabalha na loja sobre a operação (conversas, pedidos,
+ * estoque, vendas) com um resumo que o próprio sistema calcula na hora, e
+ * explica como usar as telas. Não é o atendente de clientes: as perguntas
+ * daqui não entram na atividade do agente, que é só do WhatsApp.
  */
-export function AgentConsole({ className }: { className?: string }) {
-  const { messages, loading, ask, clear } = useAgentChat();
+export function AgentConsole({
+  className,
+  modo = "equipe",
+}: {
+  className?: string;
+  modo?: "equipe" | "cliente";
+}) {
+  const textos = TEXTOS[modo];
+  const { messages, loading, ask, clear } = useAgentChat(modo);
   const [draft, setDraft] = useState("");
   const fim = useRef<HTMLDivElement>(null);
-  const jaRegistradas = useRef(new Set<string>());
 
   useEffect(() => {
     fim.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, loading]);
-
-  // Registra no histórico da loja o que realmente foi trocado.
-  useEffect(() => {
-    for (const m of messages) {
-      if (jaRegistradas.current.has(m.id)) continue;
-      jaRegistradas.current.add(m.id);
-      registrarEvento({
-        tipo: m.role === "user" ? "pergunta" : m.error ? "erro" : "resposta",
-        titulo:
-          m.role === "user"
-            ? "Pergunta ao agente"
-            : m.error
-              ? "Falha na resposta do agente"
-              : "Resposta do agente",
-        detalhe: m.content.slice(0, 160),
-      });
-    }
-  }, [messages]);
 
   function enviar(texto: string) {
     if (!texto.trim() || loading) return;
@@ -60,8 +64,8 @@ export function AgentConsole({ className }: { className?: string }) {
           <Sparkles className="h-3.5 w-3.5 text-brand-400" strokeWidth={2} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-semibold text-fg">Agente</p>
-          <p className="text-[11px] text-fg-faint">Teste o atendimento aqui</p>
+          <p className="text-[13px] font-semibold text-fg">{textos.titulo}</p>
+          <p className="text-[11px] text-fg-faint">{textos.subtitulo}</p>
         </div>
         {messages.length > 0 && (
           <button
@@ -80,12 +84,9 @@ export function AgentConsole({ className }: { className?: string }) {
       >
         {messages.length === 0 && !loading && (
           <div>
-            <p className="text-[12.5px] leading-relaxed text-fg-faint">
-              Converse como se fosse um cliente. O agente responde com os dados
-              cadastrados e nunca opina sobre medicamento.
-            </p>
+            <p className="text-[12.5px] leading-relaxed text-fg-faint">{textos.explicacao}</p>
             <div className="mt-3 flex flex-wrap gap-1.5">
-              {SUGESTOES.map((s) => (
+              {textos.sugestoes.map((s) => (
                 <button
                   key={s}
                   onClick={() => enviar(s)}

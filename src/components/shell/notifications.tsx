@@ -15,7 +15,7 @@ import {
   Store,
   type LucideIcon,
 } from "lucide-react";
-import { useBanco } from "@/lib/db/use-db";
+import { useBanco, useWhatsappNoAr } from "@/lib/db/use-db";
 import { cn } from "@/lib/utils";
 
 type Aviso = {
@@ -34,7 +34,10 @@ type Aviso = {
  * sem estoque, o que precisa de atendente. Nenhum aviso é inventado, então a
  * lista fica vazia quando está tudo em ordem.
  */
-function calcularAvisos(banco: ReturnType<typeof useBanco>["banco"]): Aviso[] {
+function calcularAvisos(
+  banco: ReturnType<typeof useBanco>["banco"],
+  whatsappNoAr: boolean,
+): Aviso[] {
   const avisos: Aviso[] = [];
 
   if (!banco.loja.configurada) {
@@ -48,12 +51,12 @@ function calcularAvisos(banco: ReturnType<typeof useBanco>["banco"]): Aviso[] {
     });
   }
 
-  if (!banco.whatsappConectado) {
+  if (!whatsappNoAr) {
     avisos.push({
       id: "whatsapp",
       icon: MessageSquareWarning,
-      titulo: "WhatsApp não conectado",
-      detalhe: "Sem a conexão, nenhuma conversa chega ao sistema.",
+      titulo: "WhatsApp desconectado",
+      detalhe: "O bot não dá sinal há alguns minutos. Sem ele, nenhuma conversa chega ao sistema.",
       href: "/configuracoes",
       tom: "alerta",
     });
@@ -156,7 +159,8 @@ export function NotificationBell() {
   const [aberto, setAberto] = useState(false);
   const raiz = useRef<HTMLDivElement>(null);
 
-  const avisos = useMemo(() => calcularAvisos(banco), [banco]);
+  const noAr = useWhatsappNoAr(banco.whatsapp);
+  const avisos = useMemo(() => calcularAvisos(banco, noAr), [banco, noAr]);
   const alertas = avisos.filter((a) => a.tom === "alerta").length;
 
   useEffect(() => {

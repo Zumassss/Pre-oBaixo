@@ -42,6 +42,7 @@ import {
   visaoAtiva,
   visaoVazia,
   pedidoExigeReceita,
+  whatsappNoAr,
 } from "./types";
 
 /* ------------------------------------------------------------------
@@ -891,6 +892,25 @@ export function definirAgenteLigado(ativo: boolean, quem: string) {
     ...d,
     agenteLigado: { ativo, alteradoPor: quem, em: Date.now() },
   }));
+}
+
+/**
+ * Se o WhatsApp está no ar agora, pelo sinal que o bot manda a cada minuto.
+ * Reavalia a cada 20 segundos: sem isso, um bot que parou de dar sinal
+ * continuaria aparecendo como conectado até alguém mexer na tela.
+ */
+export function useWhatsappNoAr(estado: VisaoLoja["whatsapp"]) {
+  const [agora, setAgora] = useState(0);
+  useEffect(() => {
+    const tick = () => setAgora(Date.now());
+    const primeira = setTimeout(tick, 0);
+    const id = setInterval(tick, 20000);
+    return () => {
+      clearTimeout(primeira);
+      clearInterval(id);
+    };
+  }, []);
+  return agora > 0 && whatsappNoAr(estado, agora);
 }
 
 /** Ajuda telas que precisam recarregar algo manualmente. */
