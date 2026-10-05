@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
-  Bot,
   Check,
   Clock,
   Hand,
@@ -12,8 +12,8 @@ import {
   MessagesSquare,
   Plus,
   Search,
-  SendHorizonal,
-  ShieldAlert,
+  Star,
+  Stethoscope,
   Undo2,
   UserRound,
 } from "lucide-react";
@@ -22,15 +22,28 @@ import { Modal, Campo, Entrada } from "@/components/ui/modal";
 import { Reveal } from "@/components/ui/reveal";
 import { useAppState } from "@/components/providers/app-state";
 import {
-  adicionarMensagem,
+  abrirConversaComCliente,
+  alternarMarcacao,
   assumirConversa,
+  criarCliente,
   criarConversa,
   devolverAoAgente,
   mudarStatusConversa,
+  reenviarMensagem,
+  resolverAlerta,
   useBanco,
   useSessao,
+  useWhatsappNoAr,
 } from "@/lib/db/use-db";
-import { chaveDoCliente, type Conversa, type StatusConversa } from "@/lib/db/types";
+import {
+  ALERTA_LABEL,
+  chaveDoCliente,
+  type Conversa,
+  type Mensagem,
+  type StatusConversa,
+} from "@/lib/db/types";
+import { Bolha } from "./bolha";
+import { Compositor } from "./compositor";
 import {
   conversasAtivas,
   historicoPorCliente,
@@ -50,17 +63,10 @@ import { cn } from "@/lib/utils";
  * passa a viver no histórico do cliente. Fila é o que ainda dá trabalho.
  */
 
-/**
- * Conversa que o cliente começou pelo WhatsApp. Só nessas o bot leva a
- * resposta do atendente até o celular do cliente: escrever para quem nunca
- * mandou mensagem é o que faz o número ser banido.
- */
-function veioDoWhatsapp(conversa: Conversa) {
-  return conversa.id.startsWith("cnv-wa-");
-}
-
-const FILTROS: { id: "todas" | "aberta" | "com_atendente"; label: string }[] = [
+const FILTROS: { id: "todas" | "alerta" | "aberta" | "com_atendente"; label: string }[] = [
   { id: "todas", label: "Na fila" },
+  // Quem precisa de uma pessoa (farmacêutico, atendente, reclamação).
+  { id: "alerta", label: "Precisam de alguém" },
   { id: "aberta", label: "Com o agente" },
   // "Com atendente", e não "Comigo": numa loja com duas pessoas, metade
   // dessas conversas é da outra. O nome de quem assumiu aparece no cartão.
@@ -138,6 +144,7 @@ function ItemConversa({
   onSelect: () => void;
 }) {
   const meta = statusMeta[conversa.status];
+  const alerta = conversa.alerta;
 
   return (
     <Reveal
@@ -147,6 +154,9 @@ function ItemConversa({
       className={cn(
         "selectable w-full overflow-hidden rounded-xl p-3 text-left",
         ativa && "bg-brand-500/[0.08]",
+        // Laranja: precisa de uma pessoa agora. Cor e etiqueta juntas, para
+        // quem não distingue cor também perceber.
+        alerta && "cartao-chamado border border-caution/45 bg-caution/[0.08]",
       )}
     >
       <div className="flex items-center gap-2.5">
@@ -168,11 +178,22 @@ function ItemConversa({
         {resumoDaConversa(conversa)}
       </p>
 
-      <span className={cn("chip mt-2", meta.className)}>
-        {conversa.status === "com_atendente" && conversa.assumidaPor
-          ? conversa.assumidaPor
-          : meta.label}
-      </span>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        {alerta && (
+          <span className="chip !border-caution/50 !bg-caution/15 !text-caution">
+            <Stethoscope className="h-3 w-3" strokeWidth={2.2} />
+            {ALERTA_LABEL[alerta.tipo]}
+          </span>
+        )}
+        <span className={cn("chip", meta.className)}>
+          {conversa.status === "com_atendente" && conversa.assumidaPor
+            ? conversa.assumidaPor
+            : meta.label}
+        </span>
+        {conversa.canal === "whatsapp" && (
+          <MessageCircle className="h-3 w-3 text-fg-ghost" strokeWidth={2} aria-label="WhatsApp" />
+        )}
+      </div>
     </Reveal>
   );
 }
@@ -232,66 +253,6 @@ function ItemCliente({
 }
 
 /* ------------------------------------------------------------------
-   Mensagem
-   ------------------------------------------------------------------ */
-
-function Bolha({
-  origem,
-  texto,
-  em,
-  autor,
-}: {
-  origem: Conversa["mensagens"][number]["origem"];
-  texto: string;
-  em: number;
-  autor: string;
-}) {
-  const entrada = origem === "cliente";
-
-  return (
-    <div
-      className={cn("flex", entrada ? "justify-start" : "justify-end")}
-      style={{ animation: "rise 0.3s cubic-bezier(0.16,1,0.3,1) both" }}
-    >
-      <div className={cn("max-w-[78%]", entrada ? "" : "text-right")}>
-        <div
-          className={cn(
-            "rounded-2xl px-3.5 py-2.5 text-[13px] leading-[1.5]",
-            entrada
-              ? "rounded-tl-md bg-nivel-3 text-fg ring-1 ring-inset ring-nivel-4"
-              : origem === "agente"
-                ? "rounded-tr-md bg-gradient-to-br from-brand-600 to-brand-800 text-white"
-                : "rounded-tr-md bg-surface-3 text-fg ring-1 ring-inset ring-anel",
-          )}
-        >
-          {texto}
-        </div>
-        <div
-          className={cn(
-            "mt-1 flex items-center gap-1.5 px-1",
-            entrada ? "" : "justify-end",
-          )}
-        >
-          {origem === "agente" && (
-            <span className="flex items-center gap-1 text-[10px] font-semibold text-brand-400">
-              <Bot className="h-3 w-3" strokeWidth={2} />
-              agente
-            </span>
-          )}
-          {origem === "atendente" && (
-            <span className="flex items-center gap-1 text-[10px] font-semibold text-caution">
-              <UserRound className="h-3 w-3" strokeWidth={2} />
-              {autor || "você"}
-            </span>
-          )}
-          <span className="tnum font-mono text-[10px] text-fg-ghost">{hora(em)}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------
    Tela
    ------------------------------------------------------------------ */
 
@@ -307,7 +268,6 @@ export function ConversationsWorkspace() {
   const [clienteAtivo, setClienteAtivo] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<(typeof FILTROS)[number]["id"]>("todas");
   const [buscaLocal, setBuscaLocal] = useState("");
-  const [rascunho, setRascunho] = useState("");
   const [novaAberta, setNovaAberta] = useState(false);
   const [nova, setNova] = useState({ cliente: "", telefone: "" });
 
@@ -323,15 +283,38 @@ export function ConversationsWorkspace() {
     return () => clearTimeout(id);
   }, []);
 
+  const noAr = useWhatsappNoAr(banco.whatsapp);
+  const parametros = useSearchParams();
+  const pedida = parametros.get("c");
+
+  // Veio de um aviso ("cliente precisa do farmacêutico"): abre a conversa.
+  useEffect(() => {
+    if (!pedida) return;
+    const t = setTimeout(() => {
+      setAba("fila");
+      setFiltro("todas");
+      setAtivaId(pedida);
+    }, 0);
+    return () => clearTimeout(t);
+  }, [pedida]);
+
+  // Quem precisa de alguém vem primeiro; o resto, pela última mensagem.
   const naFila = useMemo(
-    () => conversasAtivas(banco.conversas),
+    () =>
+      conversasAtivas(banco.conversas).sort(
+        (a, b) =>
+          Number(Boolean(b.alerta)) - Number(Boolean(a.alerta)) ||
+          (b.alerta?.em ?? 0) - (a.alerta?.em ?? 0) ||
+          b.atualizadaEm - a.atualizadaEm,
+      ),
     [banco.conversas],
   );
 
   const visiveis = useMemo(
     () =>
       naFila.filter((c) => {
-        const passaFiltro = filtro === "todas" || c.status === filtro;
+        const passaFiltro =
+          filtro === "todas" || (filtro === "alerta" ? Boolean(c.alerta) : c.status === filtro);
         const passaBusca =
           !termo ||
           c.cliente.toLowerCase().includes(termo) ||
@@ -366,20 +349,33 @@ export function ConversationsWorkspace() {
     fim.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [ativa?.mensagens.length, ativa?.id, aba]);
 
-  function enviar(e: React.FormEvent) {
-    e.preventDefault();
-    if (!ativa || !rascunho.trim()) return;
-    adicionarMensagem(ativa.id, "atendente", rascunho.trim(), atendente);
-    setRascunho("");
-  }
+  /** O cliente já cadastrado com este telefone (ou nome), se houver. */
+  const clienteDaNova = useMemo(() => {
+    const fim8 = nova.telefone.replace(/\D/g, "").slice(-8);
+    if (fim8.length === 8) {
+      const porTelefone = banco.clientes.find((c) => c.telefone.replace(/\D/g, "").endsWith(fim8));
+      if (porTelefone) return porTelefone;
+    }
+    const nome = nova.cliente.trim().toLowerCase();
+    return nome ? (banco.clientes.find((c) => c.nome.toLowerCase() === nome) ?? null) : null;
+  }, [nova, banco.clientes]);
 
   function abrirNova(e: React.FormEvent) {
     e.preventDefault();
     if (!nova.cliente.trim() || !nova.telefone.trim()) return;
-    const criada = criarConversa(nova.cliente.trim(), nova.telefone.trim());
+    let criada: Conversa;
+    if (clienteDaNova) {
+      criada = abrirConversaComCliente(clienteDaNova, atendente);
+    } else {
+      // Cliente novo, cadastrado aqui: nunca escreveu, então é registro
+      // interno (telefone, balcão), não mensagem de WhatsApp.
+      criarCliente({ nome: nova.cliente.trim(), telefone: nova.telefone.trim(), origem: "manual" });
+      criada = criarConversa(nova.cliente.trim(), nova.telefone.trim(), "interno");
+    }
     setNova({ cliente: "", telefone: "" });
     setNovaAberta(false);
     setAba("fila");
+    setFiltro("todas");
     setAtivaId(criada.id);
   }
 
@@ -410,9 +406,9 @@ export function ConversationsWorkspace() {
             Conversas
           </h1>
           <p className="mt-0.5 text-[13px] text-fg-muted">
-            {banco.whatsappConectado
-              ? "Mensagens que chegam pelo WhatsApp da loja."
-              : "WhatsApp não conectado. Você pode registrar conversas manualmente."}
+            {noAr
+              ? "Mensagens que chegam pelo WhatsApp da loja, ao vivo."
+              : "WhatsApp desconectado agora. Mensagens novas chegam quando o bot voltar."}
           </p>
         </div>
         <button onClick={() => setNovaAberta(true)} className="btn-primary">
@@ -490,7 +486,10 @@ export function ConversationsWorkspace() {
                     const total =
                       item.id === "todas"
                         ? naFila.length
-                        : naFila.filter((c) => c.status === item.id).length;
+                        : item.id === "alerta"
+                          ? naFila.filter((c) => c.alerta).length
+                          : naFila.filter((c) => c.status === item.id).length;
+                    if (item.id === "alerta" && total === 0 && filtro !== "alerta") return null;
                     return (
                       <button
                         key={item.id}
@@ -498,6 +497,7 @@ export function ConversationsWorkspace() {
                         className={cn(
                           "chip shrink-0 transition-colors",
                           filtro === item.id && "chip-hot",
+                          item.id === "alerta" && "!border-caution/50 !text-caution",
                         )}
                       >
                         {item.label}
@@ -567,16 +567,15 @@ export function ConversationsWorkspace() {
             {aba === "fila" ? (
               ativa ? (
                 <Atendimento
+                  key={ativa.id}
                   conversa={ativa}
                   atendente={atendente}
-                  whatsappLigado={banco.whatsappConectado}
+                  lojaId={banco.loja.id}
+                  whatsappNoAr={noAr}
                   outras={
                     historicos.find((h) => h.chave === chaveDoCliente(ativa))
                       ?.conversas.length ?? 1
                   }
-                  rascunho={rascunho}
-                  onRascunho={setRascunho}
-                  onEnviar={enviar}
                   onVerHistorico={() => verHistoricoDe(ativa)}
                   fim={fim}
                 />
@@ -619,7 +618,7 @@ export function ConversationsWorkspace() {
       <Modal
         aberto={novaAberta}
         titulo="Nova conversa"
-        descricao="Registre um atendimento que aconteceu por telefone ou no balcão."
+        descricao="Quem já escreveu para a loja recebe pelo WhatsApp. Quem nunca escreveu fica como registro de atendimento (telefone ou balcão)."
         onFechar={() => setNovaAberta(false)}
       >
         <form onSubmit={abrirNova} className="space-y-4">
@@ -646,6 +645,37 @@ export function ConversationsWorkspace() {
               required
             />
           </Campo>
+          {(nova.cliente.trim() || nova.telefone.trim()) && (
+            <div
+              className={cn(
+                "flex items-start gap-2.5 rounded-xl p-3 text-[12px] leading-relaxed",
+                clienteDaNova?.primeiraMensagemEm
+                  ? "bg-positive/[0.1] text-fg-muted"
+                  : "bg-nivel-2 text-fg-muted",
+              )}
+            >
+              <MessageCircle
+                className={cn(
+                  "mt-0.5 h-4 w-4 shrink-0",
+                  clienteDaNova?.primeiraMensagemEm ? "text-positive" : "text-fg-ghost",
+                )}
+                strokeWidth={2}
+              />
+              {clienteDaNova?.primeiraMensagemEm ? (
+                <span>
+                  <strong className="text-fg">{clienteDaNova.nome}</strong> já escreveu para a loja: o
+                  que você mandar chega no WhatsApp dela.
+                </span>
+              ) : clienteDaNova ? (
+                <span>
+                  <strong className="text-fg">{clienteDaNova.nome}</strong> está cadastrado, mas nunca
+                  escreveu pelo WhatsApp. A conversa fica só registrada aqui.
+                </span>
+              ) : (
+                <span>Cliente novo: ele será cadastrado e a conversa fica registrada aqui.</span>
+              )}
+            </div>
+          )}
           <div className="flex justify-end gap-2 pt-1">
             <button
               type="button"
@@ -671,33 +701,51 @@ export function ConversationsWorkspace() {
 function Atendimento({
   conversa,
   atendente,
-  whatsappLigado,
+  lojaId,
+  whatsappNoAr,
   outras,
-  rascunho,
-  onRascunho,
-  onEnviar,
   onVerHistorico,
   fim,
 }: {
   conversa: Conversa;
   atendente: string;
-  whatsappLigado: boolean;
+  lojaId: string;
+  whatsappNoAr: boolean;
   outras: number;
-  rascunho: string;
-  onRascunho: (v: string) => void;
-  onEnviar: (e: React.FormEvent) => void;
   onVerHistorico: () => void;
   fim: React.RefObject<HTMLDivElement | null>;
 }) {
   const comAtendente = conversa.status === "com_atendente";
+  const [citando, setCitando] = useState<Mensagem | null>(null);
+  const [soMarcadas, setSoMarcadas] = useState(false);
+  const marcadas = conversa.mensagens.filter((m) => m.marcada).length;
+  const mensagens = soMarcadas ? conversa.mensagens.filter((m) => m.marcada) : conversa.mensagens;
+
+  function irPara(id: string) {
+    setSoMarcadas(false);
+    setTimeout(() => {
+      const el = document.getElementById(`msg-${id}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      el?.animate(
+        [{ backgroundColor: "color-mix(in oklab, var(--color-brand-500) 18%, transparent)" }, { backgroundColor: "transparent" }],
+        { duration: 1400, easing: "ease-out" },
+      );
+    }, 50);
+  }
 
   return (
     <>
       <header className="flex flex-wrap items-center gap-3 border-b border-hairline p-4">
         <Avatar nome={conversa.cliente} className="h-10 w-10 text-[12px]" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[14px] font-semibold text-fg">
+          <p className="flex items-center gap-2 truncate text-[14px] font-semibold text-fg">
             {conversa.cliente}
+            {conversa.canal === "whatsapp" && (
+              <span className="chip !px-2 !py-[2px] !text-[9.5px]">
+                <MessageCircle className="h-3 w-3" strokeWidth={2} />
+                WhatsApp
+              </span>
+            )}
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <p className="tnum truncate font-mono text-[11px] text-fg-ghost">
@@ -714,6 +762,20 @@ function Atendimento({
             )}
           </div>
         </div>
+
+        {marcadas > 0 && (
+          <button
+            onClick={() => setSoMarcadas((v) => !v)}
+            aria-pressed={soMarcadas}
+            className={cn(
+              "btn-ghost !px-3 !py-2 !text-[12px]",
+              soMarcadas && "!border-caution/50 !text-caution",
+            )}
+          >
+            <Star className={cn("h-3.5 w-3.5", soMarcadas && "fill-caution")} strokeWidth={2} />
+            Marcadas {marcadas}
+          </button>
+        )}
 
         {comAtendente ? (
           <>
@@ -750,87 +812,77 @@ function Atendimento({
         </button>
       </header>
 
-      {/* Quem assumiu, e o que isso ainda não faz */}
+      {conversa.alerta && (
+        <div className="flex flex-wrap items-center gap-3 border-b border-caution/30 bg-caution/[0.1] px-4 py-3">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-caution/20 text-caution">
+            <Stethoscope className="h-4 w-4" strokeWidth={2.2} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[12.5px] font-semibold text-caution">{ALERTA_LABEL[conversa.alerta.tipo]}</p>
+            <p className="text-[12px] leading-snug text-fg-muted">{conversa.alerta.resumo}</p>
+          </div>
+          {!comAtendente && (
+            <button
+              onClick={() => assumirConversa(conversa.id, atendente)}
+              className="btn-primary !px-3 !py-1.5 !text-[12px]"
+            >
+              <Hand className="h-3.5 w-3.5" strokeWidth={2.2} />
+              Assumir e responder
+            </button>
+          )}
+          <button
+            onClick={() => resolverAlerta(conversa.id)}
+            title="Tira o destaque sem responder (a dúvida foi resolvida por outro meio)"
+            className="btn-ghost !px-3 !py-1.5 !text-[12px]"
+          >
+            Já resolvi
+          </button>
+        </div>
+      )}
+
       {comAtendente && (
         <div className="flex items-start gap-2.5 border-b border-hairline bg-brand-500/[0.05] px-4 py-2.5">
-          <UserRound
-            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-400"
-            strokeWidth={2}
-          />
+          <UserRound className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-400" strokeWidth={2} />
           <p className="text-[11.5px] leading-relaxed text-fg-muted">
-            <span className="font-medium text-fg">
-              {conversa.assumidaPor || "Você"}
-            </span>{" "}
-            está atendendo. O agente não responde mais por aqui.
-            {whatsappLigado && veioDoWhatsapp(conversa) && (
-              <span>
-                {" "}
-                O que você escrever aqui chega no WhatsApp do cliente.
-              </span>
-            )}
+            <span className="font-medium text-fg">{conversa.assumidaPor || "Você"}</span> está
+            atendendo. O agente não responde mais por aqui.
+            {conversa.canal === "whatsapp" && <span> O que você escrever chega no WhatsApp do cliente.</span>}
           </p>
         </div>
       )}
 
-      <div
-        data-lenis-prevent
-        className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5"
-      >
-        {conversa.mensagens.length === 0 ? (
+      <div data-lenis-prevent className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
+        {mensagens.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <p className="max-w-xs text-center text-[12.5px] leading-relaxed text-fg-faint">
-              Nenhuma mensagem nesta conversa. Escreva abaixo para registrar o
-              atendimento.
+              {soMarcadas
+                ? "Nenhuma mensagem marcada."
+                : "Nenhuma mensagem nesta conversa. Escreva abaixo para registrar o atendimento."}
             </p>
           </div>
         ) : (
-          conversa.mensagens.map((m) => (
+          mensagens.map((m) => (
             <Bolha
               key={m.id}
-              origem={m.origem}
-              texto={m.texto}
-              em={m.em}
-              autor={m.autor}
+              mensagem={m}
+              onResponder={() => setCitando(m)}
+              onMarcar={() => alternarMarcacao(conversa.id, m.id)}
+              onReenviar={() => reenviarMensagem(conversa.id, m.id)}
+              onIrParaCitada={irPara}
             />
           ))
         )}
         <div ref={fim} />
       </div>
 
-      <div className="border-t border-hairline p-3">
-        <div className="mb-2 flex items-center gap-2 px-1">
-          <ShieldAlert
-            className="h-3.5 w-3.5 shrink-0 text-fg-ghost"
-            strokeWidth={2}
-          />
-          <p className="text-[11px] text-fg-faint">
-            Dúvida sobre dose, uso ou interação vai para o farmacêutico.
-          </p>
-        </div>
-        <form
-          onSubmit={onEnviar}
-          className="flex items-center gap-2 rounded-full border border-hairline bg-nivel-2 px-2 py-1.5 transition-colors focus-within:border-brand-500/45"
-        >
-          <input
-            value={rascunho}
-            onChange={(e) => onRascunho(e.target.value)}
-            className="min-w-0 flex-1 bg-transparent px-2.5 py-1.5 text-[13px] text-fg outline-none placeholder:text-fg-ghost"
-            placeholder={
-              comAtendente
-                ? "Escreva sua resposta"
-                : "Escreva para assumir e responder"
-            }
-          />
-          <button
-            type="submit"
-            disabled={!rascunho.trim()}
-            aria-label="Enviar"
-            className="btn-primary !h-8 !w-8 !p-0"
-          >
-            <SendHorizonal className="h-4 w-4" strokeWidth={2} />
-          </button>
-        </form>
-      </div>
+      <Compositor
+        conversa={conversa}
+        atendente={atendente}
+        lojaId={lojaId}
+        citando={citando}
+        onCancelarCitacao={() => setCitando(null)}
+        whatsappNoAr={whatsappNoAr}
+      />
     </>
   );
 }
@@ -934,15 +986,7 @@ function DossieCliente({
                       Esta conversa não tem mensagem registrada.
                     </p>
                   ) : (
-                    conversa.mensagens.map((m) => (
-                      <Bolha
-                        key={m.id}
-                        origem={m.origem}
-                        texto={m.texto}
-                        em={m.em}
-                        autor={m.autor}
-                      />
-                    ))
+                    conversa.mensagens.map((m) => <Bolha key={m.id} mensagem={m} />)
                   )}
 
                   {conversa.status !== "resolvida" && (

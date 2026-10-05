@@ -78,5 +78,8 @@ export function resumoDaConversa(conversa: Conversa) {
       : ultima.origem === "agente"
         ? "Agente: "
         : `${ultima.autor || "Você"}: `;
-  return `${quem}${ultima.texto}`;
+  const midia = ultima.midia
+    ? { imagem: "[Foto]", audio: "[Áudio]", video: "[Vídeo]", documento: `[Arquivo: ${ultima.midia.nome || "sem nome"}]` }[ultima.midia.tipo]
+    : "";
+  return `${quem}${ultima.texto || midia}`;
 }
