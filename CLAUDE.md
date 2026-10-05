@@ -252,7 +252,7 @@ bot recalcula a taxa no servidor, nunca aceita a do modelo.
 - **Agendamento nunca no passado.** `SeletorDataHora` esconde dia e hora que
   já passaram e `agendamentoNoPassado` confere de novo ao salvar.
 
-## Segurança (revisão de 2026-10-06)
+## Segurança (revisão de 2026-10-05)
 
 - **Toda rota de `/api` que gasta dinheiro ou mexe com dado exige sessão.**
   O navegador manda `x-sessao` (via `cabecalhoDaSessao()`); a rota chama

@@ -1,5 +1,5 @@
 -- ------------------------------------------------------------------
--- Revisão de segurança de 2026-10-06.
+-- Revisão de segurança de 2026-10-05 (arquivo nomeado 06 para rodar depois de registros).
 --
 -- 1. Fecha as funções do modelo antigo (documento por loja), que ninguém
 --    chama desde 2026-10-05 mas continuavam abertas para a chave pública.
