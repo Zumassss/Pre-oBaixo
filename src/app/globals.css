@@ -966,3 +966,9 @@
     animation: none;
   }
 }
+
+/* Painel lateral (ficha do cliente) entrando pela direita. */
+@keyframes entra-direita {
+  from { transform: translateX(32px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
