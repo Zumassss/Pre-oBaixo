@@ -55,6 +55,17 @@ function useFecharFora(aberto: boolean, fechar: () => void) {
   return ref;
 }
 
+/** Rola a página só o necessário para o painel aberto caber na tela. */
+function useCaberNaTela(aberto: boolean) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!aberto) return;
+    const t = setTimeout(() => ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 30);
+    return () => clearTimeout(t);
+  }, [aberto]);
+  return ref;
+}
+
 /** A grade de um mês. Serve para dia único e para período. */
 function Mes({
   mes,
@@ -194,6 +205,7 @@ export function SeletorPeriodo({
     setAberto(false);
     setInicio("");
   });
+  const painel = useCaberNaTela(aberto);
 
   function escolher(iso: string) {
     if (!inicio) {
@@ -226,6 +238,7 @@ export function SeletorPeriodo({
       </button>
       {aberto && (
         <div
+          ref={painel}
           role="dialog"
           aria-label="Escolher período"
           className="glass-solid sombra-flutuante absolute left-0 top-[calc(100%+6px)] z-50 flex flex-col gap-3 rounded-2xl p-3 sm:flex-row"
@@ -299,6 +312,7 @@ export function SeletorDataHora({
   const [dia, hora] = valor ? valor.split("T") : ["", ""];
   const [mes, setMes] = useState(() => deIso(dia || diaIso(new Date())));
   const ref = useFecharFora(aberto, () => setAberto(false));
+  const painel = useCaberNaTela(aberto);
   const [agora, setAgora] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -345,6 +359,7 @@ export function SeletorDataHora({
       </button>
       {aberto && (
         <div
+          ref={painel}
           role="dialog"
           aria-label={rotulo}
           className="glass-solid sombra-flutuante absolute left-0 top-[calc(100%+6px)] z-50 flex w-max max-w-[calc(100vw-2rem)] flex-col gap-3 rounded-2xl p-3 sm:flex-row"
