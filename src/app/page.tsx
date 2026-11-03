@@ -10,7 +10,7 @@ import { Panel, PanelHeader } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Reveal } from "@/components/ui/reveal";
 import { useAppState } from "@/components/providers/app-state";
-import { useBanco } from "@/lib/db/use-db";
+import { useBanco, useWhatsappNoAr } from "@/lib/db/use-db";
 import { formatNumber } from "@/lib/utils";
 
 function horario(em: number) {
@@ -71,60 +71,63 @@ export default function Painel() {
         .join(", ")
     : "Configure os dados da loja para começar";
 
+  const conectado = useWhatsappNoAr(banco.whatsapp);
+  const hora = new Date().getHours();
+  const saudacao = hora < 12 ? "Bom dia" : hora < 18 ? "Boa tarde" : "Boa noite";
+
   return (
-    <div className="mx-auto max-w-[1560px] space-y-4">
-      {/* Cabeçalho */}
-      <div>
-        <h1 className="text-[24px] font-semibold tracking-[-0.025em] text-fg">
-          {nomeLoja}
-        </h1>
-        <p className="mt-0.5 text-[13px] text-fg-muted">{enderecoLoja}</p>
+    <div className="mx-auto max-w-[1440px] space-y-6">
+      {/* Cabeçalho: quem é a loja e se o WhatsApp está no ar. Nada além. */}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[13px] text-fg-faint">{saudacao}</p>
+          <h1 className="mt-0.5 text-[26px] font-semibold tracking-[-0.025em] text-fg">
+            {nomeLoja}
+          </h1>
+          <p className="mt-0.5 text-[13px] text-fg-muted">{enderecoLoja}</p>
+        </div>
+        <span
+          className={`flex items-center gap-2 rounded-full border border-hairline px-3 py-1.5 text-[12.5px] ${
+            conectado ? "text-fg" : "text-fg-muted"
+          }`}
+        >
+          <span
+            className={`h-2 w-2 rounded-full ${conectado ? "bg-positive" : "bg-fg-ghost"}`}
+            aria-hidden
+          />
+          {conectado ? "WhatsApp no ar" : "WhatsApp fora do ar"}
+        </span>
       </div>
+
+      {/* Os números do período numa faixa só. Antes eram quatro caixas no fim
+          da página; resumo vem antes do detalhe. */}
+      <dl className="panel grid grid-cols-2 divide-hairline xl:grid-cols-4 xl:divide-x">
+        {indicadores.map((item) => (
+          <div key={item.id} className="px-5 py-4">
+            <dt className="text-[12px] text-fg-muted">{item.label}</dt>
+            <dd className="tnum mt-1.5 text-[26px] font-semibold leading-none tracking-[-0.03em] text-fg">
+              {carregado ? item.valor : "0"}
+            </dd>
+            <dd className="mt-1.5 truncate text-[11.5px] text-fg-ghost">{item.hint}</dd>
+          </div>
+        ))}
+      </dl>
 
       <SetupChecklist />
 
-      {/* Operação ao vivo e pedidos lado a lado: quem deixa o sistema aberto
-          vê se chegou pedido sem precisar rolar nem trocar de tela. */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-        <GlobePanel className="h-[420px] sm:h-[500px] xl:col-span-8 xl:h-[540px]" />
-        <FilaPedidos banco={banco} className="max-h-[540px] xl:col-span-4 xl:h-[540px]" />
+      {/* O trabalho de agora (pedidos) ganha o espaço maior. O globo fica ao
+          lado, menor: é o sinal de vida da loja, não o assunto da tela. */}
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+        <FilaPedidos banco={banco} className="max-h-[480px] xl:col-span-8 xl:h-[460px]" />
+        <GlobePanel compacto className="hidden h-[360px] sm:block xl:col-span-4 xl:h-[460px]" />
       </div>
 
-      {/* Assistente da equipe e atividade do agente */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-        <AgentConsole className="h-[460px] xl:col-span-7" />
+      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-12">
+        <AgentConsole className="max-h-[440px] xl:col-span-7" />
         <div className="xl:col-span-5">
           <HistoricoAgente eventos={eventos} />
         </div>
       </div>
-
-      {/* Indicadores */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {indicadores.map((item, i) => {
-          const Icon = item.icon;
-          return (
-            <Reveal
-              key={item.id}
-              className="tile p-4"
-              style={{
-                animation: `rise 0.5s cubic-bezier(0.16,1,0.3,1) ${i * 60}ms both`,
-              }}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-[11.5px] font-medium text-fg-muted">
-                  {item.label}
-                </p>
-                <Icon className="h-3.5 w-3.5 text-fg-ghost" strokeWidth={2} />
-              </div>
-              <p className="tnum mt-2 text-[24px] font-semibold leading-none tracking-[-0.03em] text-fg">
-                {carregado ? item.valor : "0"}
-              </p>
-              <p className="mt-1.5 truncate text-[11px] text-fg-ghost">{item.hint}</p>
-            </Reveal>
-          );
-        })}
-      </div>
-
     </div>
   );
 }

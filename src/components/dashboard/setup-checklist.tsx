@@ -43,11 +43,10 @@ export function SetupChecklist() {
 
   return (
     <div className="panel relative overflow-hidden p-5">
-      <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 aura-brand opacity-40" />
 
       <div className="relative flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="eyebrow !text-brand-400">Primeiros passos</p>
+          <p className="eyebrow">Primeiros passos</p>
           <h2 className="mt-1 text-[17px] font-semibold tracking-[-0.02em] text-fg">
             Deixe a loja pronta para atender
           </h2>

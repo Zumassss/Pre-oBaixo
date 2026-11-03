@@ -35,10 +35,10 @@ export function PanelHeader({
             {live && (
               <span className="flex items-center gap-1.5">
                 <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-pulse-ring rounded-full bg-brand-500" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand-500" />
+                  <span className="absolute inline-flex h-full w-full animate-pulse-ring rounded-full bg-positive" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-positive" />
                 </span>
-                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-brand-400">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-positive">
                   ao vivo
                 </span>
               </span>

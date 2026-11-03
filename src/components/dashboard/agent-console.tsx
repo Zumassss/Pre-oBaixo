@@ -60,8 +60,8 @@ export function AgentConsole({
   return (
     <div className={cn("panel flex flex-col overflow-hidden", className)}>
       <header className="flex items-center gap-2.5 border-b border-hairline px-4 py-3">
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-500/12 ring-1 ring-inset ring-brand-500/25">
-          <Sparkles className="h-3.5 w-3.5 text-brand-400" strokeWidth={2} />
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-nivel-3">
+          <Sparkles className="h-3.5 w-3.5 text-fg-muted" strokeWidth={2} />
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-semibold text-fg">{textos.titulo}</p>

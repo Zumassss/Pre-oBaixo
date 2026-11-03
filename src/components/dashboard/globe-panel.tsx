@@ -19,7 +19,14 @@ import { cn, formatNumber } from "@/lib/utils";
  * de técnica, não só de cor: no escuro ele soma luz, no claro ele pinta por
  * cima. Ver `paletaDoGlobo`.
  */
-export function GlobePanel({ className }: { className?: string }) {
+export function GlobePanel({
+  className,
+  compacto = false,
+}: {
+  className?: string;
+  /** Sem os contadores: no painel eles já aparecem na faixa de números. */
+  compacto?: boolean;
+}) {
   const { banco } = useBanco();
   const { claro } = useTema();
 
@@ -38,7 +45,7 @@ export function GlobePanel({ className }: { className?: string }) {
 
   return (
     <div className={cn("panel relative overflow-hidden", className)}>
-      <div className="absolute inset-0">
+      <div className={cn("absolute opacity-75", compacto ? "inset-x-4 bottom-4 top-24" : "inset-0")}>
         <GlobeMount pontos={pontos} claro={claro} />
       </div>
 
@@ -48,22 +55,22 @@ export function GlobePanel({ className }: { className?: string }) {
           <div className="mb-1.5 flex items-center gap-2">
             <span className="relative flex h-1.5 w-1.5">
               {conectado && (
-                <span className="absolute inline-flex h-full w-full animate-pulse-ring rounded-full bg-brand-500" />
+                <span className="absolute inline-flex h-full w-full animate-pulse-ring rounded-full bg-positive" />
               )}
               <span
                 className={cn(
                   "relative inline-flex h-1.5 w-1.5 rounded-full",
-                  conectado ? "bg-brand-500" : "bg-fg-ghost",
+                  conectado ? "bg-positive" : "bg-fg-ghost",
                 )}
               />
             </span>
             <p
-              className={cn("eyebrow", conectado ? "!text-brand-400" : "!text-fg-ghost")}
+              className={cn("eyebrow", conectado ? "!text-positive" : "!text-fg-ghost")}
             >
               {conectado ? "Ao vivo" : "Fora do ar"}
             </p>
           </div>
-          <h2 className="text-[21px] font-semibold tracking-[-0.025em] text-fg">
+          <h2 className="text-[17px] font-semibold tracking-[-0.025em] text-fg">
             Operação da loja
           </h2>
           <p className="mt-1 text-[12.5px] text-fg-muted">
@@ -75,7 +82,7 @@ export function GlobePanel({ className }: { className?: string }) {
           </p>
         </div>
 
-        <div className="hidden shrink-0 gap-2 sm:flex">
+        <div className={cn("hidden shrink-0 gap-2", !compacto && "sm:flex")}>
           <div className="glass rounded-xl px-3 py-2 text-right">
             <p className="tnum font-mono text-[19px] font-semibold leading-none text-fg">
               {formatNumber(banco.conversas.length)}
