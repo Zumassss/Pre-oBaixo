@@ -362,12 +362,12 @@ const DUVIDAS = [
   {
     pergunta: "Onde fica o assistente que responde sobre a loja?",
     resposta:
-      "Na aba Assistente da loja, no pé do menu. Ele responde com os números de agora (conversas, pedidos, estoque, vendas) e explica como usar as telas.",
+      "Na aba Assistente da loja, no fim da lista do menu. Ele responde com os números de agora (conversas, pedidos, estoque, vendas) e explica como usar as telas.",
   },
   {
     pergunta: "Preciso de ajuda com o sistema. Com quem falo?",
     resposta:
-      "Pela aba Suporte, no pé do menu. Ela abre uma conversa no WhatsApp da MAZUS, que mantém o sistema.",
+      "Pela aba Suporte, no fim da lista do menu. Ela abre uma conversa no WhatsApp da MAZUS, que mantém o sistema.",
   },
 ];
 

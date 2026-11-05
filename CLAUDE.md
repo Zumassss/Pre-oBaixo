@@ -117,7 +117,7 @@ O cliente pediu uma tela "que dê para usar com paz". Referência em
   (`.btn-perigo`). Botão principal é neutro (`.btn-primary` usa
   `--color-acao`), item ativo do menu é neutro, gráfico é neutro.
 - **Estado se lê pelo texto, a cor vai num ponto.** Use `.estado` com
-  `[--ponto:var(--color-...)]` em vez de etiqueta colorida. `ChipStatus`
+  a variável `--ponto` com a cor do estado em vez de etiqueta colorida. `ChipStatus`
   dos pedidos já é assim.
 - **Uma faixa de números, não uma fileira de caixas.** `FaixaNumeros`
   (`components/ui/faixa-numeros.tsx`). Cada tela tinha 3 a 5 caixinhas no
@@ -133,9 +133,10 @@ O cliente pediu uma tela "que dê para usar com paz". Referência em
   As contas dos relatórios moram em `lib/relatorios.ts`, usadas pela tela
   e pela planilha (`/api/relatorios/exportar` com `{ visao, relatorio,
   periodo }`).
-- **Assistente e Suporte ficam no pé do menu** (grupo com `rodape: true`
-  em `config/nav.ts`). Suporte abre o WhatsApp da MAZUS
-  (`SUPORTE_WHATSAPP`).
+- **Configurações, Assistente, Como usar e Suporte ficam no fim da lista
+  do menu** (grupo "Sistema" em `config/nav.ts`), rolando junto com o
+  resto. Nada fica fixo no pé além do usuário: o Mateus pediu em
+  2026-11-05. Suporte abre o WhatsApp da MAZUS (`SUPORTE_WHATSAPP`).
 - **No celular, lista em vez de tabela** nas telas de cadastro, e o menu
   de baixo tem "Mais" com todas as telas.
 

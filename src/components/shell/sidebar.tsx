@@ -113,9 +113,7 @@ export function Sidebar() {
           barraRecolhida && "px-2",
         )}
       >
-        {grupos
-          .filter((g) => !g.rodape)
-          .map((group) => (
+        {grupos.map((group) => (
             <div key={group.label} className="mb-4">
               {!barraRecolhida && <p className="eyebrow px-3 pb-2">{group.label}</p>}
               <ul className="space-y-0.5">
@@ -128,22 +126,6 @@ export function Sidebar() {
             </div>
           ))}
       </nav>
-
-      {/* Ajuda fica no pé: é para quando precisa, não para o dia a dia. */}
-      {grupos
-        .filter((g) => g.rodape)
-        .map((group) => (
-          <ul
-            key={group.label}
-            className={cn("space-y-0.5 border-t border-hairline px-3 py-2.5", barraRecolhida && "px-2")}
-          >
-            {group.items.map((item) => (
-              <li key={item.href}>
-                <ItemDoMenu item={item} pathname={pathname} recolhida={barraRecolhida} />
-              </li>
-            ))}
-          </ul>
-        ))}
 
       <div className="border-t border-hairline p-3">
         <div

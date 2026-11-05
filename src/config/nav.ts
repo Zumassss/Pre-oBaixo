@@ -31,8 +31,6 @@ export type NavItem = {
 export type NavGroup = {
   label: string;
   items: NavItem[];
-  /** Fica preso no pé da barra lateral, longe da operação do dia. */
-  rodape?: boolean;
 };
 
 /** WhatsApp de suporte da MAZUS, quem mantém o sistema. */
@@ -99,7 +97,6 @@ const GRUPOS: NavGroup[] = [
   },
   {
     label: "Sistema",
-    rodape: true,
     items: [
       {
         href: "/configuracoes",
