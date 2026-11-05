@@ -197,9 +197,9 @@ export function Compositor({
       )}
 
       {citando && (
-        <div className="mb-2 flex items-start gap-2 rounded-xl border-l-[3px] border-brand-500 bg-nivel-2 px-3 py-2">
+        <div className="mb-2 flex items-start gap-2 rounded-xl border-l-[3px] border-fg-ghost bg-nivel-2 px-3 py-2">
           <div className="min-w-0 flex-1">
-            <p className="text-[10.5px] font-semibold text-brand-400">Respondendo {QUEM[citando.origem].toLowerCase()}</p>
+            <p className="text-[10.5px] font-semibold text-fg">Respondendo {QUEM[citando.origem].toLowerCase()}</p>
             <p className="line-clamp-1 text-[12px] text-fg-muted">{citando.texto || descreverMidia(citando.midia)}</p>
           </div>
           <button
@@ -220,15 +220,15 @@ export function Compositor({
       )}
 
       {gravando ? (
-        <div className="flex items-center gap-2 rounded-full border border-brand-500/40 bg-brand-500/[0.07] px-2 py-1.5">
+        <div className="flex items-center gap-2 rounded-full border border-hairline-strong bg-nivel-2 px-2 py-1.5">
           <button
             onClick={() => pararGravacao(true)}
             aria-label="Descartar áudio"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-fg-muted transition-colors hover:bg-nivel-3 hover:text-brand-400"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-fg-muted transition-colors hover:bg-nivel-3 hover:text-fg"
           >
             <Trash2 className="h-4 w-4" strokeWidth={2} />
           </button>
-          <span className="h-2 w-2 animate-blink rounded-full bg-brand-500" aria-hidden />
+          <span className="h-2 w-2 animate-blink rounded-full bg-negative" aria-hidden />
           <span className="tnum font-mono text-[12.5px] text-fg" aria-live="polite">
             {tempo(segundos)}
           </span>
@@ -238,7 +238,7 @@ export function Compositor({
               return (
                 <span
                   key={i}
-                  className="w-[3px] rounded-full bg-brand-400 transition-[height] duration-100"
+                  className="w-[3px] rounded-full bg-fg-muted transition-[height] duration-100"
                   style={{ height: `${Math.max(12, (0.25 + nivel * 0.75) * onda * 100)}%` }}
                 />
               );
@@ -259,7 +259,7 @@ export function Compositor({
             e.preventDefault();
             enviarTexto();
           }}
-          className="flex items-end gap-1 rounded-[22px] border border-hairline bg-nivel-2 px-1.5 py-1.5 transition-colors focus-within:border-brand-500/45"
+          className="flex items-end gap-1 rounded-2xl border border-hairline bg-nivel-2 px-1.5 py-1.5 transition-colors focus-within:border-hairline-strong"
         >
           <input ref={campoFoto} type="file" accept="image/*" className="hidden" onChange={(e) => escolheu(e, "foto")} />
           <input
@@ -311,7 +311,7 @@ export function Compositor({
             }
           />
           {enviando ? (
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center text-brand-400" aria-label="Enviando">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center text-fg-muted" aria-label="Enviando">
               <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />
             </span>
           ) : rascunho.trim() ? (

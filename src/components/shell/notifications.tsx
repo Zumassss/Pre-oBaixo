@@ -188,7 +188,7 @@ export function NotificationBell() {
         className={cn(
           "relative flex h-9 w-9 items-center justify-center rounded-full border transition-colors",
           aberto
-            ? "border-brand-500/40 bg-brand-500/12 text-brand-300"
+            ? "border-hairline-strong bg-nivel-4 text-fg"
             : "border-hairline bg-nivel-2 text-fg-muted hover:bg-nivel-4 hover:text-fg",
         )}
       >
@@ -245,7 +245,7 @@ export function NotificationBell() {
                         className={cn(
                           "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md ring-1 ring-inset",
                           aviso.tom === "alerta"
-                            ? "bg-brand-500/12 text-brand-400 ring-brand-500/25"
+                            ? "bg-nivel-4 text-fg ring-anel"
                             : "bg-info/12 text-info ring-info/25",
                         )}
                       >

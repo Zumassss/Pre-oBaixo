@@ -4,16 +4,19 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  ArrowUpRight,
   Check,
   ChevronsUpDown,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
+  Menu,
   ShieldCheck,
   Store,
+  X,
 } from "lucide-react";
 import { LogoFull, LogoMark } from "@/components/brand/logo";
-import { menuDoPapel } from "@/config/nav";
+import { menuDoPapel, type NavItem } from "@/config/nav";
 import { useAppState } from "@/components/providers/app-state";
 import { sair, selecionarLoja, useSessao } from "@/lib/db/use-db";
 import { cn } from "@/lib/utils";
@@ -38,8 +41,6 @@ export function Sidebar() {
         barraRecolhida ? "w-[72px]" : "w-[248px]",
       )}
     >
-      <div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-brand-500/25 to-transparent" />
-
       {/* Marca e recolher */}
       <div
         className={cn(
@@ -112,45 +113,37 @@ export function Sidebar() {
           barraRecolhida && "px-2",
         )}
       >
-        {grupos.map((group) => (
-          <div key={group.label} className="mb-5">
-            {!barraRecolhida && <p className="eyebrow px-3 pb-2">{group.label}</p>}
-            <ul className="space-y-0.5">
-              {group.items.map((item) => {
-                const active = pathname === item.href || (item.href !== "/" && pathname.startsWith(`${item.href}/`));
-                const Icon = item.icon;
-                return (
+        {grupos
+          .filter((g) => !g.rodape)
+          .map((group) => (
+            <div key={group.label} className="mb-4">
+              {!barraRecolhida && <p className="eyebrow px-3 pb-2">{group.label}</p>}
+              <ul className="space-y-0.5">
+                {group.items.map((item) => (
                   <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      data-selected={active}
-                      title={barraRecolhida ? item.label : undefined}
-                      className={cn(
-                        "selectable group flex items-center gap-3 overflow-hidden rounded-xl px-3 py-2.5 text-[13px] font-medium",
-                        barraRecolhida && "justify-center px-0",
-                        active ? "text-fg" : "text-fg-muted hover:text-fg",
-                      )}
-                    >
-                      <Icon
-                        className={cn(
-                          "h-[17px] w-[17px] shrink-0 transition-colors",
-                          active
-                            ? "text-brand-400"
-                            : "text-fg-faint group-hover:text-fg-muted",
-                        )}
-                        strokeWidth={1.8}
-                      />
-                      {!barraRecolhida && (
-                        <span className="flex-1 truncate">{item.label}</span>
-                      )}
-                    </Link>
+                    <ItemDoMenu item={item} pathname={pathname} recolhida={barraRecolhida} />
                   </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
+                ))}
+              </ul>
+            </div>
+          ))}
       </nav>
+
+      {/* Ajuda fica no pé: é para quando precisa, não para o dia a dia. */}
+      {grupos
+        .filter((g) => g.rodape)
+        .map((group) => (
+          <ul
+            key={group.label}
+            className={cn("space-y-0.5 border-t border-hairline px-3 py-2.5", barraRecolhida && "px-2")}
+          >
+            {group.items.map((item) => (
+              <li key={item.href}>
+                <ItemDoMenu item={item} pathname={pathname} recolhida={barraRecolhida} />
+              </li>
+            ))}
+          </ul>
+        ))}
 
       <div className="border-t border-hairline p-3">
         <div
@@ -160,7 +153,7 @@ export function Sidebar() {
           )}
         >
           <div className="relative shrink-0">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-[12px] font-bold text-white">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-nivel-4 text-[12px] font-semibold text-fg ring-1 ring-inset ring-anel">
               {iniciais(usuario?.nome ?? "")}
             </div>
             <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-ink bg-positive" />
@@ -207,7 +200,7 @@ function MarcaDaLoja({ configurada }: { configurada: boolean }) {
       className={cn(
         "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
         configurada
-          ? "bg-brand-500/12 text-brand-400 ring-1 ring-inset ring-brand-500/25"
+          ? "bg-nivel-4 text-fg-muted ring-1 ring-inset ring-anel"
           : "bg-nivel-3 text-fg-ghost ring-1 ring-inset ring-anel",
       )}
     >
@@ -242,7 +235,7 @@ function SeletorDeLoja({
         className="tile flex justify-center p-2"
         title={atual?.nome ?? "Nenhuma loja"}
       >
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-500/12 text-brand-400 ring-1 ring-inset ring-brand-500/25">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-nivel-4 text-fg-muted ring-1 ring-inset ring-anel">
           <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2} />
         </span>
       </div>
@@ -303,7 +296,7 @@ function SeletorDeLoja({
                 )}
                 {l.id === atualId && (
                   <Check
-                    className="h-3.5 w-3.5 shrink-0 text-brand-400"
+                    className="h-3.5 w-3.5 shrink-0 text-fg"
                     strokeWidth={2.5}
                   />
                 )}
@@ -328,37 +321,161 @@ function iniciais(nome: string) {
   );
 }
 
-/** Barra inferior para telas estreitas. */
+function itemAtivo(item: NavItem, pathname: string) {
+  if (item.externo) return false;
+  return pathname === item.href || (item.href !== "/" && pathname.startsWith(`${item.href}/`));
+}
+
+function ItemDoMenu({
+  item,
+  pathname,
+  recolhida,
+}: {
+  item: NavItem;
+  pathname: string;
+  recolhida: boolean;
+}) {
+  const active = itemAtivo(item, pathname);
+  const Icon = item.icon;
+  const classe = cn(
+    "selectable group flex items-center gap-3 overflow-hidden rounded-xl px-3 py-[7px] text-[13px] font-medium",
+    recolhida && "justify-center px-0",
+    active ? "text-fg" : "text-fg-muted hover:text-fg",
+  );
+  const conteudo = (
+    <>
+      <Icon
+        className={cn(
+          "h-[17px] w-[17px] shrink-0 transition-colors",
+          active ? "text-fg" : "text-fg-faint group-hover:text-fg-muted",
+        )}
+        strokeWidth={1.8}
+      />
+      {!recolhida && <span className="flex-1 truncate">{item.label}</span>}
+      {!recolhida && item.externo && (
+        <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-fg-ghost" strokeWidth={2} />
+      )}
+    </>
+  );
+
+  if (item.externo) {
+    return (
+      <a
+        href={item.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={recolhida ? item.label : undefined}
+        className={classe}
+      >
+        {conteudo}
+      </a>
+    );
+  }
+
+  return (
+    <Link
+      href={item.href}
+      data-selected={active}
+      title={recolhida ? item.label : undefined}
+      className={classe}
+    >
+      {conteudo}
+    </Link>
+  );
+}
+
+/**
+ * Barra inferior para telas estreitas.
+ *
+ * Cabem quatro atalhos e o "Mais". Antes eram os cinco primeiros itens e
+ * pronto: no celular não havia como chegar em Clientes, Catálogo ou
+ * Configurações.
+ */
 export function MobileNav() {
   const pathname = usePathname();
   const { usuario } = useSessao();
-  const items = menuDoPapel(usuario?.papel ?? null)
-    .flatMap((g) => g.items)
-    .slice(0, 5);
+  const [aberto, setAberto] = useState(false);
+  const grupos = menuDoPapel(usuario?.papel ?? null);
+  const todos = grupos.flatMap((g) => g.items);
+  const atalhos = ["/", "/conversas", "/pedidos", "/clientes"]
+    .map((href) => todos.find((i) => i.href === href))
+    .filter((i): i is NavItem => Boolean(i));
+  const maisAtivo = !atalhos.some((i) => itemAtivo(i, pathname));
 
   return (
-    <nav className="glass fixed inset-x-0 bottom-0 z-40 border-x-0 border-b-0 lg:hidden">
-      <ul className="flex items-stretch justify-around px-2 py-1.5">
-        {items.map((item) => {
-          const active = pathname === item.href || (item.href !== "/" && pathname.startsWith(`${item.href}/`));
-          const Icon = item.icon;
-          return (
-            <li key={item.href} className="flex-1">
-              <Link
-                href={item.href}
-                className={cn(
-                  "flex flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] font-medium transition-colors",
-                  active ? "text-brand-400" : "text-fg-faint",
-                )}
+    <>
+      {aberto && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            aria-label="Fechar menu"
+            onClick={() => setAberto(false)}
+            className="absolute inset-0 bg-veu"
+          />
+          <div
+            data-lenis-prevent
+            className="glass-solid absolute inset-x-0 bottom-0 max-h-[80dvh] overflow-y-auto rounded-t-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+            style={{ animation: "rise 0.22s cubic-bezier(0.16,1,0.3,1) both" }}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-[14px] font-semibold text-fg">Menu</p>
+              <button
+                onClick={() => setAberto(false)}
+                aria-label="Fechar menu"
+                className="rounded-lg p-2 text-fg-muted hover:bg-nivel-3"
               >
-                <Icon className="h-[18px] w-[18px]" strokeWidth={1.8} />
-                <span className="truncate">{item.curto}</span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
+                <X className="h-4 w-4" strokeWidth={2} />
+              </button>
+            </div>
+            {grupos.map((g) => (
+              <div key={g.label} className="mb-3">
+                <p className="eyebrow px-3 pb-1.5">{g.label}</p>
+                <ul onClick={() => setAberto(false)}>
+                  {g.items.map((item) => (
+                    <li key={item.href}>
+                      <ItemDoMenu item={item} pathname={pathname} recolhida={false} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <nav className="glass fixed inset-x-0 bottom-0 z-40 border-x-0 border-b-0 pb-[env(safe-area-inset-bottom)] lg:hidden">
+        <ul className="flex items-stretch justify-around px-2 py-1.5">
+          {atalhos.map((item) => {
+            const active = itemAtivo(item, pathname);
+            const Icon = item.icon;
+            return (
+              <li key={item.href} className="flex-1">
+                <Link
+                  href={item.href}
+                  className={cn(
+                    "flex flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] font-medium transition-colors",
+                    active ? "text-fg" : "text-fg-faint",
+                  )}
+                >
+                  <Icon className="h-[18px] w-[18px]" strokeWidth={1.8} />
+                  <span className="truncate">{item.curto}</span>
+                </Link>
+              </li>
+            );
+          })}
+          <li className="flex-1">
+            <button
+              onClick={() => setAberto(true)}
+              className={cn(
+                "flex w-full flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] font-medium transition-colors",
+                maisAtivo ? "text-fg" : "text-fg-faint",
+              )}
+            >
+              <Menu className="h-[18px] w-[18px]" strokeWidth={1.8} />
+              <span>Mais</span>
+            </button>
+          </li>
+        </ul>
+      </nav>
+    </>
   );
 }
 

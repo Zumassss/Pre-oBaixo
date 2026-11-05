@@ -14,37 +14,14 @@ import { useSessao } from "@/lib/db/use-db";
 import { cn } from "@/lib/utils";
 
 /**
- * Camadas de luz por trás de toda a interface.
+ * Fundo da interface.
  *
- * A força da aura e da vinheta vem de ficha, não de número solto: no tema
- * claro elas quase somem, senão a tela inteira fica com cara de tingida de
- * rosa em vez de branca.
+ * Já teve aura vermelha, malha e vinheta. Somadas ao vermelho dos botões,
+ * deixavam a tela carregada o dia inteiro. Ficou o fundo liso: quem dá
+ * profundidade agora são os painéis, não a atmosfera.
  */
 function Backdrop() {
-  return (
-    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-void">
-      <div
-        className="absolute -top-[340px] left-1/2 h-[760px] w-[1100px] -translate-x-1/2 aura-brand"
-        style={{ opacity: "var(--aura-opacidade)" }}
-      />
-      <div
-        className="absolute -bottom-[280px] right-[6%] h-[520px] w-[520px] rounded-full"
-        style={{
-          background:
-            "radial-gradient(circle, color-mix(in oklab, var(--color-brand-800) 55%, transparent), transparent 70%)",
-          opacity: "var(--aura-opacidade)",
-        }}
-      />
-      <div
-        className="absolute inset-0 grid-mesh opacity-60"
-        style={{
-          maskImage:
-            "radial-gradient(ellipse 90% 62% at 50% 0%, #000 20%, transparent 78%)",
-        }}
-      />
-      <div className="absolute inset-0 vinheta" />
-    </div>
-  );
+  return <div className="pointer-events-none fixed inset-0 -z-10 bg-void" />;
 }
 
 /**

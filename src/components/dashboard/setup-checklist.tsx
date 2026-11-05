@@ -65,7 +65,7 @@ export function SetupChecklist() {
                 "group flex h-full items-start gap-2.5 rounded-xl border p-3 transition-colors",
                 passo.pronto
                   ? "border-positive/25 bg-positive/[0.06]"
-                  : "border-hairline bg-nivel-1 hover:border-brand-500/35 hover:bg-nivel-3",
+                  : "border-hairline bg-nivel-1 hover:border-hairline-strong hover:bg-nivel-3",
               )}
             >
               <span className="mt-0.5 shrink-0">
@@ -90,7 +90,7 @@ export function SetupChecklist() {
               </span>
               {!passo.pronto && (
                 <ArrowRight
-                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-fg-ghost transition-transform group-hover:translate-x-0.5 group-hover:text-brand-400"
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-fg-ghost transition-transform group-hover:translate-x-0.5 group-hover:text-fg"
                   strokeWidth={2}
                 />
               )}

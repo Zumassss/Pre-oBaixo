@@ -16,7 +16,7 @@ export function Thead({ columns }: { columns: string[] }) {
           <th
             key={column}
             className={cn(
-              "whitespace-nowrap px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-fg-faint",
+              "whitespace-nowrap px-4 py-2.5 text-[12px] font-medium text-fg-faint",
               i === columns.length - 1 && "text-right",
             )}
           >
@@ -48,7 +48,7 @@ export function Tr({
         onClick && "cursor-pointer",
       )}
       style={{
-        animation: `rise 0.45s cubic-bezier(0.16,1,0.3,1) ${Math.min(index, 12) * 35}ms both`,
+        animation: `rise 0.35s cubic-bezier(0.16,1,0.3,1) ${Math.min(index, 8) * 25}ms both`,
       }}
     >
       {children}

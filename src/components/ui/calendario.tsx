@@ -150,9 +150,9 @@ function Mes({
               aria-pressed={ehSelecionado}
               className={cn(
                 "tnum relative flex h-9 items-center justify-center text-[12.5px] transition-colors",
-                noMeio && "bg-brand-500/[0.12]",
-                iso === inicio && fimEfetivo && "rounded-l-full bg-brand-500/[0.12]",
-                iso === fimEfetivo && inicio && "rounded-r-full bg-brand-500/[0.12]",
+                noMeio && "bg-nivel-3",
+                iso === inicio && fimEfetivo && "rounded-l-full bg-nivel-3",
+                iso === fimEfetivo && inicio && "rounded-r-full bg-nivel-3",
                 bloqueado && "cursor-not-allowed opacity-30",
               )}
             >
@@ -160,12 +160,12 @@ function Mes({
                 className={cn(
                   "flex h-8 w-8 items-center justify-center rounded-full",
                   ehSelecionado
-                    ? "bg-brand-500 font-semibold text-white"
+                    ? "bg-acao font-semibold text-acao-fg"
                     : foraDoMes
                       ? "text-fg-ghost"
                       : "text-fg",
                   !ehSelecionado && !bloqueado && "hover:bg-nivel-3",
-                  iso === hoje && !ehSelecionado && "ring-1 ring-inset ring-brand-500/60",
+                  iso === hoje && !ehSelecionado && "ring-1 ring-inset ring-hairline-strong",
                 )}
               >
                 {d.getDate()}
@@ -256,7 +256,7 @@ export function SeletorPeriodo({
                 }}
                 className={cn(
                   "rounded-lg px-3 py-1.5 text-left text-[12.5px] transition-colors",
-                  atalhoAtual?.rotulo === a.rotulo ? "bg-brand-500/[0.14] font-medium text-fg" : "text-fg-muted hover:bg-nivel-3 hover:text-fg",
+                  atalhoAtual?.rotulo === a.rotulo ? "bg-nivel-3 font-medium text-fg" : "text-fg-muted hover:bg-nivel-3 hover:text-fg",
                 )}
               >
                 {a.rotulo}
@@ -378,7 +378,7 @@ export function SeletorDataHora({
                     onMudar(v);
                     setMes(deIso(v.split("T")[0]));
                   }}
-                  className="chip transition-colors hover:border-brand-500/40 hover:text-fg"
+                  className="chip transition-colors hover:border-hairline-strong hover:text-fg"
                 >
                   {r}
                 </button>
@@ -411,7 +411,7 @@ export function SeletorDataHora({
                     aria-pressed={h === hora}
                     className={cn(
                       "tnum rounded-lg px-3 py-1.5 text-[12.5px] transition-colors",
-                      h === hora ? "bg-brand-500 font-semibold text-white" : "text-fg-muted hover:bg-nivel-3 hover:text-fg",
+                      h === hora ? "bg-acao font-semibold text-acao-fg" : "text-fg-muted hover:bg-nivel-3 hover:text-fg",
                     )}
                   >
                     {h}

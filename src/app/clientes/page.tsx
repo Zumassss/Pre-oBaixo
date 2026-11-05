@@ -1,45 +1,62 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { MessageCircle, Search, Tag, UserPlus, Users } from "lucide-react";
-import { PageHeader, Panel } from "@/components/ui/panel";
-import { Table, Td, Thead, Tr } from "@/components/ui/table";
+import { Suspense, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { ChevronRight, MessageCircle, Search, UserPlus, Users } from "lucide-react";
+import { PageHeader } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Modal, Campo, Entrada, AreaTexto } from "@/components/ui/modal";
-import { Reveal } from "@/components/ui/reveal";
 import { useAppState } from "@/components/providers/app-state";
 import { FichaCliente } from "@/components/clientes/ficha";
-import { CORES_SITUACAO } from "@/components/clientes/situacao";
-import { indexarClientes } from "@/lib/clientes";
-import { criarCliente, useBanco } from "@/lib/db/use-db";
+import { PONTO_SITUACAO } from "@/components/clientes/situacao";
+import { indexarClientes, resumoDeCompras } from "@/lib/clientes";
+import { useBanco } from "@/lib/db/use-db";
 import { SITUACAO_LABEL, type SituacaoCliente } from "@/lib/db/types";
 import { cn, formatBRLCents } from "@/lib/utils";
 
-const FORM_VAZIO = {
-  nome: "",
-  telefone: "",
-  endereco: "",
-  consentimento: false,
-  observacao: "",
-};
-
 const SITUACOES: SituacaoCliente[] = ["comprou", "nao_fechou", "orcou", "so_conversou", "cancelou", "sem_contato"];
+
+type Origem = "todas" | "whatsapp" | "balcao";
+type Campanha = "todos" | "sim" | "nao";
+type Ordem = "recentes" | "nome" | "compras" | "gasto" | "aniversario";
 
 function quando(em: number) {
   if (!em) return "—";
   return new Date(em).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 
+/** Dias até o próximo aniversário, para ordenar quem faz anos primeiro. */
+function diasAteAniversario(iso: string, hoje: Date) {
+  const [, mes, dia] = iso.split("-").map(Number);
+  if (!mes || !dia) return Infinity;
+  const base = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+  let proximo = new Date(hoje.getFullYear(), mes - 1, dia);
+  if (proximo < base) proximo = new Date(hoje.getFullYear() + 1, mes - 1, dia);
+  return Math.round((proximo.getTime() - base.getTime()) / 86_400_000);
+}
+
 export default function ClientesPage() {
+  // O Suspense é exigido pelo Next para ler "?c=" (a ficha que outra tela,
+  // como Conversas, mandou abrir) numa página gerada de antemão.
+  return (
+    <Suspense>
+      <Clientes />
+    </Suspense>
+  );
+}
+
+function Clientes() {
   const { banco, carregado } = useBanco();
   const { busca } = useAppState();
+  const parametros = useSearchParams();
+
   const [buscaLocal, setBuscaLocal] = useState("");
   const [situacao, setSituacao] = useState<SituacaoCliente | "todas">("todas");
   const [etiqueta, setEtiqueta] = useState("");
-  const [soWhatsapp, setSoWhatsapp] = useState(false);
-  const [aberto, setAberto] = useState(false);
-  const [form, setForm] = useState(FORM_VAZIO);
-  const [fichaId, setFichaId] = useState<string | null>(null);
+  const [origem, setOrigem] = useState<Origem>("todas");
+  const [campanha, setCampanha] = useState<Campanha>("todos");
+  const [ordem, setOrdem] = useState<Ordem>("recentes");
+  // "novo" = cadastro; id = ficha aberta. Começa pela ficha pedida no link.
+  const [fichaId, setFichaId] = useState<string | null>(parametros.get("c"));
 
   const termo = (buscaLocal || busca).toLowerCase().trim();
 
@@ -60,257 +77,295 @@ export default function ClientesPage() {
     return total;
   }, [banco.clientes, indice]);
 
-  // Mais recente primeiro: quem acabou de escrever está no topo.
   const visiveis = useMemo(() => {
     const digitos = termo.replace(/\D/g, "");
+    const hoje = new Date();
+    const contato = (id: string, criadoEm: number) => Math.max(indice.get(id)?.ultimaConversaEm ?? 0, criadoEm);
     return banco.clientes
       .filter((c) => {
-        const dados = indice.get(c.id);
-        if (situacao !== "todas" && dados?.situacao !== situacao) return false;
+        if (situacao !== "todas" && indice.get(c.id)?.situacao !== situacao) return false;
         if (etiqueta && !c.etiquetas.includes(etiqueta)) return false;
-        if (soWhatsapp && c.primeiraMensagemEm <= 0) return false;
+        if (origem === "whatsapp" && c.primeiraMensagemEm <= 0) return false;
+        if (origem === "balcao" && c.primeiraMensagemEm > 0) return false;
+        if (campanha === "sim" && !c.consentimento) return false;
+        if (campanha === "nao" && c.consentimento) return false;
         if (!termo) return true;
         return (
           c.nome.toLowerCase().includes(termo) ||
-          (digitos.length > 0 && c.telefone.replace(/\D/g, "").includes(digitos)) ||
+          (digitos.length > 0 && (c.telefone + c.telefone2).replace(/\D/g, "").includes(digitos)) ||
+          c.email.toLowerCase().includes(termo) ||
+          c.bairro.toLowerCase().includes(termo) ||
           c.etiquetas.some((e) => e.toLowerCase().includes(termo))
         );
       })
-      .sort(
-        (a, b) =>
-          Math.max(indice.get(b.id)?.ultimaConversaEm ?? 0, b.criadoEm) -
-          Math.max(indice.get(a.id)?.ultimaConversaEm ?? 0, a.criadoEm),
-      );
-  }, [banco.clientes, indice, situacao, etiqueta, soWhatsapp, termo]);
+      .sort((a, b) => {
+        if (ordem === "nome") return a.nome.localeCompare(b.nome, "pt-BR");
+        if (ordem === "compras")
+          return resumoDeCompras(b, indice.get(b.id)?.pedidos).quantidade - resumoDeCompras(a, indice.get(a.id)?.pedidos).quantidade;
+        if (ordem === "gasto")
+          return resumoDeCompras(b, indice.get(b.id)?.pedidos).total - resumoDeCompras(a, indice.get(a.id)?.pedidos).total;
+        if (ordem === "aniversario")
+          return diasAteAniversario(a.nascimento, hoje) - diasAteAniversario(b.nascimento, hoje);
+        return contato(b.id, b.criadoEm) - contato(a.id, a.criadoEm);
+      });
+  }, [banco.clientes, indice, situacao, etiqueta, origem, campanha, ordem, termo]);
 
-  function salvar(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.nome.trim() || !form.telefone.trim()) return;
-    criarCliente({
-      nome: form.nome.trim(),
-      telefone: form.telefone.trim(),
-      endereco: form.endereco.trim(),
-      consentimento: form.consentimento,
-      observacao: form.observacao.trim(),
-      origem: "manual",
-    });
-    setForm(FORM_VAZIO);
-    setAberto(false);
+  const filtrando =
+    situacao !== "todas" || Boolean(etiqueta) || origem !== "todas" || campanha !== "todos" || Boolean(buscaLocal);
+
+  function limpar() {
+    setSituacao("todas");
+    setEtiqueta("");
+    setOrigem("todas");
+    setCampanha("todos");
+    setBuscaLocal("");
   }
 
-  const ficha = fichaId ? banco.clientes.find((c) => c.id === fichaId) : null;
-  const doWhatsapp = banco.clientes.filter((c) => c.primeiraMensagemEm > 0).length;
-  const faturado = banco.clientes.reduce((s, c) => s + c.compras.total, 0);
-  const filtrando = situacao !== "todas" || Boolean(etiqueta) || soWhatsapp || Boolean(termo);
+  const ficha = fichaId && fichaId !== "novo" ? banco.clientes.find((c) => c.id === fichaId) : null;
+  const autorizaram = banco.clientes.filter((c) => c.consentimento).length;
 
   return (
-    <div className="mx-auto max-w-[1560px]">
+    <div className="mx-auto max-w-[1440px]">
       <PageHeader
         title="Clientes"
-        description="Todo mundo que falou com a loja no WhatsApp entra aqui sozinho, com o número real."
+        description="Quem fala com a loja no WhatsApp entra aqui sozinho. Quem compra no balcão, você cadastra."
         action={
-          <button onClick={() => setAberto(true)} className="btn-primary">
+          <button onClick={() => setFichaId("novo")} className="btn-primary">
             <UserPlus className="h-4 w-4" strokeWidth={2} />
             Novo cliente
           </button>
         }
       />
 
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {[
-          { label: "Clientes", valor: String(banco.clientes.length), dica: `${doWhatsapp} vieram do WhatsApp` },
-          { label: "Compraram", valor: String(contagem.comprou), dica: `${formatBRLCents(faturado)} no total` },
-          {
-            label: "Oportunidades",
-            valor: String(contagem.nao_fechou + contagem.orcou),
-            dica: `${contagem.nao_fechou} não fecharam o pedido`,
-          },
-          {
-            label: "Aceitam campanha",
-            valor: String(banco.clientes.filter((c) => c.consentimento).length),
-            dica: "com consentimento registrado",
-          },
-        ].map((stat, i) => (
-          <Reveal
-            key={stat.label}
-            className="tile p-4"
-            style={{ animation: `rise 0.5s cubic-bezier(0.16,1,0.3,1) ${i * 60}ms both` }}
-          >
-            <p className="text-[12px] text-fg-muted">{stat.label}</p>
-            <p className="tnum mt-2 text-[23px] font-semibold leading-none tracking-[-0.03em] text-fg">
-              {carregado ? stat.valor : "0"}
-            </p>
-            <p className="mt-1.5 truncate text-[11px] text-fg-ghost">{stat.dica}</p>
-          </Reveal>
-        ))}
-      </div>
-
-      <Panel>
-        {/* Filtros */}
-        <div className="space-y-3 border-b border-hairline p-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative min-w-[220px] flex-1">
-              <Search
-                className="pointer-events-none absolute left-3.5 top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-fg-ghost"
-                strokeWidth={2}
-              />
-              <input
-                value={buscaLocal}
-                onChange={(e) => setBuscaLocal(e.target.value)}
-                className="field !py-2 !pl-9.5 !text-[12.5px]"
-                placeholder="Buscar por nome, telefone ou etiqueta"
-                aria-label="Buscar cliente"
-              />
-            </div>
-            {etiquetasDaLoja.length > 0 && (
-              <label className="relative">
-                <span className="sr-only">Filtrar por etiqueta</span>
-                <Tag
-                  className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-ghost"
+      {banco.clientes.length === 0 && carregado ? (
+        <div className="panel">
+          <EmptyState
+            icon={Users}
+            title="Nenhum cliente ainda"
+            description="Quem escrever para a loja no WhatsApp aparece aqui sozinho. Você também pode cadastrar quem compra no balcão."
+            action={
+              <button onClick={() => setFichaId("novo")} className="btn-primary">
+                <UserPlus className="h-4 w-4" strokeWidth={2} />
+                Cadastrar cliente
+              </button>
+            }
+          />
+        </div>
+      ) : (
+        <div className="panel overflow-hidden">
+          {/* Busca e filtros. Situação é o filtro principal, por isso fica
+              em botões; os outros são escolhas de uma lista. */}
+          <div className="space-y-3 border-b border-hairline p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative min-w-[240px] flex-1">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-fg-ghost"
                   strokeWidth={2}
                 />
+                <input
+                  value={buscaLocal}
+                  onChange={(e) => setBuscaLocal(e.target.value)}
+                  className="field !py-2 !pl-9 !text-[13px]"
+                  placeholder="Buscar nome, telefone, e-mail, bairro ou etiqueta"
+                  aria-label="Buscar cliente"
+                />
+              </div>
+              <select
+                value={origem}
+                onChange={(e) => setOrigem(e.target.value as Origem)}
+                aria-label="Origem"
+                className="field !w-auto !py-2 !pr-8 !text-[13px]"
+              >
+                <option value="todas">Qualquer origem</option>
+                <option value="whatsapp">Escreveu no WhatsApp</option>
+                <option value="balcao">Cadastrado na loja</option>
+              </select>
+              <select
+                value={campanha}
+                onChange={(e) => setCampanha(e.target.value as Campanha)}
+                aria-label="Campanha"
+                className="field !w-auto !py-2 !pr-8 !text-[13px]"
+              >
+                <option value="todos">Campanha: todos</option>
+                <option value="sim">Autorizou campanha</option>
+                <option value="nao">Não autorizou</option>
+              </select>
+              {etiquetasDaLoja.length > 0 && (
                 <select
                   value={etiqueta}
                   onChange={(e) => setEtiqueta(e.target.value)}
-                  className="field !w-auto !py-2 !pl-9 !pr-8 !text-[12.5px]"
+                  aria-label="Etiqueta"
+                  className="field !w-auto !py-2 !pr-8 !text-[13px]"
                 >
-                  <option value="">Todas as etiquetas</option>
+                  <option value="">Qualquer etiqueta</option>
                   {etiquetasDaLoja.map((e) => (
                     <option key={e} value={e}>
                       {e}
                     </option>
                   ))}
                 </select>
-              </label>
-            )}
-            <button
-              onClick={() => setSoWhatsapp((v) => !v)}
-              aria-pressed={soWhatsapp}
-              className={cn("chip !py-2 transition-colors", soWhatsapp && "chip-hot")}
-            >
-              <MessageCircle className="h-3.5 w-3.5" strokeWidth={2} />
-              Só quem escreveu no WhatsApp
-            </button>
-          </div>
-          <div className="no-scrollbar flex gap-1.5 overflow-x-auto" role="group" aria-label="Filtrar por situação">
-            <button
-              onClick={() => setSituacao("todas")}
-              aria-pressed={situacao === "todas"}
-              className={cn("chip shrink-0 transition-colors", situacao === "todas" && "chip-hot")}
-            >
-              Todos <span className="tnum opacity-60">{banco.clientes.length}</span>
-            </button>
-            {SITUACOES.map((s) => (
-              <button
-                key={s}
-                onClick={() => setSituacao(situacao === s ? "todas" : s)}
-                aria-pressed={situacao === s}
-                className={cn("chip shrink-0 transition-colors", situacao === s && "chip-hot")}
+              )}
+              <select
+                value={ordem}
+                onChange={(e) => setOrdem(e.target.value as Ordem)}
+                aria-label="Ordenar"
+                className="field !w-auto !py-2 !pr-8 !text-[13px]"
               >
-                {SITUACAO_LABEL[s]} <span className="tnum opacity-60">{contagem[s]}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+                <option value="recentes">Ordem: contato mais recente</option>
+                <option value="nome">Ordem: nome</option>
+                <option value="compras">Ordem: mais pedidos</option>
+                <option value="gasto">Ordem: maior gasto</option>
+                <option value="aniversario">Ordem: próximo aniversário</option>
+              </select>
+            </div>
 
-        {banco.clientes.length === 0 ? (
-          <EmptyState
-            icon={Users}
-            title="Nenhum cliente ainda"
-            description="Quem escrever para a loja no WhatsApp aparece aqui sozinho. Você também pode cadastrar quem compra no balcão."
-            action={
-              <button onClick={() => setAberto(true)} className="btn-primary">
-                <UserPlus className="h-4 w-4" strokeWidth={2} />
-                Cadastrar cliente
-              </button>
-            }
-          />
-        ) : visiveis.length === 0 ? (
-          <EmptyState
-            icon={Search}
-            title="Ninguém com estes filtros"
-            description="Tire um dos filtros para ver mais gente."
-            action={
-              filtrando ? (
+            <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Filtrar por situação">
+              <BotaoFiltro ativo={situacao === "todas"} onClick={() => setSituacao("todas")} rotulo="Todos" total={banco.clientes.length} />
+              {SITUACOES.map((s) =>
+                contagem[s] === 0 && situacao !== s ? null : (
+                  <BotaoFiltro
+                    key={s}
+                    ativo={situacao === s}
+                    onClick={() => setSituacao(situacao === s ? "todas" : s)}
+                    rotulo={SITUACAO_LABEL[s]}
+                    total={contagem[s]}
+                  />
+                ),
+              )}
+              {filtrando && (
                 <button
-                  onClick={() => {
-                    setSituacao("todas");
-                    setEtiqueta("");
-                    setSoWhatsapp(false);
-                    setBuscaLocal("");
-                  }}
-                  className="btn-ghost"
+                  onClick={limpar}
+                  className="ml-auto rounded-lg px-2.5 py-1 text-[12.5px] text-fg-faint transition-colors hover:text-fg"
                 >
                   Limpar filtros
                 </button>
-              ) : undefined
-            }
-          />
-        ) : (
-          <Table>
-            <Thead columns={["Cliente", "Telefone", "Situação", "Compras", "Último contato"]} />
-            <tbody>
-              {visiveis.map((cliente, i) => {
-                const dados = indice.get(cliente.id);
-                const s = dados?.situacao ?? "sem_contato";
+              )}
+            </div>
+          </div>
+
+          {visiveis.length === 0 ? (
+            <EmptyState
+              icon={Search}
+              title="Ninguém com estes filtros"
+              description="Tire um dos filtros para ver mais gente."
+              action={
+                filtrando ? (
+                  <button onClick={limpar} className="btn-ghost">
+                    Limpar filtros
+                  </button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <>
+            {/* No celular, lista: a tabela não cabe sem rolar de lado. */}
+            <ul className="divide-y divide-hairline md:hidden">
+              {visiveis.map((cliente) => {
+                const s = indice.get(cliente.id)?.situacao ?? "sem_contato";
                 return (
-                  <Tr key={cliente.id} index={i}>
-                    <Td>
-                      <button
-                        onClick={() => setFichaId(cliente.id)}
-                        className="group flex w-full items-center gap-2.5 text-left"
-                      >
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-surface-3 to-surface text-[10.5px] font-semibold text-fg-muted ring-1 ring-inset ring-anel">
-                          {cliente.nome.split(" ").filter(Boolean).slice(0, 2).map((n) => n[0]).join("").toUpperCase() || "?"}
-                        </span>
-                        <span className="min-w-0">
-                          <span className="flex items-center gap-1.5">
-                            <span className="truncate font-medium text-fg transition-colors group-hover:text-brand-400">
-                              {cliente.nome}
-                            </span>
-                            {cliente.primeiraMensagemEm > 0 && (
-                              <MessageCircle className="h-3 w-3 shrink-0 text-fg-ghost" strokeWidth={2} aria-label="Escreveu pelo WhatsApp" />
-                            )}
-                          </span>
-                          {cliente.etiquetas.length > 0 && (
-                            <span className="mt-0.5 flex flex-wrap gap-1">
-                              {cliente.etiquetas.slice(0, 3).map((e) => (
-                                <span key={e} className="rounded-full bg-nivel-3 px-1.5 py-px text-[9.5px] font-medium text-fg-muted">
-                                  {e}
-                                </span>
-                              ))}
-                              {cliente.etiquetas.length > 3 && (
-                                <span className="text-[9.5px] text-fg-ghost">+{cliente.etiquetas.length - 3}</span>
-                              )}
-                            </span>
-                          )}
-                        </span>
-                      </button>
-                    </Td>
-                    <Td className="tnum font-mono">{cliente.telefone}</Td>
-                    <Td>
-                      <span className={cn("chip", CORES_SITUACAO[s])}>{SITUACAO_LABEL[s]}</span>
-                    </Td>
-                    <Td className="tnum">
-                      {cliente.compras.quantidade > 0 ? (
-                        <span>
-                          {cliente.compras.quantidade} · <span className="text-fg">{formatBRLCents(cliente.compras.total)}</span>
-                        </span>
-                      ) : (
-                        <span className="text-fg-ghost">—</span>
-                      )}
-                    </Td>
-                    <Td className="text-fg-faint">
-                      {quando(Math.max(dados?.ultimaConversaEm ?? 0, cliente.compras.ultimaEm))}
-                    </Td>
-                  </Tr>
+                  <li key={cliente.id}>
+                    <button onClick={() => setFichaId(cliente.id)} className="selectable flex w-full items-center gap-3 px-4 py-3.5 text-left">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-nivel-4 text-[11px] font-semibold text-fg-muted">
+                        {cliente.nome.split(" ").filter(Boolean).slice(0, 2).map((n) => n[0]).join("").toUpperCase() || "?"}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[14px] font-medium text-fg">{cliente.nome}</span>
+                        <span className="tnum block text-[12px] text-fg-faint">{cliente.telefone}</span>
+                      </span>
+                      <span className={cn("estado shrink-0 !text-[11.5px]", PONTO_SITUACAO[s])}>{SITUACAO_LABEL[s]}</span>
+                    </button>
+                  </li>
                 );
               })}
-            </tbody>
-          </Table>
-        )}
-      </Panel>
+            </ul>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[760px] border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-hairline text-[12px] text-fg-faint">
+                    <th className="px-5 py-2.5 font-medium">Cliente</th>
+                    <th className="px-4 py-2.5 font-medium">Telefone</th>
+                    <th className="px-4 py-2.5 font-medium">Situação</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Compras</th>
+                    <th className="px-4 py-2.5 font-medium">Último contato</th>
+                    <th className="w-[1%] px-4 py-2.5" aria-label="Abrir" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {visiveis.map((cliente) => {
+                    const dados = indice.get(cliente.id);
+                    const s = dados?.situacao ?? "sem_contato";
+                    const compras = resumoDeCompras(cliente, dados?.pedidos);
+                    return (
+                      <tr
+                        key={cliente.id}
+                        onClick={() => setFichaId(cliente.id)}
+                        className="selectable group cursor-pointer border-b border-hairline last:border-0"
+                      >
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-3">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-nivel-4 text-[11px] font-semibold text-fg-muted">
+                              {cliente.nome.split(" ").filter(Boolean).slice(0, 2).map((n) => n[0]).join("").toUpperCase() || "?"}
+                            </span>
+                            <span className="min-w-0">
+                              <span className="flex items-center gap-1.5">
+                                <span className="truncate text-[13.5px] font-medium text-fg">{cliente.nome}</span>
+                                {cliente.primeiraMensagemEm > 0 && (
+                                  <MessageCircle className="h-3 w-3 shrink-0 text-fg-ghost" strokeWidth={2} aria-label="Escreveu pelo WhatsApp" />
+                                )}
+                              </span>
+                              {(cliente.etiquetas.length > 0 || cliente.bairro) && (
+                                <span className="mt-0.5 block truncate text-[12px] text-fg-faint">
+                                  {[cliente.bairro, ...cliente.etiquetas].filter(Boolean).join(" · ")}
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="tnum whitespace-nowrap px-4 py-3 text-[13px] text-fg-muted">{cliente.telefone}</td>
+                        <td className="whitespace-nowrap px-4 py-3">
+                          <span className={cn("estado", PONTO_SITUACAO[s])}>{SITUACAO_LABEL[s]}</span>
+                        </td>
+                        <td className="tnum whitespace-nowrap px-4 py-3 text-right text-[13px]">
+                          {compras.quantidade > 0 ? (
+                            <span className="text-fg">
+                              {formatBRLCents(compras.total)}
+                              <span className="ml-1.5 text-fg-ghost">em {compras.quantidade}</span>
+                            </span>
+                          ) : (
+                            <span className="text-fg-ghost">—</span>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-[13px] text-fg-faint">
+                          {quando(Math.max(dados?.ultimaConversaEm ?? 0, compras.ultimaEm))}
+                        </td>
+                        <td className="px-4 py-3">
+                          <ChevronRight className="h-4 w-4 text-fg-ghost transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            </>
+          )}
 
+          <p className="border-t border-hairline px-5 py-3 text-[12px] text-fg-faint">
+            {visiveis.length} de {banco.clientes.length} clientes · {autorizaram} autorizaram campanha. Clique num
+            cliente para ver a ficha, editar e ver o histórico.
+          </p>
+        </div>
+      )}
+
+      {fichaId === "novo" && (
+        <FichaCliente
+          cliente={null}
+          indice={undefined}
+          lojaId={banco.loja.id}
+          etiquetasDaLoja={etiquetasDaLoja}
+          onFechar={() => setFichaId(null)}
+        />
+      )}
       {ficha && (
         <FichaCliente
           key={ficha.id}
@@ -321,75 +376,32 @@ export default function ClientesPage() {
           onFechar={() => setFichaId(null)}
         />
       )}
-
-      <Modal
-        aberto={aberto}
-        titulo="Novo cliente"
-        descricao="Para quem compra no balcão ou por telefone. Quem escreve no WhatsApp entra sozinho."
-        onFechar={() => setAberto(false)}
-      >
-        <form onSubmit={salvar} className="space-y-4">
-          <Campo label="Nome completo">
-            <Entrada
-              value={form.nome}
-              onChange={(e) => setForm({ ...form, nome: e.target.value })}
-              placeholder="Ex: Ana Paula Ribeiro"
-              required
-              autoFocus
-            />
-          </Campo>
-
-          <Campo label="Telefone com DDD" hint="Se a pessoa escrever no WhatsApp depois, o cadastro é o mesmo.">
-            <Entrada
-              value={form.telefone}
-              onChange={(e) => setForm({ ...form, telefone: e.target.value })}
-              placeholder="Ex: 27 99999-0000"
-              required
-            />
-          </Campo>
-
-          <Campo label="Endereço (opcional)" hint="Só é necessário se o cliente for receber por motoboy.">
-            <Entrada
-              value={form.endereco}
-              onChange={(e) => setForm({ ...form, endereco: e.target.value })}
-              placeholder="Ex: Rua das Acácias, 45, ap. 202 - Centro"
-            />
-          </Campo>
-
-          <Campo label="Observação (opcional)">
-            <AreaTexto
-              value={form.observacao}
-              onChange={(e) => setForm({ ...form, observacao: e.target.value })}
-              placeholder="Algo que a equipe precise saber"
-              rows={2}
-            />
-          </Campo>
-
-          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-hairline bg-nivel-1 p-3">
-            <input
-              type="checkbox"
-              checked={form.consentimento}
-              onChange={(e) => setForm({ ...form, consentimento: e.target.checked })}
-              className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-brand-500)]"
-            />
-            <span>
-              <span className="block text-[12.5px] font-medium text-fg">Autoriza receber mensagens da loja</span>
-              <span className="mt-0.5 block text-[11.5px] leading-relaxed text-fg-faint">
-                Marque só se a pessoa disse que aceita. Sem isto, ela não entra em nenhuma campanha.
-              </span>
-            </span>
-          </label>
-
-          <div className="flex justify-end gap-2 pt-1">
-            <button type="button" onClick={() => setAberto(false)} className="btn-ghost">
-              Cancelar
-            </button>
-            <button type="submit" className="btn-primary">
-              Cadastrar
-            </button>
-          </div>
-        </form>
-      </Modal>
     </div>
+  );
+}
+
+function BotaoFiltro({
+  ativo,
+  onClick,
+  rotulo,
+  total,
+}: {
+  ativo: boolean;
+  onClick: () => void;
+  rotulo: string;
+  total: number;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={ativo}
+      className={cn(
+        "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12.5px] font-medium transition-colors",
+        ativo ? "bg-nivel-4 text-fg" : "text-fg-muted hover:bg-nivel-2 hover:text-fg",
+      )}
+    >
+      {rotulo}
+      <span className="tnum text-[11px] opacity-60">{total}</span>
+    </button>
   );
 }

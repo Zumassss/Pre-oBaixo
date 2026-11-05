@@ -163,7 +163,7 @@ export default function AgentePage() {
             <span
               className={cn(
                 "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ring-1 ring-inset",
-                ligado ? "bg-brand-500/12 text-brand-400 ring-brand-500/30" : "bg-nivel-3 text-fg-ghost ring-anel",
+                ligado ? "bg-positive/10 text-positive ring-positive/25" : "bg-nivel-3 text-fg-ghost ring-anel",
               )}
             >
               <Bot className="h-5 w-5" strokeWidth={2} />
@@ -322,7 +322,7 @@ export default function AgentePage() {
                         ? "bg-caution/12 text-caution ring-caution/25"
                         : evento.tipo === "pergunta"
                           ? "bg-info/12 text-info ring-info/25"
-                          : "bg-brand-500/12 text-brand-400 ring-brand-500/25",
+                          : "bg-nivel-4 text-fg-muted ring-anel",
                     )}
                   >
                     <Activity className="h-3.5 w-3.5" strokeWidth={2} />

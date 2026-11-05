@@ -147,6 +147,9 @@ export function carregarExemplos(): VisaoLoja {
       estoqueMinimo: 60,
       promocao: 0,
       exigeReceita: false,
+      laboratorio: "",
+      principioAtivo: "Dipirona sódica",
+      codigoBarras: "",
       criadoEm: agora - 30 * 24 * HORA,
     },
     {
@@ -158,6 +161,9 @@ export function carregarExemplos(): VisaoLoja {
       estoqueMinimo: 50,
       promocao: 0,
       exigeReceita: true,
+      laboratorio: "",
+      principioAtivo: "Losartana potássica",
+      codigoBarras: "",
       criadoEm: agora - 30 * 24 * HORA,
     },
     {
@@ -169,6 +175,9 @@ export function carregarExemplos(): VisaoLoja {
       estoqueMinimo: 40,
       promocao: 0,
       exigeReceita: true,
+      laboratorio: "",
+      principioAtivo: "Amoxicilina",
+      codigoBarras: "",
       criadoEm: agora - 28 * 24 * HORA,
     },
     {
@@ -180,6 +189,9 @@ export function carregarExemplos(): VisaoLoja {
       estoqueMinimo: 50,
       promocao: 0,
       exigeReceita: false,
+      laboratorio: "",
+      principioAtivo: "Omeprazol",
+      codigoBarras: "",
       criadoEm: agora - 25 * 24 * HORA,
     },
     {
@@ -191,6 +203,9 @@ export function carregarExemplos(): VisaoLoja {
       estoqueMinimo: 45,
       promocao: 0,
       exigeReceita: true,
+      laboratorio: "",
+      principioAtivo: "Cloridrato de metformina",
+      codigoBarras: "",
       criadoEm: agora - 20 * 24 * HORA,
     },
     {
@@ -202,6 +217,9 @@ export function carregarExemplos(): VisaoLoja {
       estoqueMinimo: 20,
       promocao: 0,
       exigeReceita: false,
+      laboratorio: "",
+      principioAtivo: "",
+      codigoBarras: "",
       criadoEm: agora - 18 * 24 * HORA,
     },
     {
@@ -213,6 +231,9 @@ export function carregarExemplos(): VisaoLoja {
       estoqueMinimo: 25,
       promocao: 0,
       exigeReceita: false,
+      laboratorio: "",
+      principioAtivo: "Colecalciferol",
+      codigoBarras: "",
       criadoEm: agora - 12 * 24 * HORA,
     },
     {
@@ -224,6 +245,9 @@ export function carregarExemplos(): VisaoLoja {
       estoqueMinimo: 30,
       promocao: 0,
       exigeReceita: false,
+      laboratorio: "",
+      principioAtivo: "",
+      codigoBarras: "",
       criadoEm: agora - 10 * 24 * HORA,
     },
   ];

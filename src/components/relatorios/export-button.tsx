@@ -6,6 +6,7 @@ import { useBanco } from "@/lib/db/use-db";
 import type { VisaoLoja } from "@/lib/db/types";
 import { cn } from "@/lib/utils";
 import { cabecalhoDaSessao } from "@/lib/db/local-db";
+import type { PeriodoRelatorio, TipoRelatorio } from "@/lib/relatorios";
 
 /**
  * Baixa a planilha de uma loja.
@@ -22,10 +23,17 @@ export function ExportButton({
   visao,
   somenteIcone = false,
   titulo,
+  relatorio,
+  periodo,
+  rotulo = "Baixar Excel",
 }: {
   visao?: VisaoLoja;
   somenteIcone?: boolean;
   titulo?: string;
+  /** Sem relatório, sai a planilha completa da loja (todos os cadastros). */
+  relatorio?: TipoRelatorio;
+  periodo?: PeriodoRelatorio;
+  rotulo?: string;
 } = {}) {
   const { banco: ativa } = useBanco();
   const banco = visao ?? ativa;
@@ -41,7 +49,7 @@ export function ExportButton({
       const res = await fetch("/api/relatorios/exportar", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...cabecalhoDaSessao() },
-        body: JSON.stringify(banco),
+        body: JSON.stringify(relatorio ? { visao: banco, relatorio, periodo } : banco),
       });
       if (!res.ok) throw new Error("falha ao gerar");
 
@@ -103,7 +111,7 @@ export function ExportButton({
           ? "Baixado"
           : estado === "erro"
             ? "Tentar de novo"
-            : "Baixar Excel"}
+            : rotulo}
     </button>
   );
 }

@@ -25,11 +25,11 @@ export function Interruptor({
       onClick={() => onAlternar(!ligado)}
       className={cn(
         "flex w-full items-start gap-3 rounded-xl border p-3 text-left transition-colors",
-        ligado ? "border-brand-500/35 bg-brand-500/[0.06]" : "border-hairline bg-nivel-1 hover:bg-nivel-2",
+        ligado ? "border-hairline-strong bg-nivel-2" : "border-hairline bg-nivel-1 hover:bg-nivel-2",
       )}
     >
       {Icone && (
-        <Icone className={cn("mt-0.5 h-4 w-4 shrink-0", ligado ? "text-brand-400" : "text-fg-ghost")} strokeWidth={2} />
+        <Icone className={cn("mt-0.5 h-4 w-4 shrink-0", ligado ? "text-fg" : "text-fg-ghost")} strokeWidth={2} />
       )}
       <span className="min-w-0 flex-1">
         <span className="block text-[12.5px] font-medium text-fg">{rotulo}</span>
@@ -39,7 +39,7 @@ export function Interruptor({
         aria-hidden
         className={cn(
           "mt-0.5 flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors",
-          ligado ? "bg-brand-500" : "bg-nivel-4",
+          ligado ? "bg-positive" : "bg-nivel-4",
         )}
       >
         <span
@@ -72,7 +72,7 @@ export function Opcao({
       className={cn(
         "flex items-center gap-2 rounded-full border px-3.5 py-2 text-[12.5px] transition-colors",
         marcada
-          ? "border-brand-500/45 bg-brand-500/[0.1] font-medium text-fg"
+          ? "border-hairline-strong bg-nivel-4 font-medium text-fg"
           : "border-hairline bg-nivel-1 text-fg-muted hover:bg-nivel-3",
       )}
     >
@@ -80,7 +80,7 @@ export function Opcao({
         aria-hidden
         className={cn(
           "flex h-4 w-4 items-center justify-center rounded-[5px] border",
-          marcada ? "border-brand-500 bg-brand-500 text-white" : "border-fg-ghost/60",
+          marcada ? "border-acao bg-acao text-acao-fg" : "border-fg-ghost/60",
         )}
       >
         {marcada && <Check className="h-3 w-3" strokeWidth={3} />}
@@ -115,11 +115,11 @@ export function Segmentado<T extends string>({
             onClick={() => onEscolher(v)}
             className={cn(
               "flex items-start gap-2.5 rounded-xl border p-3 text-left transition-colors",
-              ativo ? "border-brand-500/50 bg-brand-500/[0.1]" : "border-hairline bg-nivel-1 hover:bg-nivel-3",
+              ativo ? "border-hairline-strong bg-nivel-3" : "border-hairline bg-nivel-1 hover:bg-nivel-3",
             )}
           >
             {Icone && (
-              <Icone className={cn("mt-0.5 h-4 w-4 shrink-0", ativo ? "text-brand-400" : "text-fg-ghost")} strokeWidth={2} />
+              <Icone className={cn("mt-0.5 h-4 w-4 shrink-0", ativo ? "text-fg" : "text-fg-ghost")} strokeWidth={2} />
             )}
             <span className="min-w-0">
               <span className="block text-[12.5px] font-semibold text-fg">{titulo}</span>
@@ -179,7 +179,7 @@ export function Secao({
   return (
     <section id={id} className="panel scroll-mt-24 p-5">
       <header className="mb-4 flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-500/12 text-brand-400 ring-1 ring-inset ring-brand-500/25">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-nivel-4 text-fg-muted ring-1 ring-inset ring-anel">
           <Icone className="h-4 w-4" strokeWidth={2} />
         </span>
         <div className="min-w-0">

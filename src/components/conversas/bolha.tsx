@@ -38,7 +38,7 @@ function Envio({ mensagem, onReenviar }: { mensagem: Mensagem; onReenviar?: () =
     <button
       type="button"
       onClick={onReenviar}
-      className="flex items-center gap-1 rounded-full px-1 text-[10px] font-semibold text-brand-400 transition-colors hover:text-brand-300"
+      className="flex items-center gap-1 rounded-full px-1 text-[10px] font-semibold text-negative transition-colors hover:text-fg"
       title="O WhatsApp não conseguiu mandar"
     >
       <AlertCircle className="h-3 w-3" strokeWidth={2.2} />
@@ -62,7 +62,6 @@ export function Bolha({
   onIrParaCitada?: (id: string) => void;
 }) {
   const entrada = mensagem.origem === "cliente";
-  const preenchida = mensagem.origem === "agente";
 
   return (
     <div
@@ -79,11 +78,12 @@ export function Bolha({
         <div
           className={cn(
             "relative rounded-2xl px-3.5 py-2.5 text-[13px] leading-[1.5]",
+            // Cliente à esquerda, contornado; loja à direita, preenchida em
+            // tom neutro. Quem respondeu (agente ou pessoa) vai embaixo,
+            // em texto: a cor não precisa carregar essa informação.
             entrada
-              ? "rounded-tl-md bg-nivel-3 text-fg ring-1 ring-inset ring-nivel-4"
-              : preenchida
-                ? "rounded-tr-md bg-gradient-to-br from-brand-600 to-brand-800 text-white"
-                : "rounded-tr-md bg-surface-3 text-fg ring-1 ring-inset ring-anel",
+              ? "rounded-tl-md border border-hairline bg-transparent text-fg"
+              : "rounded-tr-md bg-nivel-4 text-fg",
             mensagem.marcada && "ring-2 ring-caution/60",
           )}
         >
@@ -93,10 +93,10 @@ export function Bolha({
               onClick={() => onIrParaCitada?.(mensagem.citada!.id)}
               className={cn(
                 "mb-2 block w-full rounded-lg border-l-[3px] px-2.5 py-1.5 text-left text-[11.5px] leading-snug",
-                preenchida ? "border-white/70 bg-white/12 text-white/85" : "border-brand-500 bg-nivel-2 text-fg-muted",
+                "border-fg-ghost bg-nivel-2 text-fg-muted",
               )}
             >
-              <span className={cn("block text-[10.5px] font-semibold", preenchida ? "text-white" : "text-brand-400")}>
+              <span className="block text-[10.5px] font-semibold text-fg">
                 {QUEM[mensagem.citada.origem]}
               </span>
               <span className="line-clamp-2">{mensagem.citada.texto || "Mídia"}</span>
@@ -104,7 +104,7 @@ export function Bolha({
           )}
           {mensagem.midia && (
             <div className={mensagem.texto ? "mb-2" : ""}>
-              <VisualMidia midia={mensagem.midia} deMim={preenchida} />
+              <VisualMidia midia={mensagem.midia} />
             </div>
           )}
           {mensagem.texto && <p className="whitespace-pre-wrap break-words">{mensagem.texto}</p>}
@@ -115,13 +115,13 @@ export function Bolha({
         <div className={cn("mt-1 flex items-center gap-1.5 px-1", entrada ? "" : "justify-end")}>
           {mensagem.marcada && <Star className="h-3 w-3 fill-caution text-caution" strokeWidth={2} />}
           {mensagem.origem === "agente" && (
-            <span className="flex items-center gap-1 text-[10px] font-semibold text-brand-400">
+            <span className="flex items-center gap-1 text-[10.5px] font-medium text-fg-faint">
               <Bot className="h-3 w-3" strokeWidth={2} />
               agente
             </span>
           )}
           {mensagem.origem === "atendente" && (
-            <span className="flex items-center gap-1 text-[10px] font-semibold text-caution">
+            <span className="flex items-center gap-1 text-[10.5px] font-medium text-fg-muted">
               <UserRound className="h-3 w-3" strokeWidth={2} />
               {mensagem.autor || "você"}
             </span>

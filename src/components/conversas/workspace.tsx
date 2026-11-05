@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
+  ArrowUpRight,
   Check,
-  Clock,
+  ChevronDown,
   Hand,
   History,
   MessageCircle,
@@ -15,11 +17,12 @@ import {
   Star,
   Stethoscope,
   Undo2,
+  UserPlus,
   UserRound,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Modal, Campo, Entrada } from "@/components/ui/modal";
-import { Reveal } from "@/components/ui/reveal";
+import { ChipStatus } from "@/components/pedidos/status";
 import { useAppState } from "@/components/providers/app-state";
 import {
   abrirConversaComCliente,
@@ -38,10 +41,13 @@ import {
 import {
   ALERTA_LABEL,
   chaveDoCliente,
+  SITUACAO_LABEL,
   type Conversa,
   type Mensagem,
   type StatusConversa,
+  type VisaoLoja,
 } from "@/lib/db/types";
+import { fimDoTelefone, situacaoDoCliente } from "@/lib/clientes";
 import { Bolha } from "./bolha";
 import { Compositor } from "./compositor";
 import {
@@ -50,7 +56,7 @@ import {
   resumoDaConversa,
   type HistoricoCliente,
 } from "@/lib/conversas";
-import { cn } from "@/lib/utils";
+import { cn, formatBRLCents } from "@/lib/utils";
 
 /* ------------------------------------------------------------------
    Rótulos
@@ -61,22 +67,31 @@ import { cn } from "@/lib/utils";
  *
  * "Resolvidas" não está aqui de propósito: conversa resolvida sai da fila e
  * passa a viver no histórico do cliente. Fila é o que ainda dá trabalho.
+ * Os nomes são curtos para caberem lado a lado sem cortar.
  */
+type Filtro = "todas" | "alerta" | "aberta" | "com_atendente";
 
-const FILTROS: { id: "todas" | "alerta" | "aberta" | "com_atendente"; label: string }[] = [
-  { id: "todas", label: "Na fila" },
+const FILTROS: { id: Filtro; label: string }[] = [
+  { id: "todas", label: "Todas" },
   // Quem precisa de uma pessoa (farmacêutico, atendente, reclamação).
-  { id: "alerta", label: "Precisam de alguém" },
-  { id: "aberta", label: "Com o agente" },
-  // "Com atendente", e não "Comigo": numa loja com duas pessoas, metade
-  // dessas conversas é da outra. O nome de quem assumiu aparece no cartão.
-  { id: "com_atendente", label: "Com atendente" },
+  { id: "alerta", label: "Chamados" },
+  { id: "aberta", label: "Agente" },
+  // "Equipe", e não "Comigo": numa loja com duas pessoas, metade dessas
+  // conversas é da outra. O nome de quem assumiu aparece na linha.
+  { id: "com_atendente", label: "Equipe" },
 ];
 
-const statusMeta: Record<StatusConversa, { label: string; className: string }> = {
-  aberta: { label: "Com o agente", className: "chip-warn" },
-  com_atendente: { label: "Com atendente", className: "chip-hot" },
-  resolvida: { label: "Resolvida", className: "chip-good" },
+const STATUS_LABEL: Record<StatusConversa, string> = {
+  aberta: "Com o agente",
+  com_atendente: "Com a equipe",
+  resolvida: "Resolvida",
+};
+
+/** Cor do ponto de cada estado. Só o ponto: o texto continua neutro. */
+const STATUS_PONTO: Record<StatusConversa, string> = {
+  aberta: "[--ponto:var(--color-fg-ghost)]",
+  com_atendente: "[--ponto:var(--color-info)]",
+  resolvida: "[--ponto:var(--color-positive)]",
 };
 
 function hora(em: number) {
@@ -94,7 +109,7 @@ function dataCurta(em: number) {
   });
 }
 
-/** "hoje", "ontem" ou a data, que é como alguém fala de um atendimento. */
+/** "hoje, 14:20", "ontem, 09:10" ou a data, que é como alguém fala de um atendimento. */
 function quando(em: number, agora: number) {
   if (!agora) return dataCurta(em);
   const dia = 24 * 60 * 60 * 1000;
@@ -103,6 +118,13 @@ function quando(em: number, agora: number) {
   if (oDia === hoje) return `hoje, ${hora(em)}`;
   if (oDia === hoje - dia) return `ontem, ${hora(em)}`;
   return dataCurta(em);
+}
+
+/** Na lista: só a hora se foi hoje, senão o dia. */
+function marcaDeTempo(em: number, agora: number) {
+  if (!agora) return hora(em);
+  const hoje = new Date(agora).setHours(0, 0, 0, 0);
+  return em >= hoje ? hora(em) : new Date(em).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
 function iniciais(nome: string) {
@@ -121,7 +143,7 @@ function Avatar({ nome, className }: { nome: string; className?: string }) {
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-surface-3 to-surface font-semibold text-fg-muted ring-1 ring-inset ring-anel",
+        "flex shrink-0 items-center justify-center rounded-full bg-nivel-4 font-semibold text-fg-muted",
         className,
       )}
     >
@@ -131,78 +153,73 @@ function Avatar({ nome, className }: { nome: string; className?: string }) {
 }
 
 /* ------------------------------------------------------------------
-   Lista da fila
+   Linhas da lista
    ------------------------------------------------------------------ */
 
-function ItemConversa({
+function LinhaConversa({
   conversa,
   ativa,
+  agora,
   onSelect,
 }: {
   conversa: Conversa;
   ativa: boolean;
+  agora: number;
   onSelect: () => void;
 }) {
-  const meta = statusMeta[conversa.status];
   const alerta = conversa.alerta;
+  const estado =
+    conversa.status === "com_atendente" && conversa.assumidaPor
+      ? `Com ${conversa.assumidaPor.split(" ")[0]}`
+      : STATUS_LABEL[conversa.status];
 
   return (
-    <Reveal
-      as="button"
+    <button
       onClick={onSelect}
       data-selected={ativa}
-      className={cn(
-        "selectable w-full overflow-hidden rounded-xl p-3 text-left",
-        ativa && "bg-brand-500/[0.08]",
-        // Laranja: precisa de uma pessoa agora. Cor e etiqueta juntas, para
-        // quem não distingue cor também perceber.
-        alerta && "cartao-chamado border border-caution/45 bg-caution/[0.08]",
-      )}
+      className="selectable flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left"
     >
-      <div className="flex items-center gap-2.5">
-        <Avatar nome={conversa.cliente} className="h-8 w-8 text-[11px]" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-medium text-fg">
+      <div className="relative">
+        <Avatar nome={conversa.cliente} className="h-9 w-9 text-[11.5px]" />
+        {alerta && (
+          // Quem precisa de uma pessoa ganha um ponto âmbar no avatar e a
+          // frase embaixo: a lista não fica pintada, mas não passa batido.
+          <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-[var(--color-surface)] bg-caution" />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-2">
+          <p className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-fg">
             {conversa.cliente}
           </p>
-          <p className="tnum truncate font-mono text-[10.5px] text-fg-ghost">
-            {conversa.telefone}
-          </p>
-        </div>
-        <span className="tnum shrink-0 font-mono text-[10.5px] text-fg-ghost">
-          {hora(conversa.atualizadaEm)}
-        </span>
-      </div>
-
-      <p className="mt-2 line-clamp-1 text-[11.5px] text-fg-faint">
-        {resumoDaConversa(conversa)}
-      </p>
-
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        {alerta && (
-          <span className="chip !border-caution/50 !bg-caution/15 !text-caution">
-            <Stethoscope className="h-3 w-3" strokeWidth={2.2} />
-            {ALERTA_LABEL[alerta.tipo]}
+          <span className="tnum shrink-0 text-[11px] text-fg-ghost">
+            {marcaDeTempo(conversa.atualizadaEm, agora)}
           </span>
-        )}
-        <span className={cn("chip", meta.className)}>
-          {conversa.status === "com_atendente" && conversa.assumidaPor
-            ? conversa.assumidaPor
-            : meta.label}
-        </span>
-        {conversa.canal === "whatsapp" && (
-          <MessageCircle className="h-3 w-3 text-fg-ghost" strokeWidth={2} aria-label="WhatsApp" />
-        )}
+        </div>
+        <p className="mt-0.5 line-clamp-1 text-[12.5px] text-fg-faint">
+          {resumoDaConversa(conversa)}
+        </p>
+        <div className="mt-1.5 flex items-center gap-3">
+          {alerta ? (
+            <span className="flex items-center gap-1.5 text-[11.5px] font-medium text-caution">
+              <Stethoscope className="h-3 w-3" strokeWidth={2.2} />
+              {ALERTA_LABEL[alerta.tipo]}
+            </span>
+          ) : (
+            <span className={cn("estado !text-[11.5px]", STATUS_PONTO[conversa.status])}>
+              {estado}
+            </span>
+          )}
+          {conversa.canal === "interno" && (
+            <span className="text-[11px] text-fg-ghost">registro interno</span>
+          )}
+        </div>
       </div>
-    </Reveal>
+    </button>
   );
 }
 
-/* ------------------------------------------------------------------
-   Lista do histórico
-   ------------------------------------------------------------------ */
-
-function ItemCliente({
+function LinhaCliente({
   historico,
   ativo,
   agora,
@@ -214,41 +231,33 @@ function ItemCliente({
   onSelect: () => void;
 }) {
   return (
-    <Reveal
-      as="button"
+    <button
       onClick={onSelect}
       data-selected={ativo}
-      className={cn(
-        "selectable w-full overflow-hidden rounded-xl p-3 text-left",
-        ativo && "bg-brand-500/[0.08]",
-      )}
+      className="selectable flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left"
     >
-      <div className="flex items-center gap-2.5">
-        <Avatar nome={historico.nome} className="h-8 w-8 text-[11px]" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-medium text-fg">
+      <Avatar nome={historico.nome} className="h-9 w-9 text-[11.5px]" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-2">
+          <p className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-fg">
             {historico.nome}
           </p>
-          <p className="tnum truncate font-mono text-[10.5px] text-fg-ghost">
-            {historico.telefone}
-          </p>
+          <span className="tnum shrink-0 text-[11px] text-fg-ghost">
+            {marcaDeTempo(historico.ultimaEm, agora)}
+          </span>
         </div>
+        <p className="mt-0.5 text-[12px] text-fg-faint">
+          {historico.conversas.length}{" "}
+          {historico.conversas.length === 1 ? "conversa" : "conversas"} · {historico.mensagens}{" "}
+          mensagens
+        </p>
         {historico.ativas > 0 && (
-          <span className="chip chip-hot !px-2 !py-[2px] !text-[9.5px]">
-            na fila
+          <span className="estado mt-1.5 !text-[11.5px] [--ponto:var(--color-info)]">
+            na fila agora
           </span>
         )}
       </div>
-
-      <p className="mt-2 text-[11.5px] text-fg-faint">
-        {historico.conversas.length}{" "}
-        {historico.conversas.length === 1 ? "conversa" : "conversas"} ·{" "}
-        {historico.mensagens} mensagens
-      </p>
-      <p className="mt-0.5 text-[10.5px] text-fg-ghost">
-        última {quando(historico.ultimaEm, agora)}
-      </p>
-    </Reveal>
+    </button>
   );
 }
 
@@ -266,10 +275,12 @@ export function ConversationsWorkspace() {
   const [aba, setAba] = useState<Aba>("fila");
   const [ativaId, setAtivaId] = useState<string | null>(null);
   const [clienteAtivo, setClienteAtivo] = useState<string | null>(null);
-  const [filtro, setFiltro] = useState<(typeof FILTROS)[number]["id"]>("todas");
+  const [filtro, setFiltro] = useState<Filtro>("todas");
   const [buscaLocal, setBuscaLocal] = useState("");
   const [novaAberta, setNovaAberta] = useState(false);
   const [nova, setNova] = useState({ cliente: "", telefone: "" });
+  // No celular só cabe uma coluna: a lista ou a conversa.
+  const [abertoNoCelular, setAbertoNoCelular] = useState(false);
 
   const fim = useRef<HTMLDivElement>(null);
   const termo = (buscaLocal || busca).toLowerCase().trim();
@@ -294,6 +305,7 @@ export function ConversationsWorkspace() {
       setAba("fila");
       setFiltro("todas");
       setAtivaId(pedida);
+      setAbertoNoCelular(true);
     }, 0);
     return () => clearTimeout(t);
   }, [pedida]);
@@ -316,26 +328,18 @@ export function ConversationsWorkspace() {
         const passaFiltro =
           filtro === "todas" || (filtro === "alerta" ? Boolean(c.alerta) : c.status === filtro);
         const passaBusca =
-          !termo ||
-          c.cliente.toLowerCase().includes(termo) ||
-          c.telefone.includes(termo);
+          !termo || c.cliente.toLowerCase().includes(termo) || c.telefone.includes(termo);
         return passaFiltro && passaBusca;
       }),
     [naFila, filtro, termo],
   );
 
-  const historicos = useMemo(
-    () => historicoPorCliente(banco.conversas),
-    [banco.conversas],
-  );
+  const historicos = useMemo(() => historicoPorCliente(banco.conversas), [banco.conversas]);
 
   const historicosVisiveis = useMemo(
     () =>
       historicos.filter(
-        (h) =>
-          !termo ||
-          h.nome.toLowerCase().includes(termo) ||
-          h.telefone.includes(termo),
+        (h) => !termo || h.nome.toLowerCase().includes(termo) || h.telefone.includes(termo),
       ),
     [historicos, termo],
   );
@@ -351,9 +355,9 @@ export function ConversationsWorkspace() {
 
   /** O cliente já cadastrado com este telefone (ou nome), se houver. */
   const clienteDaNova = useMemo(() => {
-    const fim8 = nova.telefone.replace(/\D/g, "").slice(-8);
+    const fim8 = fimDoTelefone(nova.telefone);
     if (fim8.length === 8) {
-      const porTelefone = banco.clientes.find((c) => c.telefone.replace(/\D/g, "").endsWith(fim8));
+      const porTelefone = banco.clientes.find((c) => fimDoTelefone(c.telefone) === fim8);
       if (porTelefone) return porTelefone;
     }
     const nome = nova.cliente.trim().toLowerCase();
@@ -377,10 +381,11 @@ export function ConversationsWorkspace() {
     setAba("fila");
     setFiltro("todas");
     setAtivaId(criada.id);
+    setAbertoNoCelular(true);
   }
 
   /** Abre o formulário já preenchido com quem está no histórico. */
-  function novaComEsteCliente(h: HistoricoCliente) {
+  function novaComEsteCliente(h: { nome: string; telefone: string }) {
     setNova({ cliente: h.nome, telefone: h.telefone });
     setNovaAberta(true);
   }
@@ -388,31 +393,32 @@ export function ConversationsWorkspace() {
   function verHistoricoDe(conversa: Conversa) {
     setClienteAtivo(chaveDoCliente(conversa));
     setAba("historico");
+    setAbertoNoCelular(true);
   }
 
   function abrirNaFila(conversa: Conversa) {
     setAtivaId(conversa.id);
     setAba("fila");
+    setAbertoNoCelular(true);
   }
 
   const semNenhuma = carregado && banco.conversas.length === 0;
   const resolvidas = banco.conversas.length - naFila.length;
+  const chamados = naFila.filter((c) => c.alerta).length;
 
   return (
-    <div className="mx-auto max-w-[1560px]">
+    <div className="mx-auto max-w-[1600px]">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-[24px] font-semibold tracking-[-0.025em] text-fg">
-            Conversas
-          </h1>
+          <h1 className="text-[24px] font-semibold tracking-[-0.025em] text-fg">Conversas</h1>
           <p className="mt-0.5 text-[13px] text-fg-muted">
             {noAr
               ? "Mensagens que chegam pelo WhatsApp da loja, ao vivo."
               : "WhatsApp desconectado agora. Mensagens novas chegam quando o bot voltar."}
           </p>
         </div>
-        <button onClick={() => setNovaAberta(true)} className="btn-primary">
-          <Plus className="h-4 w-4" strokeWidth={2.4} />
+        <button onClick={() => setNovaAberta(true)} className="btn-ghost">
+          <Plus className="h-4 w-4" strokeWidth={2.2} />
           Nova conversa
         </button>
       </div>
@@ -432,76 +438,75 @@ export function ConversationsWorkspace() {
           />
         </div>
       ) : (
-        <div className="grid h-[calc(100vh-190px)] grid-cols-1 gap-4 lg:grid-cols-12">
-          {/* Coluna da esquerda */}
-          <div className="panel flex min-h-0 flex-col overflow-hidden lg:col-span-4 xl:col-span-3">
-            {/* Fila ou histórico */}
-            <div className="flex gap-1 border-b border-hairline p-2">
-              {(
-                [
-                  ["fila", "Na fila", MessageCircle, naFila.length],
-                  ["historico", "Histórico", History, historicos.length],
-                ] as const
-              ).map(([id, rotulo, Icone, total]) => (
-                <button
-                  key={id}
-                  onClick={() => setAba(id)}
-                  className={cn(
-                    "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[12.5px] font-medium transition-colors",
-                    aba === id
-                      ? "bg-brand-500/[0.14] text-fg"
-                      : "text-fg-muted hover:bg-nivel-2 hover:text-fg",
-                  )}
-                >
-                  <Icone className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-                  {rotulo}
-                  <span className="tnum font-mono text-[10.5px] text-fg-ghost">
-                    {total}
-                  </span>
-                </button>
-              ))}
-            </div>
+        // Uma superfície só, dividida por linhas finas. Três caixas lado a
+        // lado faziam a tela parecer um mosaico.
+        <div className="panel flex h-[calc(100dvh-180px)] min-h-[520px] overflow-hidden">
+          {/* Lista */}
+          <aside
+            className={cn(
+              "flex min-h-0 w-full flex-col border-hairline lg:w-[320px] lg:shrink-0 lg:border-r",
+              abertoNoCelular && "hidden lg:flex",
+            )}
+          >
+            <div className="space-y-3 border-b border-hairline p-3">
+              <div className="flex rounded-[10px] bg-nivel-2 p-0.5">
+                {(
+                  [
+                    ["fila", "Na fila", naFila.length],
+                    ["historico", "Histórico", historicos.length],
+                  ] as const
+                ).map(([id, rotulo, total]) => (
+                  <button
+                    key={id}
+                    onClick={() => setAba(id)}
+                    className={cn(
+                      "flex flex-1 items-center justify-center gap-1.5 rounded-[8px] px-2 py-1.5 text-[12.5px] font-medium transition-colors",
+                      aba === id ? "bg-nivel-4 text-fg" : "text-fg-muted hover:text-fg",
+                    )}
+                  >
+                    {rotulo}
+                    <span className="tnum text-[11px] text-fg-ghost">{total}</span>
+                  </button>
+                ))}
+              </div>
 
-            <div className="border-b border-hairline p-3">
               <div className="relative">
                 <Search
-                  className="pointer-events-none absolute left-3.5 top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-fg-ghost"
+                  className="pointer-events-none absolute left-3 top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-fg-ghost"
                   strokeWidth={2}
                 />
                 <input
                   value={buscaLocal}
                   onChange={(e) => setBuscaLocal(e.target.value)}
-                  className="field !py-2 !pl-9.5 !text-[12.5px]"
-                  placeholder={
-                    aba === "fila"
-                      ? "Buscar na fila"
-                      : "Buscar cliente no histórico"
-                  }
+                  className="field !py-2 !pl-9 !text-[12.5px]"
+                  placeholder={aba === "fila" ? "Buscar nome ou telefone" : "Buscar cliente"}
                 />
               </div>
 
               {aba === "fila" && (
-                <div className="no-scrollbar mt-2.5 flex gap-1.5 overflow-x-auto">
+                <div className="flex flex-wrap gap-x-1 gap-y-1">
                   {FILTROS.map((item) => {
                     const total =
                       item.id === "todas"
                         ? naFila.length
                         : item.id === "alerta"
-                          ? naFila.filter((c) => c.alerta).length
+                          ? chamados
                           : naFila.filter((c) => c.status === item.id).length;
                     if (item.id === "alerta" && total === 0 && filtro !== "alerta") return null;
+                    const ativo = filtro === item.id;
                     return (
                       <button
                         key={item.id}
                         onClick={() => setFiltro(item.id)}
+                        aria-pressed={ativo}
                         className={cn(
-                          "chip shrink-0 transition-colors",
-                          filtro === item.id && "chip-hot",
-                          item.id === "alerta" && "!border-caution/50 !text-caution",
+                          "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12px] font-medium transition-colors",
+                          ativo ? "bg-nivel-4 text-fg" : "text-fg-muted hover:bg-nivel-2 hover:text-fg",
+                          item.id === "alerta" && !ativo && "text-caution",
                         )}
                       >
                         {item.label}
-                        <span className="tnum opacity-60">{total}</span>
+                        <span className="tnum text-[11px] opacity-60">{total}</span>
                       </button>
                     );
                   })}
@@ -509,31 +514,30 @@ export function ConversationsWorkspace() {
               )}
             </div>
 
-            <div
-              data-lenis-prevent
-              className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2"
-            >
+            <div data-lenis-prevent className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-2">
               {aba === "fila" ? (
                 <>
                   {visiveis.map((conversa) => (
-                    <ItemConversa
+                    <LinhaConversa
                       key={conversa.id}
                       conversa={conversa}
                       ativa={conversa.id === ativa?.id}
-                      onSelect={() => setAtivaId(conversa.id)}
+                      agora={agora}
+                      onSelect={() => {
+                        setAtivaId(conversa.id);
+                        setAbertoNoCelular(true);
+                      }}
                     />
                   ))}
                   {visiveis.length === 0 && (
-                    <div className="px-4 py-8 text-center">
+                    <div className="px-4 py-10 text-center">
                       <p className="text-[12.5px] text-fg-faint">
-                        {naFila.length === 0
-                          ? "Nada na fila agora."
-                          : "Nenhuma conversa neste filtro."}
+                        {naFila.length === 0 ? "Nada na fila agora." : "Nenhuma conversa neste filtro."}
                       </p>
                       {naFila.length === 0 && resolvidas > 0 && (
                         <button
                           onClick={() => setAba("historico")}
-                          className="mt-2 text-[12px] font-medium text-brand-400 transition-colors hover:text-brand-300"
+                          className="mt-2 text-[12px] font-medium text-fg-muted underline-offset-2 hover:text-fg hover:underline"
                         >
                           Ver as {resolvidas} resolvidas no histórico
                         </button>
@@ -544,26 +548,38 @@ export function ConversationsWorkspace() {
               ) : (
                 <>
                   {historicosVisiveis.map((h) => (
-                    <ItemCliente
+                    <LinhaCliente
                       key={h.chave}
                       historico={h}
                       ativo={h.chave === historico?.chave}
                       agora={agora}
-                      onSelect={() => setClienteAtivo(h.chave)}
+                      onSelect={() => {
+                        setClienteAtivo(h.chave);
+                        setAbertoNoCelular(true);
+                      }}
                     />
                   ))}
                   {historicosVisiveis.length === 0 && (
-                    <p className="px-4 py-8 text-center text-[12.5px] text-fg-faint">
+                    <p className="px-4 py-10 text-center text-[12.5px] text-fg-faint">
                       Ninguém encontrado.
                     </p>
                   )}
                 </>
               )}
             </div>
-          </div>
+          </aside>
 
-          {/* Coluna da direita */}
-          <div className="panel flex min-h-0 flex-col overflow-hidden lg:col-span-8 xl:col-span-9">
+          {/* Conversa ou histórico do cliente */}
+          <section
+            className={cn("flex min-h-0 min-w-0 flex-1 flex-col", !abertoNoCelular && "hidden lg:flex")}
+          >
+            <button
+              onClick={() => setAbertoNoCelular(false)}
+              className="flex items-center gap-1.5 border-b border-hairline px-4 py-2.5 text-[12.5px] text-fg-muted lg:hidden"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
+              Voltar para a lista
+            </button>
             {aba === "fila" ? (
               ativa ? (
                 <Atendimento
@@ -572,11 +588,6 @@ export function ConversationsWorkspace() {
                   atendente={atendente}
                   lojaId={banco.loja.id}
                   whatsappNoAr={noAr}
-                  outras={
-                    historicos.find((h) => h.chave === chaveDoCliente(ativa))
-                      ?.conversas.length ?? 1
-                  }
-                  onVerHistorico={() => verHistoricoDe(ativa)}
                   fim={fim}
                 />
               ) : (
@@ -586,10 +597,7 @@ export function ConversationsWorkspace() {
                   description="Quando chegar mensagem nova, ela aparece aqui. O que já foi resolvido está no histórico."
                   className="flex-1"
                   action={
-                    <button
-                      onClick={() => setAba("historico")}
-                      className="btn-ghost"
-                    >
+                    <button onClick={() => setAba("historico")} className="btn-ghost">
                       <History className="h-4 w-4" strokeWidth={2} />
                       Abrir histórico
                     </button>
@@ -611,7 +619,19 @@ export function ConversationsWorkspace() {
                 className="flex-1"
               />
             )}
-          </div>
+          </section>
+
+          {/* Quem é o cliente: só na tela larga, e só no atendimento. */}
+          {aba === "fila" && ativa && (
+            <aside className="hidden w-[300px] shrink-0 border-l border-hairline xl:flex xl:flex-col">
+              <ClienteAoLado
+                conversa={ativa}
+                banco={banco}
+                agora={agora}
+                onVerHistorico={() => verHistoricoDe(ativa)}
+              />
+            </aside>
+          )}
         </div>
       )}
 
@@ -646,14 +666,7 @@ export function ConversationsWorkspace() {
             />
           </Campo>
           {(nova.cliente.trim() || nova.telefone.trim()) && (
-            <div
-              className={cn(
-                "flex items-start gap-2.5 rounded-xl p-3 text-[12px] leading-relaxed",
-                clienteDaNova?.primeiraMensagemEm
-                  ? "bg-positive/[0.1] text-fg-muted"
-                  : "bg-nivel-2 text-fg-muted",
-              )}
-            >
+            <div className="flex items-start gap-2.5 rounded-xl bg-nivel-2 p-3 text-[12px] leading-relaxed text-fg-muted">
               <MessageCircle
                 className={cn(
                   "mt-0.5 h-4 w-4 shrink-0",
@@ -677,11 +690,7 @@ export function ConversationsWorkspace() {
             </div>
           )}
           <div className="flex justify-end gap-2 pt-1">
-            <button
-              type="button"
-              onClick={() => setNovaAberta(false)}
-              className="btn-ghost"
-            >
+            <button type="button" onClick={() => setNovaAberta(false)} className="btn-ghost">
               Cancelar
             </button>
             <button type="submit" className="btn-primary">
@@ -703,16 +712,12 @@ function Atendimento({
   atendente,
   lojaId,
   whatsappNoAr,
-  outras,
-  onVerHistorico,
   fim,
 }: {
   conversa: Conversa;
   atendente: string;
   lojaId: string;
   whatsappNoAr: boolean;
-  outras: number;
-  onVerHistorico: () => void;
   fim: React.RefObject<HTMLDivElement | null>;
 }) {
   const comAtendente = conversa.status === "com_atendente";
@@ -727,7 +732,7 @@ function Atendimento({
       const el = document.getElementById(`msg-${id}`);
       el?.scrollIntoView({ behavior: "smooth", block: "center" });
       el?.animate(
-        [{ backgroundColor: "color-mix(in oklab, var(--color-brand-500) 18%, transparent)" }, { backgroundColor: "transparent" }],
+        [{ backgroundColor: "var(--color-nivel-4)" }, { backgroundColor: "transparent" }],
         { duration: 1400, easing: "ease-out" },
       );
     }, 50);
@@ -735,123 +740,90 @@ function Atendimento({
 
   return (
     <>
-      <header className="flex flex-wrap items-center gap-3 border-b border-hairline p-4">
-        <Avatar nome={conversa.cliente} className="h-10 w-10 text-[12px]" />
+      <header className="flex flex-wrap items-center gap-3 border-b border-hairline px-5 py-3.5">
+        <Avatar nome={conversa.cliente} className="h-9 w-9 text-[11.5px]" />
         <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-2 truncate text-[14px] font-semibold text-fg">
-            {conversa.cliente}
-            {conversa.canal === "whatsapp" && (
-              <span className="chip !px-2 !py-[2px] !text-[9.5px]">
-                <MessageCircle className="h-3 w-3" strokeWidth={2} />
-                WhatsApp
-              </span>
-            )}
+          <p className="truncate text-[14px] font-semibold text-fg">{conversa.cliente}</p>
+          <p className="tnum truncate text-[12px] text-fg-faint">
+            {conversa.telefone}
+            <span className="text-fg-ghost">
+              {" · "}
+              {conversa.canal === "whatsapp" ? "WhatsApp" : "registro interno"}
+              {comAtendente && ` · com ${conversa.assumidaPor || "a equipe"}`}
+            </span>
           </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="tnum truncate font-mono text-[11px] text-fg-ghost">
-              {conversa.telefone}
-            </p>
-            {outras > 1 && (
-              <button
-                onClick={onVerHistorico}
-                className="text-[11px] font-medium text-brand-400 transition-colors hover:text-brand-300"
-              >
-                {outras - 1} conversa{outras - 1 === 1 ? "" : "s"} anterior
-                {outras - 1 === 1 ? "" : "es"}
-              </button>
-            )}
-          </div>
         </div>
 
-        {marcadas > 0 && (
-          <button
-            onClick={() => setSoMarcadas((v) => !v)}
-            aria-pressed={soMarcadas}
-            className={cn(
-              "btn-ghost !px-3 !py-2 !text-[12px]",
-              soMarcadas && "!border-caution/50 !text-caution",
-            )}
-          >
-            <Star className={cn("h-3.5 w-3.5", soMarcadas && "fill-caution")} strokeWidth={2} />
-            Marcadas {marcadas}
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {marcadas > 0 && (
+            <button
+              onClick={() => setSoMarcadas((v) => !v)}
+              aria-pressed={soMarcadas}
+              title="Mostrar só as mensagens marcadas"
+              className={cn("btn-ghost !px-3 !py-1.5 !text-[12px]", soMarcadas && "!text-fg")}
+            >
+              <Star className={cn("h-3.5 w-3.5", soMarcadas && "fill-caution text-caution")} strokeWidth={2} />
+              {marcadas}
+            </button>
+          )}
 
-        {comAtendente ? (
-          <>
-            <span className="chip chip-hot">
-              <UserRound className="h-3 w-3" strokeWidth={2} />
-              {conversa.assumidaPor || "assumida"}
-            </span>
+          {comAtendente ? (
             <button
               onClick={() => devolverAoAgente(conversa.id)}
               title="O agente volta a responder sozinho"
-              className="btn-ghost !px-3.5 !py-2 !text-[12px]"
+              className="btn-ghost !px-3 !py-1.5 !text-[12px]"
             >
               <Undo2 className="h-3.5 w-3.5" strokeWidth={2.2} />
               Devolver ao agente
             </button>
-          </>
-        ) : (
-          <button
-            onClick={() => assumirConversa(conversa.id, atendente)}
-            className="btn-primary !px-3.5 !py-2 !text-[12px]"
-          >
-            <Hand className="h-3.5 w-3.5" strokeWidth={2.2} />
-            Assumir conversa
-          </button>
-        )}
-
-        <button
-          onClick={() => mudarStatusConversa(conversa.id, "resolvida")}
-          title="Sai da fila e vai para o histórico do cliente"
-          className="btn-ghost !px-3.5 !py-2 !text-[12px]"
-        >
-          <Check className="h-3.5 w-3.5" strokeWidth={2.2} />
-          Resolver
-        </button>
-      </header>
-
-      {conversa.alerta && (
-        <div className="flex flex-wrap items-center gap-3 border-b border-caution/30 bg-caution/[0.1] px-4 py-3">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-caution/20 text-caution">
-            <Stethoscope className="h-4 w-4" strokeWidth={2.2} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-[12.5px] font-semibold text-caution">{ALERTA_LABEL[conversa.alerta.tipo]}</p>
-            <p className="text-[12px] leading-snug text-fg-muted">{conversa.alerta.resumo}</p>
-          </div>
-          {!comAtendente && (
+          ) : (
             <button
               onClick={() => assumirConversa(conversa.id, atendente)}
+              title="O agente para de responder e você atende"
               className="btn-primary !px-3 !py-1.5 !text-[12px]"
             >
               <Hand className="h-3.5 w-3.5" strokeWidth={2.2} />
+              Assumir
+            </button>
+          )}
+
+          <button
+            onClick={() => mudarStatusConversa(conversa.id, "resolvida")}
+            title="Sai da fila e vai para o histórico do cliente"
+            className="btn-ghost !px-3 !py-1.5 !text-[12px]"
+          >
+            <Check className="h-3.5 w-3.5" strokeWidth={2.2} />
+            Resolver
+          </button>
+        </div>
+      </header>
+
+      {conversa.alerta && (
+        <div className="flex flex-wrap items-center gap-3 border-b border-hairline bg-caution/[0.06] px-5 py-2.5">
+          <Stethoscope className="h-4 w-4 shrink-0 text-caution" strokeWidth={2} />
+          <p className="min-w-0 flex-1 text-[12.5px] leading-snug text-fg-muted">
+            <span className="font-medium text-caution">{ALERTA_LABEL[conversa.alerta.tipo]}.</span>{" "}
+            {conversa.alerta.resumo}
+          </p>
+          {!comAtendente && (
+            <button
+              onClick={() => assumirConversa(conversa.id, atendente)}
+              className="btn-ghost !px-3 !py-1 !text-[12px]"
+            >
               Assumir e responder
             </button>
           )}
           <button
             onClick={() => resolverAlerta(conversa.id)}
             title="Tira o destaque sem responder (a dúvida foi resolvida por outro meio)"
-            className="btn-ghost !px-3 !py-1.5 !text-[12px]"
+            className="rounded-lg px-2 py-1 text-[12px] text-fg-faint transition-colors hover:bg-nivel-3 hover:text-fg"
           >
             Já resolvi
           </button>
         </div>
       )}
 
-      {comAtendente && (
-        <div className="flex items-start gap-2.5 border-b border-hairline bg-brand-500/[0.05] px-4 py-2.5">
-          <UserRound className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-400" strokeWidth={2} />
-          <p className="text-[11.5px] leading-relaxed text-fg-muted">
-            <span className="font-medium text-fg">{conversa.assumidaPor || "Você"}</span> está
-            atendendo. O agente não responde mais por aqui.
-            {conversa.canal === "whatsapp" && <span> O que você escrever chega no WhatsApp do cliente.</span>}
-          </p>
-        </div>
-      )}
-
-      <div data-lenis-prevent className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
+      <div data-lenis-prevent className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
         {mensagens.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <p className="max-w-xs text-center text-[12.5px] leading-relaxed text-fg-faint">
@@ -888,6 +860,147 @@ function Atendimento({
 }
 
 /* ------------------------------------------------------------------
+   Quem é o cliente (coluna da direita)
+   ------------------------------------------------------------------ */
+
+/**
+ * O que quem atende precisa saber sem sair da conversa: se a pessoa já é
+ * cliente, o que costuma comprar, os últimos pedidos e se tem observação.
+ * Antes isso exigia ir até Clientes e procurar pelo nome.
+ */
+function ClienteAoLado({
+  conversa,
+  banco,
+  agora,
+  onVerHistorico,
+}: {
+  conversa: Conversa;
+  banco: VisaoLoja;
+  agora: number;
+  onVerHistorico: () => void;
+}) {
+  const fim = fimDoTelefone(conversa.telefone);
+  const cliente =
+    fim.length === 8 ? banco.clientes.find((c) => fimDoTelefone(c.telefone) === fim) : undefined;
+  const pedidos = banco.pedidos
+    .filter((p) => fim.length === 8 && fimDoTelefone(p.telefone) === fim)
+    .sort((a, b) => b.criadoEm - a.criadoEm);
+  const conversas = banco.conversas.filter((c) => chaveDoCliente(c) === chaveDoCliente(conversa));
+  const validos = pedidos.filter((p) => p.status !== "cancelado");
+  const gasto = validos.reduce((s, p) => s + p.total, 0);
+
+  return (
+    <div data-lenis-prevent className="min-h-0 flex-1 overflow-y-auto">
+      <div className="flex flex-col items-center border-b border-hairline px-5 py-6 text-center">
+        <Avatar nome={conversa.cliente} className="h-14 w-14 text-[15px]" />
+        <p className="mt-3 text-[14px] font-semibold text-fg">{cliente?.nome ?? conversa.cliente}</p>
+        <p className="tnum text-[12px] text-fg-faint">{conversa.telefone}</p>
+        {cliente ? (
+          <span className="estado mt-2 !text-[11.5px]">
+            {SITUACAO_LABEL[situacaoDoCliente(cliente, conversas, pedidos)]}
+          </span>
+        ) : (
+          <button
+            onClick={() =>
+              criarCliente({ nome: conversa.cliente, telefone: conversa.telefone, origem: "manual" })
+            }
+            className="btn-ghost mt-3 !px-3 !py-1.5 !text-[12px]"
+          >
+            <UserPlus className="h-3.5 w-3.5" strokeWidth={2} />
+            Cadastrar cliente
+          </button>
+        )}
+      </div>
+
+      <dl className="space-y-3 border-b border-hairline px-5 py-4 text-[12.5px]">
+        <Linha rotulo="Compras" valor={validos.length ? `${validos.length} · ${formatBRLCents(gasto)}` : "Nenhuma ainda"} />
+        <Linha
+          rotulo="Cliente desde"
+          valor={cliente ? dataCurta(cliente.criadoEm) : dataCurta(conversa.criadaEm || conversa.atualizadaEm)}
+        />
+        {cliente && <Linha rotulo="Campanhas" valor={cliente.consentimento ? "Autorizou" : "Não autorizou"} />}
+        {cliente?.endereco && <Linha rotulo="Endereço" valor={cliente.endereco} />}
+      </dl>
+
+      {(cliente?.etiquetas.length || cliente?.observacao) && (
+        <div className="space-y-2.5 border-b border-hairline px-5 py-4">
+          {cliente.etiquetas.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {cliente.etiquetas.map((e) => (
+                <span key={e} className="chip">
+                  {e}
+                </span>
+              ))}
+            </div>
+          )}
+          {cliente.observacao && (
+            <p className="text-[12.5px] leading-relaxed text-fg-muted">{cliente.observacao}</p>
+          )}
+        </div>
+      )}
+
+      <div className="border-b border-hairline px-5 py-4">
+        <p className="text-[12px] font-medium text-fg-muted">Últimos pedidos</p>
+        {pedidos.length === 0 ? (
+          <p className="mt-2 text-[12px] text-fg-faint">Nenhum pedido com este telefone.</p>
+        ) : (
+          <ul className="mt-2 space-y-2.5">
+            {pedidos.slice(0, 4).map((p) => (
+              <li key={p.id} className="text-[12.5px]">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-fg">
+                    #{p.numero} <span className="text-fg-ghost">· {quando(p.criadoEm, agora)}</span>
+                  </span>
+                  <span className="tnum shrink-0 text-fg">{formatBRLCents(p.total)}</span>
+                </div>
+                <div className="mt-0.5 flex items-center justify-between gap-2">
+                  <span className="truncate text-[11.5px] text-fg-faint">
+                    {p.itens.map((i) => i.nome).join(", ")}
+                  </span>
+                  <ChipStatus status={p.status} className="shrink-0 !text-[11px]" />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="space-y-1 px-3 py-3">
+        {conversas.length > 1 && (
+          <button
+            onClick={onVerHistorico}
+            className="selectable flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12.5px] text-fg-muted"
+          >
+            <History className="h-3.5 w-3.5" strokeWidth={2} />
+            {conversas.length - 1} conversa{conversas.length - 1 === 1 ? "" : "s"} anterior
+            {conversas.length - 1 === 1 ? "" : "es"}
+          </button>
+        )}
+        {cliente && (
+          <Link
+            href={`/clientes?c=${cliente.id}`}
+            className="selectable flex w-full items-center gap-2 rounded-lg px-2 py-2 text-[12.5px] text-fg-muted"
+          >
+            <UserRound className="h-3.5 w-3.5" strokeWidth={2} />
+            Abrir ficha do cliente
+            <ArrowUpRight className="ml-auto h-3.5 w-3.5 text-fg-ghost" strokeWidth={2} />
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Linha({ rotulo, valor }: { rotulo: string; valor: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="shrink-0 text-fg-faint">{rotulo}</dt>
+      <dd className="min-w-0 text-right text-fg">{valor}</dd>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------
    Histórico de um cliente
    ------------------------------------------------------------------ */
 
@@ -902,109 +1015,84 @@ function DossieCliente({
   onNovaConversa: () => void;
   onAbrirNaFila: (c: Conversa) => void;
 }) {
-  const [aberta, setAberta] = useState<string | null>(
-    historico.conversas[0]?.id ?? null,
-  );
+  const [aberta, setAberta] = useState<string | null>(historico.conversas[0]?.id ?? null);
 
   return (
     <>
-      <header className="flex flex-wrap items-center gap-3 border-b border-hairline p-4">
-        <Avatar nome={historico.nome} className="h-10 w-10 text-[12px]" />
+      <header className="flex flex-wrap items-center gap-3 border-b border-hairline px-5 py-3.5">
+        <Avatar nome={historico.nome} className="h-9 w-9 text-[11.5px]" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[14px] font-semibold text-fg">
-            {historico.nome}
-          </p>
-          <p className="tnum truncate font-mono text-[11px] text-fg-ghost">
+          <p className="truncate text-[14px] font-semibold text-fg">{historico.nome}</p>
+          <p className="tnum truncate text-[12px] text-fg-faint">
             {historico.telefone}
+            <span className="text-fg-ghost">
+              {" · "}
+              {historico.conversas.length} {historico.conversas.length === 1 ? "conversa" : "conversas"}
+              {" · "}
+              {historico.mensagens} mensagens
+              {historico.desde ? ` · desde ${dataCurta(historico.desde)}` : ""}
+            </span>
           </p>
         </div>
-        <button onClick={onNovaConversa} className="btn-primary !px-3.5 !py-2 !text-[12px]">
+        <button onClick={onNovaConversa} className="btn-ghost !px-3 !py-1.5 !text-[12px]">
           <Plus className="h-3.5 w-3.5" strokeWidth={2.4} />
-          Iniciar nova conversa
+          Nova conversa
         </button>
       </header>
 
-      <div className="grid grid-cols-3 gap-2 border-b border-hairline p-4">
-        {[
-          { rotulo: "Conversas", valor: String(historico.conversas.length) },
-          { rotulo: "Mensagens", valor: String(historico.mensagens) },
-          {
-            rotulo: "Cliente desde",
-            valor: historico.desde ? dataCurta(historico.desde) : "—",
-          },
-        ].map((item) => (
-          <div key={item.rotulo} className="tile p-2.5 text-center">
-            <p className="tnum font-mono text-[15px] font-semibold text-fg">
-              {item.valor}
-            </p>
-            <p className="mt-0.5 text-[10.5px] text-fg-ghost">{item.rotulo}</p>
-          </div>
-        ))}
-      </div>
-
-      <div
-        data-lenis-prevent
-        className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3"
-      >
-        {historico.conversas.map((conversa) => {
-          const expandida = aberta === conversa.id;
-          const meta = statusMeta[conversa.status];
-
-          return (
-            <div
-              key={conversa.id}
-              className="overflow-hidden rounded-xl border border-hairline bg-nivel-1"
-            >
-              <button
-                onClick={() => setAberta(expandida ? null : conversa.id)}
-                className="selectable flex w-full items-center gap-3 p-3 text-left"
-              >
-                <Clock
-                  className="h-3.5 w-3.5 shrink-0 text-fg-ghost"
-                  strokeWidth={2}
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[12.5px] font-medium text-fg">
-                    {quando(conversa.atualizadaEm, agora)}
-                  </p>
-                  <p className="mt-0.5 line-clamp-1 text-[11.5px] text-fg-faint">
-                    {resumoDaConversa(conversa)}
-                  </p>
-                </div>
-                <span className="tnum shrink-0 font-mono text-[10.5px] text-fg-ghost">
-                  {conversa.mensagens.length} msg
-                </span>
-                <span className={cn("chip shrink-0", meta.className)}>
-                  {meta.label}
-                </span>
-              </button>
-
-              {expandida && (
-                <div className="space-y-3 border-t border-hairline p-4">
-                  {conversa.mensagens.length === 0 ? (
-                    <p className="text-center text-[12px] text-fg-faint">
-                      Esta conversa não tem mensagem registrada.
+      <div data-lenis-prevent className="min-h-0 flex-1 overflow-y-auto">
+        <ul className="divide-y divide-hairline">
+          {historico.conversas.map((conversa) => {
+            const expandida = aberta === conversa.id;
+            return (
+              <li key={conversa.id}>
+                <button
+                  onClick={() => setAberta(expandida ? null : conversa.id)}
+                  aria-expanded={expandida}
+                  className="selectable flex w-full items-center gap-4 px-5 py-3.5 text-left"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-medium text-fg">{quando(conversa.atualizadaEm, agora)}</p>
+                    <p className="mt-0.5 line-clamp-1 text-[12px] text-fg-faint">
+                      {resumoDaConversa(conversa)}
                     </p>
-                  ) : (
-                    conversa.mensagens.map((m) => <Bolha key={m.id} mensagem={m} />)
-                  )}
+                  </div>
+                  <span className="tnum hidden shrink-0 text-[11.5px] text-fg-ghost sm:block">
+                    {conversa.mensagens.length} msg
+                  </span>
+                  <span className={cn("estado shrink-0 !text-[11.5px]", STATUS_PONTO[conversa.status])}>
+                    {STATUS_LABEL[conversa.status]}
+                  </span>
+                  <ChevronDown
+                    className={cn("h-4 w-4 shrink-0 text-fg-ghost transition-transform", expandida && "rotate-180")}
+                    strokeWidth={2}
+                  />
+                </button>
 
-                  {conversa.status !== "resolvida" && (
-                    <div className="flex justify-end pt-1">
-                      <button
-                        onClick={() => onAbrirNaFila(conversa)}
-                        className="btn-ghost !text-[12px]"
-                      >
-                        <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
-                        Abrir na fila
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
+                {expandida && (
+                  <div className="space-y-3 bg-nivel-1 px-5 py-4">
+                    {conversa.mensagens.length === 0 ? (
+                      <p className="text-center text-[12px] text-fg-faint">
+                        Esta conversa não tem mensagem registrada.
+                      </p>
+                    ) : (
+                      conversa.mensagens.map((m) => <Bolha key={m.id} mensagem={m} />)
+                    )}
+
+                    {conversa.status !== "resolvida" && (
+                      <div className="flex justify-end pt-1">
+                        <button onClick={() => onAbrirNaFila(conversa)} className="btn-ghost !text-[12px]">
+                          <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
+                          Abrir na fila
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       </div>
     </>
   );

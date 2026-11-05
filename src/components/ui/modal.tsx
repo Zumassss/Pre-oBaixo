@@ -116,7 +116,7 @@ export function Entrada(props: React.InputHTMLAttributes<HTMLInputElement>) {
     <input
       {...props}
       className={cn(
-        "w-full rounded-xl border border-hairline bg-nivel-2 px-3 py-2.5 text-[13px] text-fg outline-none transition-colors placeholder:text-fg-ghost focus:border-brand-500/50 focus:bg-nivel-3",
+        "w-full rounded-xl border border-hairline bg-nivel-2 px-3 py-2.5 text-[13px] text-fg outline-none transition-colors placeholder:text-fg-ghost focus:border-hairline-strong focus:bg-nivel-3",
         props.className,
       )}
     />
@@ -128,7 +128,7 @@ export function AreaTexto(props: React.TextareaHTMLAttributes<HTMLTextAreaElemen
     <textarea
       {...props}
       className={cn(
-        "w-full resize-y rounded-xl border border-hairline bg-nivel-2 px-3 py-2.5 text-[13px] leading-relaxed text-fg outline-none transition-colors placeholder:text-fg-ghost focus:border-brand-500/50 focus:bg-nivel-3",
+        "w-full resize-y rounded-xl border border-hairline bg-nivel-2 px-3 py-2.5 text-[13px] leading-relaxed text-fg outline-none transition-colors placeholder:text-fg-ghost focus:border-hairline-strong focus:bg-nivel-3",
         props.className,
       )}
     />

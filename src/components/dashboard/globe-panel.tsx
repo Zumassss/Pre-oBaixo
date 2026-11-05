@@ -45,7 +45,7 @@ export function GlobePanel({
 
   return (
     <div className={cn("panel relative overflow-hidden", className)}>
-      <div className={cn("absolute opacity-75", compacto ? "inset-x-4 bottom-4 top-24" : "inset-0")}>
+      <div className={cn("absolute opacity-75", compacto ? "inset-x-4 bottom-4 top-24" : "inset-x-0 bottom-0 top-20 sm:inset-0")}>
         <GlobeMount pontos={pontos} claro={claro} />
       </div>
 
@@ -92,7 +92,7 @@ export function GlobePanel({
             </p>
           </div>
           <div className="glass rounded-xl px-3 py-2 text-right">
-            <p className="tnum font-mono text-[19px] font-semibold leading-none text-brand-400">
+            <p className="tnum font-mono text-[19px] font-semibold leading-none text-fg">
               {formatNumber(abertas.length)}
             </p>
             <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-fg-ghost">
@@ -107,9 +107,9 @@ export function GlobePanel({
         <div className="absolute inset-x-0 bottom-0 flex justify-center p-5">
           <Link
             href="/agente"
-            className="glass flex items-center gap-2.5 rounded-full px-4 py-2.5 transition-colors hover:border-brand-500/40"
+            className="glass flex items-center gap-2.5 rounded-full px-4 py-2.5 transition-colors hover:border-hairline-strong"
           >
-            <PlugZap className="h-4 w-4 shrink-0 text-brand-400" strokeWidth={2} />
+            <PlugZap className="h-4 w-4 shrink-0 text-fg-muted" strokeWidth={2} />
             <span className="text-[12.5px] text-fg-muted">
               Ver o estado do WhatsApp
             </span>

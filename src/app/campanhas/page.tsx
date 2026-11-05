@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarClock, Copy, ImageIcon, Megaphone, Plus, ShieldCheck, Trash2, Users } from "lucide-react";
 import { PageHeader } from "@/components/ui/panel";
-import { Reveal } from "@/components/ui/reveal";
+import { FaixaNumeros } from "@/components/ui/faixa-numeros";
 import { EditorCampanha } from "@/components/campanhas/editor";
 import { TextoWhatsapp } from "@/components/campanhas/previa-whatsapp";
 import { agendamentoNoPassado, deIso } from "@/components/ui/calendario";
@@ -81,23 +81,14 @@ function Campanhas() {
         }
       />
 
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {[
-          { label: "Campanhas", valor: banco.campanhas.length, hint: "rascunhos e agendadas" },
-          { label: "Clientes que autorizaram", valor: autorizaram, hint: "podem receber campanha" },
-          { label: "Agendadas", valor: agendadas, hint: "com dia marcado à frente" },
-        ].map((stat, i) => (
-          <Reveal
-            key={stat.label}
-            className="tile p-4"
-            style={{ animation: `rise 0.5s cubic-bezier(0.16,1,0.3,1) ${i * 60}ms both` }}
-          >
-            <p className="text-[12px] text-fg-muted">{stat.label}</p>
-            <p className="tnum mt-2 text-[23px] font-semibold leading-none tracking-[-0.03em] text-fg">{carregado ? stat.valor : 0}</p>
-            <p className="mt-1.5 text-[11px] text-fg-ghost">{stat.hint}</p>
-          </Reveal>
-        ))}
-      </div>
+      <FaixaNumeros
+        className="mb-4"
+        itens={[
+          { rotulo: "Campanhas", valor: carregado ? banco.campanhas.length : 0, dica: "rascunhos e agendadas" },
+          { rotulo: "Clientes que autorizaram", valor: carregado ? autorizaram : 0, dica: "podem receber campanha" },
+          { rotulo: "Agendadas", valor: carregado ? agendadas : 0, dica: "com dia marcado à frente" },
+        ]}
+      />
 
       <div className="tile mb-5 flex items-start gap-2.5 p-3.5">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-info" strokeWidth={2} />
@@ -110,9 +101,9 @@ function Campanhas() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         <Link
           href="/campanhas?c=nova"
-          className="group flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-hairline-strong p-6 text-center transition-colors hover:border-brand-500/50 hover:bg-brand-500/[0.04]"
+          className="group flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-hairline-strong p-6 text-center transition-colors hover:border-hairline-strong hover:bg-nivel-1"
         >
-          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-500/12 text-brand-400 ring-1 ring-inset ring-brand-500/25 transition-transform group-hover:scale-105">
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-nivel-4 text-fg-muted ring-1 ring-inset ring-anel transition-transform group-hover:scale-105">
             <Megaphone className="h-5 w-5" strokeWidth={2} />
           </span>
           <span className="text-[14px] font-semibold text-fg">Nova campanha</span>

@@ -107,6 +107,38 @@ valor das fichas, trocado pelo atributo `data-tema` no `<html>`.
   navegador, se todo tom de texto tem pelo menos 4,5:1 sobre toda superfície,
   nos dois temas. Escurecer um cinza "só um pouco" costuma ser o que quebra.
 
+## Linguagem visual (revisão de 2026-11-05)
+
+O cliente pediu uma tela "que dê para usar com paz". Referência em
+`docs/referencias/ref-calma-painel.png`. O que ficou decidido:
+
+- **Vermelho só em três lugares:** o logotipo, o que é urgente (cliente
+  chamou a equipe, falha de envio, sem conexão) e o que apaga dado
+  (`.btn-perigo`). Botão principal é neutro (`.btn-primary` usa
+  `--color-acao`), item ativo do menu é neutro, gráfico é neutro.
+- **Estado se lê pelo texto, a cor vai num ponto.** Use `.estado` com
+  `[--ponto:var(--color-...)]` em vez de etiqueta colorida. `ChipStatus`
+  dos pedidos já é assim.
+- **Uma faixa de números, não uma fileira de caixas.** `FaixaNumeros`
+  (`components/ui/faixa-numeros.tsx`). Cada tela tinha 3 a 5 caixinhas no
+  topo; agora é uma superfície com divisórias, e só onde o número ajuda.
+- **Editar fora da lista.** Nada de campo editável dentro da linha da
+  tabela (mudava estoque sem querer). Clique na linha abre a `Gaveta`
+  (`components/ui/gaveta.tsx`), com botão de salvar no rodapé fixo.
+  Excluir e cancelar pedem confirmação na própria linha.
+- **Painel de painel não tem eyebrow.** `PanelHeader` ignora a prop: o
+  título basta.
+- **"Vendido" é pedido não cancelado; "Recebido" é o vendido já pago.**
+  Painel, relatórios, histórico, visão da rede e assistente contam igual.
+  As contas dos relatórios moram em `lib/relatorios.ts`, usadas pela tela
+  e pela planilha (`/api/relatorios/exportar` com `{ visao, relatorio,
+  periodo }`).
+- **Assistente e Suporte ficam no pé do menu** (grupo com `rodape: true`
+  em `config/nav.ts`). Suporte abre o WhatsApp da MAZUS
+  (`SUPORTE_WHATSAPP`).
+- **No celular, lista em vez de tabela** nas telas de cadastro, e o menu
+  de baixo tem "Mais" com todas as telas.
+
 ## Regras deste projeto
 
 - **Nenhuma tela inventa número.** Tudo sai da camada em `src/lib/db/`, que

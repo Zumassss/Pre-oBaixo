@@ -2,6 +2,8 @@ import {
   Activity,
   BrainCircuit,
   Building2,
+  Headset,
+  Sparkles,
   ChartNoAxesCombined,
   LifeBuoy,
   MessagesSquare,
@@ -22,12 +24,22 @@ export type NavItem = {
   curto: string;
   /** Quando presente, só estes papéis veem o item. */
   papeis?: Papel[];
+  /** Link para fora do sistema: abre em outra aba. */
+  externo?: boolean;
 };
 
 export type NavGroup = {
   label: string;
   items: NavItem[];
+  /** Fica preso no pé da barra lateral, longe da operação do dia. */
+  rodape?: boolean;
 };
+
+/** WhatsApp de suporte da MAZUS, quem mantém o sistema. */
+export const SUPORTE_WHATSAPP = "5527997588365";
+export const SUPORTE_LINK = `https://wa.me/${SUPORTE_WHATSAPP}?text=${encodeURIComponent(
+  "Olá! Preciso de ajuda com o sistema da Preço Baixo.",
+)}`;
 
 const GRUPOS: NavGroup[] = [
   {
@@ -87,6 +99,7 @@ const GRUPOS: NavGroup[] = [
   },
   {
     label: "Sistema",
+    rodape: true,
     items: [
       {
         href: "/configuracoes",
@@ -95,10 +108,23 @@ const GRUPOS: NavGroup[] = [
         curto: "Ajustes",
       },
       {
+        href: "/assistente",
+        label: "Assistente da loja",
+        icon: Sparkles,
+        curto: "Assistente",
+      },
+      {
         href: "/ajuda",
         label: "Como usar",
         icon: LifeBuoy,
         curto: "Ajuda",
+      },
+      {
+        href: SUPORTE_LINK,
+        label: "Suporte",
+        icon: Headset,
+        curto: "Suporte",
+        externo: true,
       },
     ],
   },
@@ -123,6 +149,7 @@ export const pageMeta: Record<string, { title: string; parent: string }> = {
   "/": { title: "Painel", parent: "Operação" },
   "/rede": { title: "Visão da rede", parent: "Rede" },
   "/ajuda": { title: "Como usar", parent: "Sistema" },
+  "/assistente": { title: "Assistente da loja", parent: "Sistema" },
   "/conversas": { title: "Conversas", parent: "Operação" },
   "/pedidos": { title: "Pedidos", parent: "Operação" },
   "/pedidos/historico": { title: "Histórico de pedidos", parent: "Pedidos" },

@@ -44,7 +44,7 @@ function Audio({ url, duracao, deMim }: { url: string; duracao?: number; deMim: 
         aria-label={tocando ? "Pausar áudio" : "Ouvir áudio"}
         className={cn(
           "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-transform active:scale-95",
-          deMim ? "bg-white/20 text-white" : "bg-brand-500 text-white",
+          deMim ? "bg-white/20 text-white" : "bg-acao text-acao-fg",
         )}
       >
         {tocando ? (
@@ -192,7 +192,7 @@ export function VisualMidia({ midia, deMim = false }: { midia: Midia; deMim?: bo
       <span
         className={cn(
           "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
-          deMim ? "bg-white/20 text-white" : "bg-brand-500/12 text-brand-400",
+          deMim ? "bg-white/20 text-white" : "bg-nivel-4 text-fg-muted",
         )}
       >
         <FileText className="h-4 w-4" strokeWidth={2} />

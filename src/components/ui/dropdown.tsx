@@ -112,7 +112,7 @@ export function Dropdown({
                   </span>
                 )}
                 {selecionado && (
-                  <Check className="h-3.5 w-3.5 shrink-0 text-brand-400" strokeWidth={2.5} />
+                  <Check className="h-3.5 w-3.5 shrink-0 text-fg" strokeWidth={2.5} />
                 )}
               </button>
             );

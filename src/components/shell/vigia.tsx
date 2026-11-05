@@ -103,7 +103,7 @@ const ESTILO: Record<Aviso["tipo"], { icone: typeof X; classe: string; duracao: 
   alerta: { icone: Stethoscope, classe: "border-caution/45 bg-caution/[0.14] text-caution", duracao: 15000 },
   pedido: { icone: ClipboardList, classe: "border-positive/40 bg-positive/[0.12] text-positive", duracao: 9000 },
   mensagem: { icone: MessageCircle, classe: "border-info/40 bg-info/[0.12] text-info", duracao: 7000 },
-  erro: { icone: AlertTriangle, classe: "border-brand-500/45 bg-brand-500/[0.12] text-brand-400", duracao: 9000 },
+  erro: { icone: AlertTriangle, classe: "border-negative/40 bg-nivel-3 text-negative", duracao: 9000 },
   info: { icone: MessageCircle, classe: "border-hairline bg-nivel-3 text-fg-muted", duracao: 6000 },
 };
 
@@ -236,7 +236,7 @@ export function AoVivo() {
   const situacao = !logado
     ? { cor: "bg-fg-ghost", texto: "", titulo: "" }
     : falhaDeGravacao
-      ? { cor: "bg-brand-500", texto: "Sem conexão", titulo: "A última alteração ainda não foi salva. Tentando de novo." }
+      ? { cor: "bg-negative", texto: "Sem conexão", titulo: "A última alteração ainda não foi salva. Tentando de novo." }
       : atraso > 12
         ? { cor: "bg-caution", texto: "Reconectando", titulo: `Sem notícia do servidor há ${Math.round(atraso)} segundos.` }
         : { cor: "bg-positive animate-blink", texto: "Ao vivo", titulo: `Atualizado há ${Math.max(0, Math.round(atraso))} s.` };
@@ -246,7 +246,7 @@ export function AoVivo() {
       title={situacao.titulo}
       className="hidden items-center gap-2 rounded-full border border-hairline bg-nivel-2 px-3 py-2 sm:flex"
     >
-      {falhaDeGravacao && <WifiOff className="h-3.5 w-3.5 text-brand-400" strokeWidth={2} />}
+      {falhaDeGravacao && <WifiOff className="h-3.5 w-3.5 text-negative" strokeWidth={2} />}
       <span className={cn("h-1.5 w-1.5 rounded-full", situacao.cor)} />
       {situacao.texto && (
         <span className="text-[11.5px] font-medium text-fg-muted">{situacao.texto}</span>

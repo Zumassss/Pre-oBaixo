@@ -60,6 +60,24 @@ export function indexarClientes(
   return indice;
 }
 
+/**
+ * O resumo de compras que a tela mostra.
+ *
+ * `cliente.compras` é o acumulado de todos os tempos, mantido por quem fecha
+ * pedido. Os pedidos carregados são só os recentes. Vale o que tiver mais
+ * pedidos: se o acumulado ficou para trás (cliente antigo, importação), a
+ * tela ainda mostra o que dá para contar.
+ */
+export function resumoDeCompras(cliente: Cliente, pedidos: Pedido[] = []) {
+  const validos = pedidos.filter((p) => p.status !== "cancelado");
+  if (cliente.compras.quantidade >= validos.length) return cliente.compras;
+  return {
+    quantidade: validos.length,
+    total: validos.reduce((s, p) => s + p.total, 0),
+    ultimaEm: Math.max(0, ...validos.map((p) => p.criadoEm)),
+  };
+}
+
 export function situacaoDoCliente(
   cliente: Cliente,
   conversas: Conversa[],

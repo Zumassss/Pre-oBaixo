@@ -109,6 +109,12 @@ export type Cliente = {
   observacao: string;
   /** Usado para entrega, quando houver. */
   endereco: string;
+  bairro: string;
+  /** Outro número (recado, familiar). Nunca recebe mensagem do bot. */
+  telefone2: string;
+  email: string;
+  /** Data de nascimento em AAAA-MM-DD, ou vazio. */
+  nascimento: string;
   criadoEm: number;
   origem: OrigemCliente;
   /** Etiquetas que a loja escolhe (VIP, uso contínuo, idoso...). */
@@ -133,6 +139,10 @@ export const CLIENTE_PADRAO: Omit<Cliente, "id" | "nome" | "telefone" | "criadoE
   consentimento: false,
   observacao: "",
   endereco: "",
+  bairro: "",
+  telefone2: "",
+  email: "",
+  nascimento: "",
   origem: "manual",
   etiquetas: [],
   primeiraMensagemEm: 0,
@@ -156,6 +166,12 @@ export type Produto = {
   estoque: number;
   estoqueMinimo: number;
   exigeReceita: boolean;
+  /** Fabricante ou marca, para a equipe diferenciar genéricos iguais. */
+  laboratorio: string;
+  /** Substância, quando é remédio. Ajuda a achar "a losartana" pelo nome. */
+  principioAtivo: string;
+  /** EAN da embalagem, para conferir no balcão e casar com o PDV depois. */
+  codigoBarras: string;
   criadoEm: number;
 };
 
@@ -729,7 +745,13 @@ export function normalizarCliente(c: Bruto): Cliente {
 
 export function normalizarProduto(p: Bruto): Produto {
   const x = p as Partial<Produto>;
-  return { ...x, promocao: x.promocao ?? 0 } as Produto;
+  return {
+    ...x,
+    promocao: x.promocao ?? 0,
+    laboratorio: x.laboratorio ?? "",
+    principioAtivo: x.principioAtivo ?? "",
+    codigoBarras: x.codigoBarras ?? "",
+  } as Produto;
 }
 
 export function normalizarMensagem(m: Bruto): Mensagem {

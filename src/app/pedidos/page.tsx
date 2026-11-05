@@ -14,12 +14,10 @@ import {
   Stethoscope,
   Store,
   Trash2,
-  X,
 } from "lucide-react";
-import { PageHeader, Panel, PanelHeader } from "@/components/ui/panel";
+import { PageHeader, Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Reveal } from "@/components/ui/reveal";
-import { ChipStatus, IconeStatus } from "@/components/pedidos/status";
+import { ChipStatus } from "@/components/pedidos/status";
 import { NovoPedido } from "@/components/pedidos/novo-pedido";
 import { CobrancaPix } from "@/components/pedidos/cobranca-pix";
 import { useAppState } from "@/components/providers/app-state";
@@ -132,64 +130,28 @@ export default function PedidosPage() {
         }
       />
 
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {[
-          { label: "Pedidos em aberto", valor: String(emAberto.length) },
-          {
-            label: "Aguardando receita",
-            valor: String(contarPor("aguardando_receita")),
-          },
-          {
-            label: "Prontos e em rota",
-            valor: String(contarPor("pronto") + contarPor("saiu_entrega")),
-          },
-          { label: "A receber", valor: formatBRLCents(aReceber) },
-        ].map((stat, i) => (
-          <Reveal
-            key={stat.label}
-            className="tile p-4"
-            style={{
-              animation: `rise 0.5s cubic-bezier(0.16,1,0.3,1) ${i * 60}ms both`,
-            }}
-          >
-            <p className="text-[12px] text-fg-muted">{stat.label}</p>
-            <p className="tnum mt-2 font-mono text-[21px] font-semibold leading-none tracking-[-0.03em] text-fg">
-              {carregado ? stat.valor : "0"}
-            </p>
-          </Reveal>
-        ))}
-      </div>
-
-      <Panel>
-        <PanelHeader
-          eyebrow="Fila"
-          title="Pedidos da loja"
-          action={
-            banco.pedidos.length > 0 ? (
-              <span className="chip">{visiveis.length} na lista</span>
-            ) : undefined
-          }
-        />
-
+      <Panel className="overflow-hidden">
         {banco.pedidos.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 px-5 pb-3">
-            {filtros.map((f) => (
-              <button
-                key={f.valor}
-                onClick={() => setFiltro(f.valor)}
-                className={cn(
-                  "rounded-full border px-3 py-1.5 text-[11.5px] font-medium transition-colors",
-                  filtro === f.valor
-                    ? "border-brand-500/50 bg-brand-500/[0.14] text-fg"
-                    : "border-hairline bg-nivel-1 text-fg-muted hover:bg-nivel-3",
-                )}
-              >
-                {f.rotulo}
-                <span className="tnum ml-1.5 font-mono text-fg-ghost">
-                  {f.total}
-                </span>
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-1 border-b border-hairline px-4 py-3">
+            {filtros.map((f) =>
+              f.total === 0 && f.valor !== "todos" && f.valor !== filtro ? null : (
+                <button
+                  key={f.valor}
+                  onClick={() => setFiltro(f.valor)}
+                  aria-pressed={filtro === f.valor}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12.5px] font-medium transition-colors",
+                    filtro === f.valor ? "bg-nivel-4 text-fg" : "text-fg-muted hover:bg-nivel-2 hover:text-fg",
+                  )}
+                >
+                  {f.rotulo}
+                  <span className="tnum text-[11px] opacity-60">{f.total}</span>
+                </button>
+              ),
+            )}
+            <span className="ml-auto text-[12px] text-fg-faint">
+              {carregado && aReceber > 0 ? `${formatBRLCents(aReceber)} a receber nos pedidos em aberto` : ""}
+            </span>
           </div>
         )}
 
@@ -216,7 +178,7 @@ export default function PedidosPage() {
             }
           />
         ) : (
-          <ul className="space-y-2 px-3 pb-4">
+          <ul className="divide-y divide-hairline">
             {visiveis.map((pedido) => (
               <CartaoPedido
                 key={pedido.id}
@@ -249,6 +211,20 @@ export default function PedidosPage() {
   );
 }
 
+/** Como e quando o cliente paga, em palavras. */
+function pagamento(pedido: Pedido) {
+  if (pedido.pago) return "Pago";
+  if (pedido.formaPagamento === "pix") return "Pix pendente";
+  return pedido.formaEntrega === "entrega" ? "Paga na entrega" : "Paga na retirada";
+}
+
+/**
+ * Um pedido da fila.
+ *
+ * Linha, não cartão: a fila é lida de cima a baixo, e cada pedido com caixa,
+ * borda e meia dúzia de etiquetas coloridas fazia a tela inteira competir
+ * por atenção. Agora a cor fica no ponto da etapa e o resto é texto.
+ */
 function CartaoPedido({
   pedido,
   farmaceutico,
@@ -258,178 +234,164 @@ function CartaoPedido({
   farmaceutico: string;
   onCobrar: () => void;
 }) {
+  const [confirmar, setConfirmar] = useState<"cancelar" | "remover" | null>(null);
   const exigeReceita = pedidoExigeReceita(pedido);
   const travadoNaReceita = pedido.status === "aguardando_receita";
   const avanco = rotuloDoAvanco(pedido);
+  const aberto = pedidoEmAberto(pedido);
 
   return (
-    <Reveal as="li" className="rounded-xl border border-hairline bg-nivel-1 p-3.5">
-      <div className="flex flex-wrap items-start gap-3">
-        <div
-          className={cn(
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-hairline",
-            travadoNaReceita ? "bg-caution/[0.12]" : "bg-nivel-2",
-          )}
-        >
-          <IconeStatus
-            status={pedido.status}
-            className={cn(
-              "h-4 w-4",
-              travadoNaReceita ? "text-caution" : "text-fg-muted",
-            )}
-          />
-        </div>
-
+    <li className="px-5 py-4" style={{ animation: "rise 0.35s cubic-bezier(0.16,1,0.3,1) both" }}>
+      <div className="flex flex-wrap items-start gap-x-6 gap-y-2">
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="tnum font-mono text-[12px] text-fg-ghost">
-              #{pedido.numero}
-            </span>
-            <p className="truncate text-[13.5px] font-semibold text-fg">
-              {pedido.cliente}
-            </p>
-            {pedido.origem === "whatsapp" ? (
-              <span className="flex items-center gap-1 text-[11px] text-fg-ghost">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span className="tnum text-[12.5px] text-fg-ghost">#{pedido.numero}</span>
+            <p className="text-[14px] font-semibold text-fg">{pedido.cliente}</p>
+            <span className="flex items-center gap-1 text-[12px] text-fg-faint">
+              {pedido.origem === "whatsapp" ? (
                 <MessageCircle className="h-3 w-3" strokeWidth={2} />
-                WhatsApp
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 text-[11px] text-fg-ghost">
+              ) : (
                 <Store className="h-3 w-3" strokeWidth={2} />
-                Balcão
-              </span>
-            )}
-
-            {/* Como o pedido sai da loja decide o trabalho de quem separa,
-                então fica junto do nome, não escondido no rodapé. */}
-            {pedido.formaEntrega === "entrega" ? (
-              <span className="chip chip-info !px-2 !py-[2px] !text-[9.5px]">
-                <Bike className="h-3 w-3" strokeWidth={2} />
-                motoboy
-              </span>
-            ) : (
-              <span className="chip !px-2 !py-[2px] !text-[9.5px]">retirada</span>
-            )}
+              )}
+              {pedido.origem === "whatsapp" ? "WhatsApp" : "Balcão"}
+              <span className="text-fg-ghost">·</span>
+              {pedido.formaEntrega === "entrega" ? (
+                <>
+                  <Bike className="h-3 w-3" strokeWidth={2} />
+                  Entrega por motoboy
+                </>
+              ) : (
+                "Retirada na loja"
+              )}
+            </span>
           </div>
 
-          <p className="mt-1 text-[12px] leading-relaxed text-fg-faint">
-            {pedido.itens
-              .map((i) => `${i.quantidade}x ${i.nome}`)
-              .join(" · ")}
+          <p className="mt-1 text-[13px] leading-relaxed text-fg-muted">
+            {pedido.itens.map((i) => `${i.quantidade}x ${i.nome}`).join(" · ")}
           </p>
 
           {pedido.formaEntrega === "entrega" && pedido.enderecoEntrega && (
-            <p className="mt-1 flex items-start gap-1 text-[11.5px] text-fg-muted">
+            <p className="mt-1 flex items-start gap-1 text-[12px] text-fg-faint">
               <MapPin className="mt-[2px] h-3 w-3 shrink-0" strokeWidth={2} />
               {pedido.enderecoEntrega}
             </p>
           )}
-
-          {pedido.observacao && (
-            <p className="mt-1 text-[11.5px] italic text-fg-ghost">
-              {pedido.observacao}
-            </p>
-          )}
-
+          {pedido.observacao && <p className="mt-1 text-[12px] italic text-fg-faint">{pedido.observacao}</p>}
           {pedido.receitaConferidaPor && (
-            <p className="mt-1 flex items-center gap-1 text-[11px] text-positive">
+            <p className="mt-1 flex items-center gap-1 text-[12px] text-fg-faint">
               <Stethoscope className="h-3 w-3" strokeWidth={2} />
               Receita conferida por {pedido.receitaConferidaPor}
             </p>
           )}
         </div>
 
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
-          <span className="tnum font-mono text-[15px] font-semibold text-fg">
-            {formatBRLCents(pedido.total)}
-          </span>
+        <div className="flex shrink-0 flex-col items-end gap-1 text-right">
+          <span className="tnum text-[15px] font-semibold text-fg">{formatBRLCents(pedido.total)}</span>
           {pedido.taxaEntrega > 0 && (
-            <span className="tnum -mt-1 font-mono text-[10.5px] text-fg-ghost">
+            <span className="tnum text-[11.5px] text-fg-ghost">
               {formatBRLCents(pedido.subtotal)} + {formatBRLCents(pedido.taxaEntrega)} de entrega
             </span>
           )}
-          <div className="flex items-center gap-1.5">
-            <span
-              className={cn(
-                "chip !px-2 !py-[2px] !text-[9.5px]",
-                pedido.pago ? "chip-good" : "",
-              )}
-            >
-              {pedido.pago
-                ? "pago"
-                : pedido.formaPagamento === "pix"
-                  ? "pix pendente"
-                  : pedido.formaEntrega === "entrega"
-                    ? "paga na entrega"
-                    : "paga na retirada"}
-            </span>
-            <ChipStatus status={pedido.status} className="!px-2 !py-[2px] !text-[9.5px]" />
-          </div>
+          <ChipStatus status={pedido.status} />
+          <span className={cn("text-[12px]", pedido.pago ? "text-positive" : "text-fg-faint")}>
+            {pagamento(pedido)}
+          </span>
         </div>
       </div>
 
-      {pedidoEmAberto(pedido) && (
-        <div className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-hairline pt-3">
-          {travadoNaReceita && (
-            <button
-              onClick={() =>
-                aprovarReceita(pedido.id, farmaceutico || "farmacêutico da loja")
-              }
-              className="btn-ghost !text-[12px] !text-caution"
-            >
-              <Stethoscope className="h-3.5 w-3.5" strokeWidth={2} />
-              Conferi a receita
-            </button>
-          )}
-
-          {pedido.formaPagamento === "pix" && !pedido.pago && (
-            <button onClick={onCobrar} className="btn-ghost !text-[12px]">
-              <QrCode className="h-3.5 w-3.5" strokeWidth={2} />
-              Cobrança Pix
-            </button>
-          )}
-
-          <button
-            onClick={() => cancelarPedido(pedido.id)}
-            className="btn-ghost !text-[12px] hover:!text-negative"
-          >
-            <X className="h-3.5 w-3.5" strokeWidth={2} />
-            Cancelar
-          </button>
-
-          {avanco && !travadoNaReceita && (
-            <button
-              onClick={() =>
-                proximaEtapa(pedido) === "aguardando_pagamento"
-                  ? onCobrar()
-                  : avancarPedido(pedido.id)
-              }
-              className="btn-primary !py-2 !text-[12px]"
-            >
-              {avanco}
-              <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.2} />
-            </button>
-          )}
-
+      {aberto && (
+        <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
           {travadoNaReceita && exigeReceita && (
-            <span className="text-[11px] text-fg-ghost">
-              Pedido parado até a conferência
+            <span className="mr-auto flex items-center gap-1.5 text-[12px] text-caution">
+              <Stethoscope className="h-3.5 w-3.5" strokeWidth={2} />
+              Parado até alguém conferir a receita
             </span>
           )}
+
+          {confirmar === "cancelar" ? (
+            <span className="flex items-center gap-2">
+              <span className="text-[12.5px] text-fg-muted">Cancelar o pedido #{pedido.numero}?</span>
+              <button
+                onClick={() => cancelarPedido(pedido.id)}
+                className="btn-perigo !px-3 !py-1.5 !text-[12px]"
+              >
+                Cancelar pedido
+              </button>
+              <button
+                onClick={() => setConfirmar(null)}
+                className="rounded-lg px-2 py-1.5 text-[12.5px] text-fg-muted hover:text-fg"
+              >
+                Não
+              </button>
+            </span>
+          ) : (
+            <>
+              <button
+                onClick={() => setConfirmar("cancelar")}
+                className="rounded-lg px-2.5 py-1.5 text-[12.5px] text-fg-faint transition-colors hover:bg-nivel-3 hover:text-negative"
+              >
+                Cancelar
+              </button>
+
+              {pedido.formaPagamento === "pix" && !pedido.pago && (
+                <button onClick={onCobrar} className="btn-ghost !px-3 !py-1.5 !text-[12px]">
+                  <QrCode className="h-3.5 w-3.5" strokeWidth={2} />
+                  Cobrança Pix
+                </button>
+              )}
+
+              {travadoNaReceita ? (
+                <button
+                  onClick={() => aprovarReceita(pedido.id, farmaceutico || "farmacêutico da loja")}
+                  className="btn-primary !px-3 !py-1.5 !text-[12px]"
+                >
+                  <Stethoscope className="h-3.5 w-3.5" strokeWidth={2} />
+                  Conferi a receita
+                </button>
+              ) : (
+                avanco && (
+                  <button
+                    onClick={() =>
+                      proximaEtapa(pedido) === "aguardando_pagamento" ? onCobrar() : avancarPedido(pedido.id)
+                    }
+                    className="btn-primary !px-3 !py-1.5 !text-[12px]"
+                  >
+                    {avanco}
+                    <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.2} />
+                  </button>
+                )
+              )}
+            </>
+          )}
         </div>
       )}
 
-      {!pedidoEmAberto(pedido) && (
-        <div className="mt-3 flex items-center justify-end border-t border-hairline pt-3">
-          <button
-            onClick={() => removerPedido(pedido.id)}
-            aria-label={`Remover pedido ${pedido.numero}`}
-            className="rounded-lg p-1.5 text-fg-ghost transition-colors hover:bg-nivel-3 hover:text-negative"
-          >
-            <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-          </button>
+      {!aberto && (
+        <div className="mt-2 flex items-center justify-end gap-2">
+          {confirmar === "remover" ? (
+            <>
+              <span className="text-[12.5px] text-fg-muted">Tirar o pedido da lista?</span>
+              <button onClick={() => removerPedido(pedido.id)} className="btn-perigo !px-3 !py-1.5 !text-[12px]">
+                Remover
+              </button>
+              <button
+                onClick={() => setConfirmar(null)}
+                className="rounded-lg px-2 py-1.5 text-[12.5px] text-fg-muted hover:text-fg"
+              >
+                Não
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setConfirmar("remover")}
+              aria-label={`Remover pedido ${pedido.numero}`}
+              className="rounded-lg p-1.5 text-fg-ghost transition-colors hover:bg-nivel-3 hover:text-negative"
+            >
+              <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+            </button>
+          )}
         </div>
       )}
-    </Reveal>
+    </li>
   );
 }

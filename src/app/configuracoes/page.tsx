@@ -70,7 +70,7 @@ function Configuracoes() {
             onClick={() => router.replace(`/configuracoes?aba=${id}`, { scroll: false })}
             className={cn(
               "flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-medium transition-colors",
-              aba === id ? "bg-brand-500/[0.14] text-fg" : "text-fg-muted hover:bg-nivel-3 hover:text-fg",
+              aba === id ? "bg-nivel-3 text-fg" : "text-fg-muted hover:bg-nivel-3 hover:text-fg",
             )}
           >
             <Icone className="h-3.5 w-3.5" strokeWidth={2} />
@@ -253,7 +253,7 @@ function EscolhaDeTema() {
             className={cn(
               "flex items-center gap-2 rounded-xl border px-3 py-2.5 text-[12.5px] transition-colors",
               ativo
-                ? "border-brand-500/50 bg-brand-500/[0.12] text-fg"
+                ? "border-hairline-strong bg-nivel-4 text-fg"
                 : "border-hairline bg-nivel-1 text-fg-muted hover:bg-nivel-3",
             )}
           >
@@ -261,7 +261,7 @@ function EscolhaDeTema() {
             <span className="truncate">{temaLabel[valor]}</span>
             {ativo && (
               <Check
-                className="ml-auto h-3.5 w-3.5 shrink-0 text-brand-400"
+                className="ml-auto h-3.5 w-3.5 shrink-0 text-fg-muted"
                 strokeWidth={2.5}
               />
             )}

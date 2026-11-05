@@ -362,7 +362,7 @@ export function NovoPedido({
               className={cn(
                 "flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors",
                 entrega === "retirada"
-                  ? "border-brand-500/50 bg-brand-500/[0.12] text-fg"
+                  ? "border-hairline-strong bg-nivel-4 text-fg"
                   : "border-hairline bg-nivel-1 text-fg-muted hover:bg-nivel-3",
               )}
             >
@@ -387,7 +387,7 @@ export function NovoPedido({
               className={cn(
                 "flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors",
                 entrega === "entrega"
-                  ? "border-brand-500/50 bg-brand-500/[0.12] text-fg"
+                  ? "border-hairline-strong bg-nivel-4 text-fg"
                   : "border-hairline bg-nivel-1 text-fg-muted hover:bg-nivel-3",
                 !temMotoboy && "cursor-not-allowed opacity-40 hover:bg-nivel-1",
               )}
@@ -433,7 +433,7 @@ export function NovoPedido({
                   className={cn(
                     "rounded-xl border px-3 py-2 text-[12.5px] transition-colors",
                     origem === valor
-                      ? "border-brand-500/50 bg-brand-500/[0.12] text-fg"
+                      ? "border-hairline-strong bg-nivel-4 text-fg"
                       : "border-hairline bg-nivel-1 text-fg-muted hover:bg-nivel-3",
                   )}
                 >
@@ -461,7 +461,7 @@ export function NovoPedido({
                   className={cn(
                     "rounded-xl border px-3 py-2 text-[12.5px] transition-colors",
                     forma === valor
-                      ? "border-brand-500/50 bg-brand-500/[0.12] text-fg"
+                      ? "border-hairline-strong bg-nivel-4 text-fg"
                       : "border-hairline bg-nivel-1 text-fg-muted hover:bg-nivel-3",
                   )}
                 >

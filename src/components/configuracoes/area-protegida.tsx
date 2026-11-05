@@ -88,7 +88,7 @@ function Tranca({ onAberta, compacta = false }: { onAberta: () => void; compacta
       onSubmit={abrir}
       className={cn("mx-auto flex w-full max-w-[380px] flex-col items-center text-center", !compacta && "py-10")}
     >
-      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-500/12 text-brand-400 ring-1 ring-inset ring-brand-500/25">
+      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-nivel-4 text-fg-muted ring-1 ring-inset ring-anel">
         <Lock className="h-6 w-6" strokeWidth={2} />
       </span>
       <h2 className="mt-4 text-[17px] font-semibold tracking-[-0.01em] text-fg">Área protegida</h2>
@@ -117,7 +117,7 @@ function Tranca({ onAberta, compacta = false }: { onAberta: () => void; compacta
         className="field tnum mt-5 !rounded-2xl !py-3 text-center font-mono !text-[22px] tracking-[0.5em]"
       />
       {erro && (
-        <p id="erro-pin" role="alert" className="mt-2 text-[12px] font-medium text-brand-400">
+        <p id="erro-pin" role="alert" className="mt-2 text-[12px] font-medium text-negative">
           {erro}
         </p>
       )}
@@ -452,7 +452,7 @@ function SecaoHorarios({ agente, onMudar }: { agente: AjustesAgente; onMudar: (d
                 onClick={() => dia(id, { aberto: !h.aberto })}
                 className={cn(
                   "flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors",
-                  h.aberto ? "bg-brand-500" : "bg-nivel-4",
+                  h.aberto ? "bg-positive" : "bg-nivel-4",
                 )}
               >
                 <span className={cn("h-4 w-4 rounded-full bg-white shadow transition-transform", h.aberto ? "translate-x-4" : "")} />
@@ -601,7 +601,7 @@ function SecaoEntrega({
                     type="button"
                     onClick={() => onEntrega({ bairros: e.bairros.filter((_, j) => j !== i) })}
                     aria-label={`Remover ${b.nome || "bairro"}`}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-fg-ghost transition-colors hover:bg-nivel-3 hover:text-brand-400"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-fg-ghost transition-colors hover:bg-nivel-3 hover:text-fg"
                   >
                     <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
                   </button>
@@ -662,7 +662,7 @@ function SecaoEntrega({
                       href={`https://www.openstreetmap.org/?mlat=${agente.localizacao.lat}&mlon=${agente.localizacao.lon}#map=17/${agente.localizacao.lat}/${agente.localizacao.lon}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="font-medium text-brand-400 underline-offset-2 hover:underline"
+                      className="font-medium text-fg underline underline-offset-2"
                     >
                       Conferir no mapa
                     </a>
@@ -936,7 +936,7 @@ function SecaoPerguntas({ agente, onAgente }: { agente: AjustesAgente; onAgente:
                 type="button"
                 onClick={() => onAgente({ perguntas: lista.filter((_, j) => j !== i) })}
                 aria-label={`Remover pergunta ${i + 1}`}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-fg-ghost transition-colors hover:bg-nivel-3 hover:text-brand-400"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-fg-ghost transition-colors hover:bg-nivel-3 hover:text-fg"
               >
                 <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
               </button>
@@ -958,7 +958,7 @@ function SecaoPerguntas({ agente, onAgente }: { agente: AjustesAgente; onAgente:
             key={s}
             type="button"
             onClick={() => onAgente({ perguntas: [...lista, { pergunta: s, resposta: "" }] })}
-            className="chip transition-colors hover:border-brand-500/40 hover:text-brand-300"
+            className="chip transition-colors hover:border-hairline-strong hover:text-fg"
           >
             <Plus className="h-3 w-3" strokeWidth={2.2} />
             {s}
@@ -1002,7 +1002,7 @@ function SecaoSenha({ lojaId }: { lojaId: string }) {
         </button>
       </form>
       {mensagem && (
-        <p role="status" className={cn("mt-2 text-[12px] font-medium", mensagem.ok ? "text-positive" : "text-brand-400")}>
+        <p role="status" className={cn("mt-2 text-[12px] font-medium", mensagem.ok ? "text-positive" : "text-negative")}>
           {mensagem.texto}
         </p>
       )}

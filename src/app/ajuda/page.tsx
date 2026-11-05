@@ -140,7 +140,7 @@ export default function AjudaPage() {
               </p>
               <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-nivel-3">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-brand-700 to-brand-400 transition-[width] duration-700"
+                  className="h-full rounded-full bg-fg-muted transition-[width] duration-700"
                   style={{
                     width: `${carregado ? Math.round((feitos / passos.length) * 100) : 0}%`,
                   }}
@@ -242,7 +242,7 @@ export default function AjudaPage() {
                 <Reveal key={item.titulo} className="tile p-3.5">
                   <div className="flex items-center gap-2">
                     <Icone
-                      className="h-3.5 w-3.5 shrink-0 text-brand-400"
+                      className="h-3.5 w-3.5 shrink-0 text-positive"
                       strokeWidth={2}
                     />
                     <h3 className="text-[12.5px] font-semibold text-fg">
@@ -357,7 +357,17 @@ const DUVIDAS = [
   {
     pergunta: "Como vejo o resultado de um período diferente?",
     resposta:
-      "No seletor de período, na barra de cima. Ele vale para o painel, os relatórios e a visão da rede ao mesmo tempo.",
+      "No painel e na visão da rede, pelo seletor de período da barra de cima. Nos Relatórios, o período é escolhido na própria tela (hoje, 7 dias, 30 dias, este mês ou mês passado), e a planilha sai com esse mesmo recorte.",
+  },
+  {
+    pergunta: "Onde fica o assistente que responde sobre a loja?",
+    resposta:
+      "Na aba Assistente da loja, no pé do menu. Ele responde com os números de agora (conversas, pedidos, estoque, vendas) e explica como usar as telas.",
+  },
+  {
+    pergunta: "Preciso de ajuda com o sistema. Com quem falo?",
+    resposta:
+      "Pela aba Suporte, no pé do menu. Ela abre uma conversa no WhatsApp da MAZUS, que mantém o sistema.",
   },
 ];
 

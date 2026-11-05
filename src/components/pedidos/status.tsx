@@ -15,17 +15,18 @@ import { cn } from "@/lib/utils";
 /**
  * Aparência de cada etapa do pedido.
  *
- * A conferência de receita é a única em vermelho de alerta: ela não é uma
- * etapa qualquer da fila, é a que segura o pedido por exigência legal.
+ * A etapa se lê pelo nome; a cor fica num ponto ao lado. Com etiqueta
+ * colorida em cada pedido, a fila virava um semáforo e nada se destacava.
+ * Âmbar só para o que segura o pedido (a receita, por exigência legal).
  */
-const ESTILO: Record<StatusPedido, { chip: string; ponto: string }> = {
-  aguardando_receita: { chip: "chip-warn", ponto: "bg-caution" },
-  aguardando_pagamento: { chip: "chip-info", ponto: "bg-info" },
-  em_preparo: { chip: "chip-hot", ponto: "bg-brand-500" },
-  pronto: { chip: "chip-good", ponto: "bg-positive" },
-  saiu_entrega: { chip: "chip-info", ponto: "bg-info" },
-  entregue: { chip: "", ponto: "bg-fg-ghost" },
-  cancelado: { chip: "", ponto: "bg-fg-ghost" },
+const ESTILO: Record<StatusPedido, { cor: string; ponto: string }> = {
+  aguardando_receita: { cor: "[--ponto:var(--color-caution)]", ponto: "bg-caution" },
+  aguardando_pagamento: { cor: "[--ponto:var(--color-info)]", ponto: "bg-info" },
+  em_preparo: { cor: "[--ponto:var(--color-fg-muted)]", ponto: "bg-fg-muted" },
+  pronto: { cor: "[--ponto:var(--color-positive)]", ponto: "bg-positive" },
+  saiu_entrega: { cor: "[--ponto:var(--color-info)]", ponto: "bg-info" },
+  entregue: { cor: "[--ponto:var(--color-fg-ghost)]", ponto: "bg-fg-ghost" },
+  cancelado: { cor: "[--ponto:var(--color-fg-ghost)]", ponto: "bg-fg-ghost" },
 };
 
 /**
@@ -74,7 +75,7 @@ export function ChipStatus({
   className?: string;
 }) {
   return (
-    <span className={cn("chip", ESTILO[status].chip, className)}>
+    <span className={cn("estado", ESTILO[status].cor, className)}>
       {STATUS_PEDIDO_LABEL[status]}
     </span>
   );

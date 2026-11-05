@@ -49,13 +49,12 @@ export function FilaPedidos({ banco, className }: { banco: VisaoLoja; className?
   return (
     <Panel className={cn("flex flex-col overflow-hidden", className)}>
       <PanelHeader
-        eyebrow="Ao vivo"
         title="Pedidos em andamento"
         live={abertos.length > 0}
         action={
           <Link
             href="/pedidos"
-            className="group flex shrink-0 items-center gap-1 text-[12px] font-medium text-fg-faint transition-colors hover:text-brand-400"
+            className="group flex shrink-0 items-center gap-1 text-[12px] font-medium text-fg-faint transition-colors hover:text-fg"
           >
             Ver todos
             <ArrowUpRight
@@ -82,7 +81,7 @@ export function FilaPedidos({ banco, className }: { banco: VisaoLoja; className?
           <div className="flex flex-wrap gap-2 px-5 pb-3">
             <span className="chip">{abertos.length} em aberto</span>
             {naReceita > 0 && (
-              <span className="chip chip-warn">
+              <span className="chip">
                 {naReceita} aguardando receita
               </span>
             )}
@@ -110,7 +109,7 @@ export function FilaPedidos({ banco, className }: { banco: VisaoLoja; className?
                   className={cn(
                     "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-hairline",
                     pedido.status === "aguardando_receita"
-                      ? "bg-caution/[0.12]"
+                      ? "bg-caution/[0.08]"
                       : "bg-nivel-2",
                   )}
                 >
@@ -152,7 +151,7 @@ export function FilaPedidos({ banco, className }: { banco: VisaoLoja; className?
                   </div>
                   <p className="flex items-center gap-1 truncate text-[11px] text-fg-ghost">
                     {pedido.formaEntrega === "entrega" && (
-                      <Bike className="h-3 w-3 shrink-0 text-info" strokeWidth={2} />
+                      <Bike className="h-3 w-3 shrink-0 text-fg-ghost" strokeWidth={2} />
                     )}
                     <span className="truncate">
                       {pedido.itens.reduce((n, i) => n + i.quantidade, 0)} itens ·{" "}
@@ -165,10 +164,7 @@ export function FilaPedidos({ banco, className }: { banco: VisaoLoja; className?
                   <span className="tnum font-mono text-[12.5px] font-medium text-fg">
                     {formatBRLCents(pedido.total)}
                   </span>
-                  <ChipStatus
-                    status={pedido.status}
-                    className="!px-2 !py-[2px] !text-[9.5px]"
-                  />
+                  <ChipStatus status={pedido.status} className="!text-[11.5px]" />
                 </div>
               </Reveal>
               );

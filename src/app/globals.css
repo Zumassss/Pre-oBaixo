@@ -27,12 +27,18 @@
   /* Superfícies */
   /* Grafite, não preto: o preto puro somado ao vermelho deixava a tela
      pesada. Um degrau acima respira mais e mantém o contraste do texto. */
-  --color-void: #0d0e11;
-  --color-ink: #111216;
-  --color-ink-2: #15161b;
-  --color-surface: #1a1b21;
-  --color-surface-2: #202128;
-  --color-surface-3: #282a32;
+  --color-void: #111216;
+  --color-ink: #0d0e11;
+  --color-ink-2: #15161a;
+  --color-surface: #191a1f;
+  --color-surface-2: #1f2026;
+  --color-surface-3: #272830;
+
+  /* Ação principal. Neutra de propósito: o vermelho da marca em todo botão
+     fazia a tela inteira parecer um alarme. O vermelho ficou para o
+     logotipo, para o que é urgente e para o que apaga dado. */
+  --color-acao: #ececef;
+  --color-acao-fg: #111216;
 
   /* Camadas de realce: o degrau entre uma superfície e a de cima dela.
      No escuro é luz por cima; no claro, sombra. */
@@ -81,16 +87,12 @@
 
   /* Superfícies compostas: o painel, o vidro e as sombras. Ficam aqui
      porque mudam de natureza entre os temas, não só de valor. */
-  --painel-fundo: linear-gradient(
-    180deg,
-    rgba(22, 22, 28, 0.9) 0%,
-    rgba(12, 12, 16, 0.9) 100%
-  );
+  --painel-fundo: #17181d;
   --painel-sombra:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 10px 30px -18px rgba(0, 0, 0, 0.9);
-  --vidro-fundo: rgba(10, 10, 14, 0.86);
-  --vidro-solido-fundo: rgb(20, 20, 26);
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 1px 2px rgba(0, 0, 0, 0.3);
+  --vidro-fundo: rgba(17, 18, 22, 0.86);
+  --vidro-solido-fundo: rgb(27, 28, 33);
   /* Prévia de WhatsApp: as cores do próprio aplicativo, para a loja ver a
      campanha como o cliente vai ver. */
   --wa-fundo: #0b141a;
@@ -113,8 +115,8 @@
 
   /* Atmosfera do fundo: a aura da marca e a vinheta que fecha as bordas.
      No claro elas quase somem, senão a tela fica com cara de tingida. */
-  --aura-opacidade: 0.3;
-  --vinheta: rgba(0, 0, 0, 0.72);
+  --aura-opacidade: 0;
+  --vinheta: rgba(0, 0, 0, 0.35);
 
   /* O traço do monitor na tela de entrada. No escuro ele brilha; no claro,
      brilho não existe (luz sobre branco é nada), então o traço engrossa e
@@ -160,9 +162,11 @@
 :root[data-tema="claro"] {
   /* Superfícies: o fundo é cinza e o painel é branco, para o painel
      subir do fundo em vez de se dissolver nele. */
-  --color-void: #f1f3f6;
-  --color-ink: #ffffff;
+  --color-void: #f3f4f6;
+  --color-ink: #fafafa;
   --color-ink-2: #f7f8fa;
+  --color-acao: #16181d;
+  --color-acao-fg: #ffffff;
   --color-surface: #ffffff;
   --color-surface-2: #f4f6f8;
   --color-surface-3: #e8ebef;
@@ -202,9 +206,7 @@
 
   --painel-fundo: #ffffff;
   --painel-sombra:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 1px 2px rgba(16, 22, 38, 0.04),
-    0 8px 24px -16px rgba(16, 22, 38, 0.16);
+    0 1px 2px rgba(16, 22, 38, 0.04);
   /* Vidro no claro é outro material.
      
      Branco a 82% sobre uma página branca não refrata nada: não havia o que
@@ -235,7 +237,7 @@
   --sombra-flutuante: 0 20px 50px -14px rgba(16, 22, 38, 0.24);
   --brilho-cursor: rgba(16, 22, 38, 0.045);
 
-  --aura-opacidade: 0.1;
+  --aura-opacidade: 0;
   --vinheta: rgba(16, 22, 38, 0.05);
 
   --traco-apagado: 0.26;
@@ -262,9 +264,11 @@
 
 :root[data-tema="claro"] .pele-escura,
 .pele-escura {
-  --color-surface: #101014;
-  --color-surface-2: #16161c;
-  --color-surface-3: #1e1e26;
+  --color-surface: #191a1f;
+  --color-surface-2: #1f2026;
+  --color-surface-3: #272830;
+  --color-acao: #ececef;
+  --color-acao-fg: #111216;
 
   --color-nivel-1: rgba(255, 255, 255, 0.026);
   --color-nivel-2: rgba(255, 255, 255, 0.038);
@@ -290,8 +294,8 @@
 
   /* O vidro entra aqui junto: sem isto, as pílulas de contagem sobre o
      globo continuavam brancas no tema claro, com texto branco em cima. */
-  --vidro-fundo: rgba(10, 10, 14, 0.86);
-  --vidro-solido-fundo: rgb(20, 20, 26);
+  --vidro-fundo: rgba(17, 18, 22, 0.86);
+  --vidro-solido-fundo: rgb(27, 28, 33);
   /* Prévia de WhatsApp: as cores do próprio aplicativo, para a loja ver a
      campanha como o cliente vai ver. */
   --wa-fundo: #0b141a;
@@ -304,7 +308,7 @@
 
   /* Opaco de propósito: o globo não tem fundo próprio, e com o painel
      translúcido o branco da página subia por baixo e lavava as partículas. */
-  --painel-fundo: linear-gradient(180deg, #131318 0%, #09090c 100%);
+  --painel-fundo: #141519;
   --painel-sombra:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
     0 10px 30px -18px rgba(0, 0, 0, 0.5);
@@ -321,6 +325,19 @@
   70%,
   100% {
     transform: scale(2.1);
+    opacity: 0;
+  }
+}
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes entrar-direita {
+  from {
+    transform: translateX(24px);
     opacity: 0;
   }
 }
@@ -440,7 +457,7 @@
   }
 
   :focus-visible {
-    outline: 2px solid color-mix(in oklab, var(--color-brand-500) 70%, transparent);
+    outline: 2px solid color-mix(in oklab, var(--color-fg) 55%, transparent);
     outline-offset: 2px;
   }
 }
@@ -518,33 +535,21 @@
     align-items: center;
     justify-content: center;
     gap: 7px;
-    border-radius: 999px;
-    padding: 9px 18px;
+    border-radius: 10px;
+    padding: 9px 16px;
     font-size: 13px;
     font-weight: 600;
     letter-spacing: -0.01em;
-    color: #fff;
-    background: linear-gradient(
-      180deg,
-      var(--color-brand-500),
-      var(--color-brand-700)
-    );
-    border: 1px solid color-mix(in oklab, var(--color-brand-400) 55%, transparent);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.25),
-      0 4px 16px -6px color-mix(in oklab, var(--color-brand-500) 80%, transparent);
+    color: var(--color-acao-fg);
+    background: var(--color-acao);
+    border: 1px solid var(--color-acao);
     transition:
-      transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
-      filter 160ms ease,
-      box-shadow 160ms ease;
+      opacity 160ms ease,
+      transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .btn-primary:hover:not(:disabled) {
-    transform: translateY(-1px);
-    filter: brightness(1.08);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.3),
-      0 8px 24px -8px color-mix(in oklab, var(--color-brand-500) 95%, transparent);
+    opacity: 0.88;
   }
 
   .btn-primary:active:not(:disabled) {
@@ -560,7 +565,7 @@
     align-items: center;
     justify-content: center;
     gap: 7px;
-    border-radius: 999px;
+    border-radius: 10px;
     padding: 9px 16px;
     font-size: 13px;
     font-weight: 500;
@@ -580,9 +585,29 @@
   }
 
   .btn-ghost[data-active="true"] {
-    color: var(--color-brand-300);
-    background: color-mix(in oklab, var(--color-brand-500) 14%, transparent);
-    border-color: color-mix(in oklab, var(--color-brand-500) 40%, transparent);
+    color: var(--color-fg);
+    background: var(--color-nivel-4);
+    border-color: var(--color-hairline-strong);
+  }
+
+  /* Só para o que apaga ou cancela de verdade. */
+  .btn-perigo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border-radius: 10px;
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--color-brand-600);
+    border: 1px solid var(--color-brand-600);
+    transition: opacity 160ms ease;
+  }
+
+  .btn-perigo:hover:not(:disabled) {
+    opacity: 0.88;
   }
 
   /* ---------- Etiquetas ---------- */
@@ -601,28 +626,51 @@
     white-space: nowrap;
   }
 
+  /* Etiquetas de estado: cor só no texto e num fundo quase transparente.
+     Preenchimento forte em cada etiqueta fazia a lista virar um semáforo. */
   .chip-hot {
-    border-color: color-mix(in oklab, var(--color-brand-500) 38%, transparent);
-    background: color-mix(in oklab, var(--color-brand-500) 14%, transparent);
+    border-color: color-mix(in oklab, var(--color-brand-500) 22%, transparent);
+    background: color-mix(in oklab, var(--color-brand-500) 7%, transparent);
     color: var(--color-brand-300);
   }
 
   .chip-good {
-    border-color: color-mix(in oklab, var(--color-positive) 32%, transparent);
-    background: color-mix(in oklab, var(--color-positive) 12%, transparent);
+    border-color: color-mix(in oklab, var(--color-positive) 20%, transparent);
+    background: color-mix(in oklab, var(--color-positive) 6%, transparent);
     color: var(--color-positive);
   }
 
   .chip-warn {
-    border-color: color-mix(in oklab, var(--color-caution) 32%, transparent);
-    background: color-mix(in oklab, var(--color-caution) 12%, transparent);
+    border-color: color-mix(in oklab, var(--color-caution) 22%, transparent);
+    background: color-mix(in oklab, var(--color-caution) 7%, transparent);
     color: var(--color-caution);
   }
 
   .chip-info {
-    border-color: color-mix(in oklab, var(--color-info) 32%, transparent);
-    background: color-mix(in oklab, var(--color-info) 12%, transparent);
+    border-color: color-mix(in oklab, var(--color-info) 20%, transparent);
+    background: color-mix(in oklab, var(--color-info) 6%, transparent);
     color: var(--color-info);
+  }
+
+  /* Etiqueta neutra com um ponto de cor: o estado se lê pelo texto, a cor
+     só ajuda a achar. É o padrão das listas. */
+  .estado {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-fg-muted);
+    white-space: nowrap;
+  }
+
+  .estado::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--ponto, var(--color-fg-ghost));
+    flex-shrink: 0;
   }
 
   .eyebrow {
@@ -636,7 +684,7 @@
   /* ---------- Campo ---------- */
   .field {
     width: 100%;
-    border-radius: 999px;
+    border-radius: 10px;
     background: var(--color-nivel-2);
     border: 1px solid var(--color-hairline);
     padding: 9px 15px;
@@ -655,9 +703,8 @@
   .field:focus {
     outline: none;
     background: var(--color-nivel-3);
-    border-color: color-mix(in oklab, var(--color-brand-500) 45%, transparent);
-    box-shadow: 0 0 0 3px
-      color-mix(in oklab, var(--color-brand-500) 13%, transparent);
+    border-color: var(--color-hairline-strong);
+    box-shadow: 0 0 0 3px var(--color-nivel-3);
   }
 }
 
@@ -700,7 +747,6 @@
     background: radial-gradient(
       circle 220px at var(--mx, 50%) var(--my, 50%),
       var(--brilho-cursor),
-      color-mix(in oklab, var(--color-brand-500) 6%, transparent) 40%,
       transparent 70%
     );
   }
@@ -718,7 +764,7 @@
     transition: opacity 240ms ease;
     background: radial-gradient(
       circle 180px at var(--mx, 50%) var(--my, 50%),
-      color-mix(in oklab, var(--color-brand-500) 75%, transparent),
+      var(--color-hairline-strong),
       transparent 65%
     );
     -webkit-mask:
@@ -760,7 +806,7 @@
   }
 
   .selectable[data-selected="true"] {
-    background-color: color-mix(in oklab, var(--color-brand-500) 11%, transparent);
+    background-color: var(--color-nivel-3);
   }
 
   .selectable[data-selected="true"]::before {
@@ -772,8 +818,8 @@
     width: 2px;
     transform: translateY(-50%);
     border-radius: 999px;
-    background: var(--color-brand-500);
-    box-shadow: 0 0 10px 1px color-mix(in oklab, var(--color-brand-500) 70%, transparent);
+    background: var(--color-fg-muted);
+    opacity: 0;
   }
 }
 

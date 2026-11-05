@@ -15,9 +15,9 @@ import {
 } from "lucide-react";
 import { PageHeader, Panel } from "@/components/ui/panel";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Reveal } from "@/components/ui/reveal";
 import { type Atalho, deIso, diaIso, SeletorPeriodo } from "@/components/ui/calendario";
 import { ChipStatus } from "@/components/pedidos/status";
+import { FaixaNumeros } from "@/components/ui/faixa-numeros";
 import { GraficoFaturamento, type PontoFaturamento } from "@/components/pedidos/grafico-faturamento";
 import { buscarNoServidor } from "@/lib/db/local-db";
 import { type Pedido, STATUS_PEDIDO_LABEL, type StatusPedido } from "@/lib/db/types";
@@ -360,7 +360,7 @@ export default function HistoricoPedidosPage() {
             <input value={valorMax} onChange={(e) => setValorMax(e.target.value)} inputMode="decimal" placeholder="R$ máx." aria-label="Valor máximo" className="field tnum !w-[92px] !px-3 !py-1.5 !text-[12px]" />
           </div>
           {filtrosAtivos && (
-            <button onClick={limpar} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-medium text-brand-400 transition-colors hover:bg-brand-500/10">
+            <button onClick={limpar} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-medium text-fg-muted transition-colors hover:bg-nivel-3 hover:text-fg">
               <X className="h-3.5 w-3.5" strokeWidth={2} />
               Limpar filtros
             </button>
@@ -369,27 +369,23 @@ export default function HistoricoPedidosPage() {
       </Panel>
 
       {/* Números do recorte */}
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
-        {[
+      <FaixaNumeros
+        className="mb-4"
+        itens={[
           { rotulo: "Pedidos", valor: String(validos.length), dica: "sem contar cancelados" },
-          { rotulo: "Faturamento", valor: formatBRLCents(faturamento), dica: "soma dos pedidos válidos" },
+          { rotulo: "Vendido", valor: formatBRLCents(faturamento), dica: "soma dos pedidos não cancelados" },
           { rotulo: "Ticket médio", valor: formatBRLCents(validos.length ? faturamento / validos.length : 0), dica: "por pedido" },
           { rotulo: "Itens vendidos", valor: String(itensVendidos), dica: "unidades" },
           { rotulo: "Cancelados", valor: String(filtrados.length - validos.length), dica: "no mesmo recorte" },
-        ].map((t, i) => (
-          <Reveal key={t.rotulo} className="tile p-4" style={{ animation: `rise 0.5s cubic-bezier(0.16,1,0.3,1) ${i * 50}ms both` }}>
-            <p className="text-[12px] text-fg-muted">{t.rotulo}</p>
-            <p className="tnum mt-2 truncate text-[21px] font-semibold leading-none tracking-[-0.03em] text-fg">
-              {carregando ? <span className="inline-block h-5 w-16 animate-pulse rounded bg-nivel-3" /> : t.valor}
-            </p>
-            <p className="mt-1.5 truncate text-[11px] text-fg-ghost">{t.dica}</p>
-          </Reveal>
-        ))}
-      </div>
+        ].map((t) => ({
+          ...t,
+          valor: carregando ? <span className="inline-block h-5 w-16 animate-pulse rounded bg-nivel-3" /> : t.valor,
+        }))}
+      />
 
       <Panel className="mb-4 p-5">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-[14px] font-semibold text-fg">Faturamento por {porMes ? "mês" : "dia"}</h2>
+          <h2 className="text-[14px] font-semibold text-fg">Vendido por {porMes ? "mês" : "dia"}</h2>
           <p className="text-[11.5px] text-fg-ghost">Sem cancelados. Passe o mouse sobre a barra para ver o valor.</p>
         </div>
         {carregando ? (
@@ -399,7 +395,7 @@ export default function HistoricoPedidosPage() {
             Nenhuma venda neste recorte.
           </div>
         ) : (
-          <GraficoFaturamento pontos={pontos} titulo={`Faturamento por ${porMes ? "mês" : "dia"}`} />
+          <GraficoFaturamento pontos={pontos} titulo={`Vendido por ${porMes ? "mês" : "dia"}`} />
         )}
       </Panel>
 
@@ -420,7 +416,7 @@ export default function HistoricoPedidosPage() {
                 onClick={() => setVisao(id)}
                 className={cn(
                   "rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors",
-                  visao === id ? "bg-brand-500/[0.14] text-fg" : "text-fg-muted hover:bg-nivel-3 hover:text-fg",
+                  visao === id ? "bg-nivel-3 text-fg" : "text-fg-muted hover:bg-nivel-3 hover:text-fg",
                 )}
               >
                 {rotulo}
@@ -485,7 +481,7 @@ export default function HistoricoPedidosPage() {
                           {p.itens.map((i) => `${i.quantidade}x ${i.nome}`).join(", ")}
                         </td>
                         <td className="px-3 py-2.5">
-                          <ChipStatus status={p.status} className="!px-2 !py-[2px] !text-[9.5px]" />
+                          <ChipStatus status={p.status} className="!text-[11.5px]" />
                         </td>
                         <td className="tnum px-4 py-2.5 text-right font-medium text-fg">
                           <span className="inline-flex items-center gap-1.5">

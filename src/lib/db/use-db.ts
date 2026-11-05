@@ -331,6 +331,25 @@ export function definirPromocao(id: string, promocao: number) {
   }));
 }
 
+/**
+ * Edita o cadastro de um produto.
+ *
+ * As mesmas travas da promoção valem aqui: produto com receita nunca fica em
+ * promoção, e promoção maior ou igual ao preço não é promoção.
+ */
+export function atualizarProduto(id: string, dados: Partial<Omit<Produto, "id" | "criadoEm">>) {
+  alterarDados((d) => ({
+    ...d,
+    produtos: d.produtos.map((p) => {
+      if (p.id !== id) return p;
+      const novo = { ...p, ...dados };
+      const promocaoValida =
+        !novo.exigeReceita && novo.promocao > 0 && novo.promocao < novo.preco;
+      return { ...novo, promocao: promocaoValida ? novo.promocao : 0 };
+    }),
+  }));
+}
+
 export function atualizarEstoque(id: string, estoque: number) {
   alterarDados((d) => ({
     ...d,

@@ -37,7 +37,10 @@ export function resumoDaLoja(
   const dados = dadosDaLoja(banco, loja.id);
 
   const noPeriodo = dados.pedidos.filter((p) => p.criadoEm >= desde);
-  const faturados = noPeriodo.filter((p) => p.status === "entregue" && p.pago);
+  // "Vendido", com o mesmo sentido do painel e dos relatórios: todo pedido
+  // que não foi cancelado. Cada tela contava de um jeito e os números não
+  // batiam entre si.
+  const faturados = noPeriodo.filter((p) => p.status !== "cancelado");
   const faturamento = faturados.reduce((soma, p) => soma + p.total, 0);
 
   return {

@@ -389,19 +389,19 @@ export function EditorCampanha({
             />
 
             {/* IA */}
-            <div className="mb-4 overflow-hidden rounded-2xl border border-brand-500/25 bg-brand-500/[0.05]">
+            <div className="mb-4 overflow-hidden rounded-2xl border border-hairline bg-nivel-1">
               <button
                 type="button"
                 onClick={() => setIaAberta((v) => !v)}
                 aria-expanded={iaAberta}
                 className="flex w-full items-center gap-2.5 px-4 py-3 text-left"
               >
-                <Sparkles className="h-4 w-4 text-brand-400" strokeWidth={2} />
+                <Sparkles className="h-4 w-4 text-fg-muted" strokeWidth={2} />
                 <span className="flex-1 text-[13px] font-semibold text-fg">Escrever com a IA</span>
                 <span className="text-[11.5px] text-fg-faint">{iaAberta ? "Fechar" : "Abrir"}</span>
               </button>
               {iaAberta && (
-                <div className="border-t border-brand-500/15 px-4 pb-4 pt-3" style={{ animation: "fade-in 0.2s ease both" }}>
+                <div className="border-t border-hairline px-4 pb-4 pt-3" style={{ animation: "fade-in 0.2s ease both" }}>
                   <label htmlFor="ideia" className="mb-1.5 block text-[12px] text-fg-muted">
                     O que você quer divulgar?
                   </label>
@@ -419,7 +419,7 @@ export function EditorCampanha({
                   />
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {IDEIAS.map((i) => (
-                      <button key={i} type="button" onClick={() => setIdeia(i)} className="chip !h-auto max-w-full whitespace-normal py-1 text-left transition-colors hover:border-brand-500/40 hover:text-fg">
+                      <button key={i} type="button" onClick={() => setIdeia(i)} className="chip !h-auto max-w-full whitespace-normal py-1 text-left transition-colors hover:border-hairline-strong hover:text-fg">
                         {i}
                       </button>
                     ))}
@@ -435,7 +435,7 @@ export function EditorCampanha({
                           onClick={() => setTom(t.valor)}
                           className={cn(
                             "rounded-lg px-3 py-1 text-[12px] transition-colors",
-                            tom === t.valor ? "bg-brand-500/[0.16] font-medium text-fg" : "text-fg-muted hover:text-fg",
+                            tom === t.valor ? "bg-nivel-4 font-medium text-fg" : "text-fg-muted hover:text-fg",
                           )}
                         >
                           {t.titulo}
@@ -462,7 +462,7 @@ export function EditorCampanha({
                               className="flex flex-col rounded-xl border border-hairline bg-nivel-1 p-3"
                               style={{ animation: `rise 0.35s cubic-bezier(0.16,1,0.3,1) ${i * 70}ms both` }}
                             >
-                              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-brand-400">{s.titulo}</p>
+                              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-faint">{s.titulo}</p>
                               <p className="mb-3 line-clamp-[8] flex-1 whitespace-pre-wrap text-[12.5px] leading-relaxed text-fg-muted">
                                 <TextoWhatsapp texto={s.texto} />
                               </p>
@@ -471,7 +471,7 @@ export function EditorCampanha({
                                 onClick={() => mudar({ mensagem: s.texto })}
                                 className={cn(
                                   "btn-ghost !justify-center !py-1.5 !text-[12px]",
-                                  r.mensagem === s.texto && "!border-brand-500/50 !text-fg",
+                                  r.mensagem === s.texto && "!border-hairline-strong !text-fg",
                                 )}
                               >
                                 {r.mensagem === s.texto ? <Check className="h-3.5 w-3.5" /> : null}
@@ -486,7 +486,7 @@ export function EditorCampanha({
             </div>
 
             {/* Editor de texto */}
-            <div className="overflow-hidden rounded-xl border border-hairline bg-nivel-1 focus-within:border-brand-500/45">
+            <div className="overflow-hidden rounded-xl border border-hairline bg-nivel-1 focus-within:border-hairline-strong">
               <div className="flex flex-wrap items-center gap-0.5 border-b border-hairline px-1.5 py-1" role="toolbar" aria-label="Formatação">
                 {[
                   { marca: "*", icone: Bold, rotulo: "Negrito" },
@@ -596,7 +596,7 @@ export function EditorCampanha({
                     e.preventDefault();
                     void escolherImagem(e.dataTransfer.files?.[0]);
                   }}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-hairline-strong bg-nivel-1 px-4 py-5 text-[12.5px] text-fg-muted transition-colors hover:border-brand-500/45 hover:text-fg"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-hairline-strong bg-nivel-1 px-4 py-5 text-[12.5px] text-fg-muted transition-colors hover:border-hairline-strong hover:text-fg"
                 >
                   <ImagePlus className="h-4 w-4" strokeWidth={2} />
                   Escolher imagem ou arrastar para cá
@@ -706,7 +706,7 @@ export function EditorCampanha({
 
           <div className="panel p-4">
             <p className="flex items-center gap-2 text-[13px] font-semibold text-fg">
-              <Send className="h-3.5 w-3.5 text-brand-400" strokeWidth={2.2} />
+              <Send className="h-3.5 w-3.5 text-fg-muted" strokeWidth={2.2} />
               Mandar um teste
             </p>
             <p className="mt-1 text-[11.5px] leading-relaxed text-fg-faint">

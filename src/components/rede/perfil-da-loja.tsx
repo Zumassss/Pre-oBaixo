@@ -148,7 +148,7 @@ export function PerfilDaLoja({
             type="checkbox"
             checked={form.temMotoboy}
             onChange={(e) => alterar("temMotoboy", e.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-brand-500)]"
+            className="mt-0.5 h-4 w-4 shrink-0 accent-fg"
           />
           <span>
             <span className="flex items-center gap-1.5 text-[12.5px] font-medium text-fg">

@@ -110,8 +110,8 @@ export function GraficoFaturamento({ pontos, titulo }: { pontos: PontoFaturament
               {h > 0 && (
                 <path
                   d={`M${x},${y + h} V${y + raio} Q${x},${y} ${x + raio},${y} H${x + barra - raio} Q${x + barra},${y} ${x + barra},${y + raio} V${y + h} Z`}
-                  fill="var(--color-brand-500)"
-                  opacity={foco === null || foco === i ? 1 : 0.45}
+                  fill={foco === i ? "var(--color-fg)" : "var(--color-fg-faint)"}
+                  opacity={foco === null || foco === i ? 0.9 : 0.4}
                   pointerEvents="none"
                 />
               )}

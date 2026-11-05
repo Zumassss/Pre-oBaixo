@@ -12,6 +12,7 @@ import {
   Store,
   Wallet,
 } from "lucide-react";
+import { FaixaNumeros } from "@/components/ui/faixa-numeros";
 import { PageHeader, Panel, PanelHeader } from "@/components/ui/panel";
 import { Table, Td, Thead, Tr } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -57,11 +58,11 @@ export default function RedePage() {
 
   const indicadores = [
     {
-      label: "Faturamento da rede",
+      label: "Vendido na rede",
       valor: formatBRLCents(totais.faturamento),
       hint: totais.ticketMedio
         ? `ticket médio ${formatBRLCents(totais.ticketMedio)}`
-        : "só pedidos entregues e pagos",
+        : "pedidos não cancelados",
       icon: Wallet,
     },
     {
@@ -113,33 +114,13 @@ export default function RedePage() {
       />
 
       <div className="space-y-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {indicadores.map((item, i) => {
-            const Icon = item.icon;
-            return (
-              <Reveal
-                key={item.label}
-                className="tile p-4"
-                style={{
-                  animation: `rise 0.5s cubic-bezier(0.16,1,0.3,1) ${i * 60}ms both`,
-                }}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-[11.5px] font-medium text-fg-muted">
-                    {item.label}
-                  </p>
-                  <Icon className="h-3.5 w-3.5 text-fg-ghost" strokeWidth={2} />
-                </div>
-                <p className="tnum mt-2 text-[24px] font-semibold leading-none tracking-[-0.03em] text-fg">
-                  {carregado ? item.valor : "0"}
-                </p>
-                <p className="mt-1.5 truncate text-[11px] text-fg-ghost">
-                  {item.hint}
-                </p>
-              </Reveal>
-            );
-          })}
-        </div>
+        <FaixaNumeros
+          itens={indicadores.map((item) => ({
+            rotulo: item.label,
+            valor: carregado ? item.valor : "0",
+            dica: item.hint,
+          }))}
+        />
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
           {/* Comparativo */}
@@ -158,7 +139,7 @@ export default function RedePage() {
               <Thead
                 columns={[
                   "Loja",
-                  "Faturamento",
+                  "Vendido",
                   "Pedidos",
                   "Em aberto",
                   "Estoque",
@@ -189,7 +170,7 @@ export default function RedePage() {
                             precisar de eixo: a maior ocupa a linha toda. */}
                         <div className="mt-1.5 h-1 w-full max-w-[220px] overflow-hidden rounded-full bg-nivel-3">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-brand-700 to-brand-400 transition-[width] duration-500"
+                            className="h-full rounded-full bg-fg-muted transition-[width] duration-500"
                             style={{
                               width: `${Math.round((r.faturamento / maior) * 100)}%`,
                             }}
@@ -286,7 +267,7 @@ export default function RedePage() {
                       </p>
                       <button
                         onClick={() => abrirLoja(alerta.loja.id)}
-                        className="mt-1 text-[11px] font-medium text-brand-400 transition-colors hover:text-brand-300"
+                        className="mt-1 text-[11.5px] font-medium text-fg-muted underline-offset-2 transition-colors hover:text-fg hover:underline"
                       >
                         Abrir {alerta.loja.nome}
                       </button>

@@ -90,7 +90,7 @@ export function AgentConsole({
                 <button
                   key={s}
                   onClick={() => enviar(s)}
-                  className="chip transition-colors hover:border-brand-500/40 hover:text-brand-300"
+                  className="chip transition-colors hover:border-hairline-strong hover:text-fg"
                 >
                   {s}
                 </button>
@@ -109,7 +109,7 @@ export function AgentConsole({
               className={cn(
                 "max-w-[86%] rounded-2xl px-3 py-2 text-[12.5px] leading-[1.5]",
                 m.role === "user"
-                  ? "rounded-br-md bg-gradient-to-br from-brand-600 to-brand-800 text-white"
+                  ? "rounded-br-md bg-acao text-acao-fg"
                   : m.error
                     ? "rounded-bl-md bg-caution/10 text-caution ring-1 ring-inset ring-caution/25"
                     : "rounded-bl-md bg-nivel-3 text-fg ring-1 ring-inset ring-nivel-4",
@@ -126,7 +126,7 @@ export function AgentConsole({
               {[0, 1, 2].map((i) => (
                 <span
                   key={i}
-                  className="h-1.5 w-1.5 rounded-full bg-brand-400"
+                  className="h-1.5 w-1.5 rounded-full bg-fg-faint"
                   style={{ animation: `blink 1.1s ease-in-out ${i * 0.18}s infinite` }}
                 />
               ))}
@@ -144,7 +144,7 @@ export function AgentConsole({
         }}
         className="border-t border-hairline p-3"
       >
-        <div className="flex items-center gap-2 rounded-full border border-hairline bg-nivel-2 px-2 py-1.5 transition-colors focus-within:border-brand-500/45">
+        <div className="flex items-center gap-2 rounded-full border border-hairline bg-nivel-2 px-2 py-1.5 transition-colors focus-within:border-hairline-strong">
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
